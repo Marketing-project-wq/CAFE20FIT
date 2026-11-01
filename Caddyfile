@@ -41,6 +41,7 @@
 		hide .env*
 		hide Caddyfile
 		hide Staticfile
+		hide /app/tools
 	}
 
 	encode {
