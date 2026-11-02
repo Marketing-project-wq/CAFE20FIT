@@ -6,7 +6,10 @@ const PHOTOS = {
   'coffee 1': [U('DSC3568')], 'cloud coffee': [U('Cloud-Coffee')], 'honey berry americano': [U('Honey-Berry-Americano')], 'oat honey macchiato': [U('Oat-honey-macchiato')],
   'orange americano': [U('Orange-Americano')], 'shakerato': [U('Shakerato')], 'strawberry americano': [U('Strawberry-Americano')], 'strawberry latte': [U('Strawberry-Latte')],
   'hybrid nutrition': [U('Hybrid-Nutrition')], 'almond endurance': [U('Almond-Endurance')], 'choco overload|nutrition': [U('Choco-Overload-1')], 'choco overload': [U('Choco-Overload-1')],
-  'coconut hydrate': [U('Coconut-Hydrate')], 'protein brew': [U('Protein-Brew')], 'tropical recovery': [U('Tropical-Recovery')]
+  'coconut hydrate': [U('Coconut-Hydrate')], 'protein brew': [U('Protein-Brew')], 'tropical recovery': [U('Tropical-Recovery')],
+  // POS names that differ from the design names
+  '20fit signature aren latte': [U('20Fit-Signature-Aren-1')], 'honey oat macchiato': [U('Oat-honey-macchiato')], 'choco overload|hybrid': [U('Choco-Overload-1')],
+  'chia pudding|smoothies bowl': [U('DSC3733'), U('DSC3737-1')]
 };
 const NO_PHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#e8e6e1"/><text x="200" y="262" text-anchor="middle" font-family="Arial" font-size="28" fill="#9a978f">20FIT CAFE</text></svg>');
 const photosFor = it => { const n = String(it.name || '').toLowerCase(), c = String(it.category || '').toLowerCase(); return PHOTOS[n + '|' + c] || PHOTOS[n] || (it.image_url ? [it.image_url] : [NO_PHOTO]); };
@@ -16,7 +19,7 @@ const defaultOpts = m => (m.addons || []).map(g => { const d = (g.options || [])
 const lineKey = (id, opts) => id + (opts && opts.length ? '~' + opts.slice().sort().join(',') : '');
 const optsPrice = (m, opts) => (m.addons || []).reduce((a, g) => a + (g.options || []).filter(o => opts.includes(o.id)).reduce((b, o) => b + (Number(o.price) || 0), 0), 0);
 const optsLabel = (m, opts) => (m.addons || []).map(g => { const o = (g.options || []).find(x => opts.includes(x.id)); return o && !o.default ? o.label : null; }).filter(Boolean).join(' · ');
-const NEED_NAMES = [['Fresh', 'coconut hydrate'], ['Fueling', 'signature aren'], ['Light energy', 'tropical recovery']];
+const NEED_NAMES = [['Fresh', 'coconut hydrate'], ['Fueling', '20fit signature aren latte'], ['Light energy', 'tropical recovery']];
 const IG_DEFAULT = 'https://www.instagram.com/reel/DZMf2F3y_6X/';
 const IG_POSTS = ['p/DcTitnFEhQo', 'p/DeG5fVWyR1C', 'p/DY1wzVJSFAU'];
 const IG_CROP = { p: { left: '-2px', top: '-55px', width: 'calc(100% + 4px)', height: 'calc(100% + 55px + 480px)' }, reel: { left: '-21.1%', top: 'calc(-58px - 21.2%)', width: '142.2%', height: 'calc(160% + 58px + 480px)' } };
