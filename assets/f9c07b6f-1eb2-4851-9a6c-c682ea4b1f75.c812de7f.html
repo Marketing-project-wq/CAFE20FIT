@@ -227,8 +227,10 @@ class Component extends DCLogic {
       const rad = 9.6 - ease(cl((p - 1.6) / 1)) * 0.6;
       const az = -0.45 + p * 0.07 + camX * 0.22, pol = 1.12 - camY * 0.1;
       const ox = this.wide ? -1.7 : 0;
-      camera.position.set(ox + rad * Math.sin(pol) * Math.sin(az), tgtY + rad * Math.cos(pol), rad * Math.sin(pol) * Math.cos(az));
-      camera.lookAt(ox, tgtY, 0);
+      // Phones (portrait): pull back and aim lower so the 3D object sits above the text
+      const narrow = !this.wide && camera.aspect < 0.8, oy = narrow ? -1.95 : 0, rk = narrow ? 1.95 : 1;
+      camera.position.set(ox + rad * rk * Math.sin(pol) * Math.sin(az), tgtY + oy + rad * rk * Math.cos(pol), rad * rk * Math.sin(pol) * Math.cos(az));
+      camera.lookAt(ox, tgtY + oy, 0);
       renderer.render(scene, camera);
       this._raf = requestAnimationFrame(frame);
     };
