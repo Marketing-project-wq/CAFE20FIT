@@ -200,9 +200,9 @@ class Component extends DCLogic {
     const H = this.state.hList || [];
     return {
       navs: [
-        { label: 'Full Menu', go: () => this.setState({ full: true, hist: false, sel: null }) },
-        { label: 'Book Venue', go: () => this.setState({ mode: 'venue', checkout: true, sel: null, full: false, hist: false }) },
-        { label: 'Purchase History' + (this.state.refs.length ? ' (' + this.state.refs.length + ')' : ''), go: () => this.openHist(), dot: this.state.hDot }
+        { label: 'Full Menu', short: 'Menu', go: () => this.setState({ full: true, hist: false, sel: null }) },
+        { label: 'Book Venue', short: 'Venue', go: () => this.setState({ mode: 'venue', checkout: true, sel: null, full: false, hist: false }) },
+        { label: 'Purchase History' + (this.state.refs.length ? ' (' + this.state.refs.length + ')' : ''), short: 'History' + (this.state.refs.length ? ' (' + this.state.refs.length + ')' : ''), go: () => this.openHist(), dot: this.state.hDot }
       ],
       heroVideo: this.props.heroVideo || '', hasVideo: !!this.props.heroVideo, vidRef: this.vid,
       vidMeta: e => { const v = e.target; if (v.videoWidth) this.setState({ vAR: v.videoWidth + '/' + v.videoHeight }); },
