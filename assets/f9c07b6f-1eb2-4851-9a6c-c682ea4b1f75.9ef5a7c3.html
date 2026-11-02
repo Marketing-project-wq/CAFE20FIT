@@ -36,7 +36,17 @@
           </div>
           <h1 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(56px,7.5vw,120px);line-height:.84;color:#fff;text-wrap:balance">{{ cur.title }}</h1>
           <p style="margin:0;font-size:17px;line-height:1.6;color:#cfcfcf;max-width:420px;min-height:3.2em">{{ cur.body }}</p>
-          <div class="fx-story-cta" style="display:flex;justify-content:flex-end">
+          <div class="fx-story-cta" style="display:flex;justify-content:flex-end;align-items:center;gap:12px;flex-wrap:wrap">
+            <sc-if value="{{ showSpin }}" hint-placeholder-val="{{ false }}">
+              <div class="fx-spin-in" style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:999px;background:rgba(13,13,13,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);animation:pFade .4s ease">
+                <button onClick="{{ prevDrink }}" aria-label="Previous drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">‹</button>
+                <div style="display:flex;flex-direction:column;align-items:center;min-width:150px;text-align:center">
+                  <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#bdbdbd">{{ spinHint }}</span>
+                  <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;letter-spacing:.02em;text-transform:uppercase;color:#fff;white-space:nowrap">{{ drinkName }}</span>
+                </div>
+                <button onClick="{{ nextDrink }}" aria-label="Next drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">›</button>
+              </div>
+            </sc-if>
             <button onClick="{{ onOrder }}" style="all:unset;cursor:pointer;white-space:nowrap;padding:9px 18px;border-radius:999px;background:#e30a2e;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;letter-spacing:.05em;text-transform:uppercase" style-hover="background:#c70026">Order now ›</button>
           </div>
         </div>
@@ -315,21 +325,44 @@ class Component extends DCLogic {
     const logoMat = new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, depthWrite: false, opacity: 0, toneMapped: false });
     const logo = new THREE.Mesh(new THREE.CylinderGeometry(R(1.62) + 0.008, R(0.98) + 0.008, 0.64, 72, 1, true, -0.78, 1.56), logoMat); logo.position.y = 1.3; logo.renderOrder = 11; cup.add(logo);
     // red 20FIT straw (appears with the lid)
-    const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.3, 24, 1, true), new THREE.MeshPhysicalMaterial({ color: 0xe30a2e, roughness: 0.35, clearcoat: 0.6, side: THREE.DoubleSide }));
-    straw.position.set(0.22, 1.95, 0.06); straw.rotation.z = -0.16; straw.castShadow = true; cup.add(straw);
+    const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.75, 24, 1, true), new THREE.MeshPhysicalMaterial({ color: 0xe30a2e, roughness: 0.35, clearcoat: 0.6, side: THREE.DoubleSide }));
+    straw.position.set(0.22, 1.72, 0.06); straw.rotation.z = -0.16; straw.castShadow = true; cup.add(straw);
     const iceMat = new THREE.MeshPhysicalMaterial({ color: 0xeef7ff, roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05, ior: 1.31, transparent: true, opacity: 0.62, depthWrite: false, envMapIntensity: 1.8, emissive: 0x334455, emissiveIntensity: 0.15 });
     const iceGeo = new THREE.BoxGeometry(0.36, 0.32, 0.36, 4, 4, 4); { const p = iceGeo.attributes.position, v = new THREE.Vector3(); for (let k = 0; k < p.count; k++) { v.fromBufferAttribute(p, k); const s = v.clone().normalize().multiplyScalar(0.23); v.lerp(s, 0.28); p.setXYZ(k, v.x, v.y, v.z); } iceGeo.computeVertexNormals(); }
-    const ice = Array.from({ length: 11 }, (_, i) => { const m = new THREE.Mesh(iceGeo, iceMat); const a = i * 2.4, rr = 0.12 + rnd(i) * 0.36; m.userData = { x: Math.cos(a) * rr, z: Math.sin(a) * rr, y: 0.3 + i * 0.19, r: rnd(i + 4) * 6 }; m.renderOrder = 3; m.castShadow = true; m.scale.setScalar(0.85 + rnd(i + 9) * 0.3); cup.add(m); return m; });
+    const ice = Array.from({ length: 11 }, (_, i) => { const m = new THREE.Mesh(iceGeo, iceMat); const a = i * 2.4, rr = 0.12 + rnd(i) * 0.36; m.userData = { x: Math.cos(a) * rr, z: Math.sin(a) * rr, y: 0.3 + i * 0.19, r: rnd(i + 4) * 6 }; m.renderOrder = 3; m.castShadow = true; m.userData.s = 0.85 + rnd(i + 9) * 0.3; m.scale.setScalar(m.userData.s); cup.add(m); return m; });
 
     const streamGeo = new THREE.CylinderGeometry(0.035, 0.05, 1, 20); streamGeo.translate(0, -0.5, 0);
-    const shot = new THREE.Mesh(streamGeo, new THREE.MeshPhysicalMaterial({ color: 0x2e170a, roughness: 0.15, clearcoat: 1 })); scene.add(shot);
-    const pourMilk = new THREE.Mesh(streamGeo, new THREE.MeshPhysicalMaterial({ color: 0xf1e6d4, roughness: 0.25 })); scene.add(pourMilk);
+    // the pour fades in from above instead of starting off-screen (it used to run up under the header)
+    const streamFade = this.canvasTex(THREE, 4, 256, (g, w, h) => { const gr = g.createLinearGradient(0, 0, 0, h); gr.addColorStop(0, '#000'); gr.addColorStop(0.35, '#fff'); gr.addColorStop(1, '#fff'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+    streamFade.colorSpace = THREE.NoColorSpace;
+    const shot = new THREE.Mesh(streamGeo, new THREE.MeshPhysicalMaterial({ color: 0x2e170a, roughness: 0.15, clearcoat: 1, alphaMap: streamFade, transparent: true, depthWrite: false })); scene.add(shot);
+    const pourMilk = new THREE.Mesh(streamGeo, new THREE.MeshPhysicalMaterial({ color: 0xf1e6d4, roughness: 0.25, alphaMap: streamFade, transparent: true, depthWrite: false })); scene.add(pourMilk);
 
-    const beanGeo = new THREE.SphereGeometry(0.13, 18, 12); beanGeo.scale(1, 0.7, 0.56);
-    const beanMat = new THREE.MeshStandardMaterial({ color: 0x4a2412, roughness: 0.42 });
+    // Roasted coffee bean: oval, one flatter face with an S-shaped centre crease showing the pale silverskin,
+    // oily clearcoat sheen and a slightly different roast colour per bean.
+    const beanGeo = new THREE.SphereGeometry(0.145, 40, 28); {
+      const pos = beanGeo.attributes.position, col = [], v = new THREE.Vector3();
+      for (let k = 0; k < pos.count; k++) {
+        v.fromBufferAttribute(pos, k);
+        let x = v.x, y = v.y * 0.7, z = v.z * 0.58;              // oval bean
+        const n = x / 0.145;                                    // -1..1 along the bean
+        if (z > 0) z *= 0.62;                                   // flatter face
+        const cy = 0.018 * Math.sin(n * 3.2);                   // S-shaped crease path
+        const d = (y - cy) / 0.016, g = Math.exp(-d * d) * Math.max(0, 1 - n * n * 1.1) * (z > 0 ? 1 : 0);
+        z -= g * 0.05;                                          // groove
+        y += Math.sign(y - cy) * g * 0.006;
+        pos.setXYZ(k, x, y, z);
+        col.push(1 + g * 5, 1 + g * 10, 1 + g * 8);
+      }
+      beanGeo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3)); beanGeo.computeVertexNormals();
+    }
+    const beanBump = this.canvasTex(THREE, 128, 128, (g, w, h) => { const im = g.createImageData(w, h); for (let k = 0; k < w * h; k++) { const r = 110 + Math.random() * 60; im.data[k * 4] = im.data[k * 4 + 1] = im.data[k * 4 + 2] = r; im.data[k * 4 + 3] = 255; } g.putImageData(im, 0, 0); });
+    beanBump.colorSpace = THREE.NoColorSpace; beanBump.wrapS = beanBump.wrapT = THREE.RepeatWrapping;
+    const beanMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, vertexColors: true, roughness: 0.42, clearcoat: 0.7, clearcoatRoughness: 0.32, bumpMap: beanBump, bumpScale: 0.6, envMapIntensity: 1.2 });
     const NP = 90, NF = 80;
     const pile = new THREE.InstancedMesh(beanGeo, beanMat, NP), fall = new THREE.InstancedMesh(beanGeo, beanMat, NF);
     pile.castShadow = fall.castShadow = true; scene.add(pile); scene.add(fall);
+    { const c = new THREE.Color(), roast = ['#4a2614', '#5a321b', '#683b21', '#3d1f10', '#73452a']; for (let k = 0; k < NP; k++) pile.setColorAt(k, c.set(roast[k % 5]).offsetHSL(0, 0, (rnd(k + 31) - 0.5) * 0.04)); for (let k = 0; k < NF; k++) fall.setColorAt(k, c.set(roast[(k * 3) % 5])); pile.instanceColor.needsUpdate = fall.instanceColor.needsUpdate = true; }
     const pileData = Array.from({ length: NP }, (_, k) => { const rr = Math.sqrt(k / NP) * 1.05, a = k * 2.39996; return { x: Math.cos(a) * rr, z: Math.sin(a) * rr, y: 0.07 + (1 - rr) * 0.5 * (0.8 + rnd(k) * 0.4), rx: rnd(k + 1) * 6, ry: rnd(k + 2) * 6 }; });
     const ground = new THREE.Mesh(new THREE.ConeGeometry(1.0, 0.6, 72), new THREE.MeshStandardMaterial({ color: 0x2a1609, roughness: 1 })); ground.position.y = 0.3; ground.castShadow = true; scene.add(ground);
 
@@ -344,9 +377,10 @@ class Component extends DCLogic {
       for (let i = 0; i < NF; i++) {
         const sp = 0.32 + rnd(i) * 0.3, ph = (time * sp + rnd(i + 7)) % 1;
         const sx = (rnd(i + 3) - 0.5) * 8, sz = (rnd(i + 5) - 0.5) * 4, ex = (rnd(i + 8) - 0.5) * 1.2, ez = (rnd(i + 9) - 0.5) * 1.2;
-        dummy.position.set(sx + (ex - sx) * ph, 7 - 6.4 * ph * ph, sz + (ez - sz) * ph);
+        // beans grow in once they are below the header line, so none fall out from under the bar
+        const by = 3.7 - 3.1 * ph * ph; dummy.position.set(sx + (ex - sx) * ph, by, sz + (ez - sz) * ph);
         dummy.rotation.set(time * 2 + i, time * 1.3 + i * 2, i);
-        dummy.scale.setScalar(pour * (ph < 0.96 ? 1 : 0)); dummy.updateMatrix(); fall.setMatrixAt(i, dummy.matrix);
+        dummy.scale.setScalar(pour * (ph < 0.96 ? 1 : 0) * cl((2.55 - by) / 0.5)); dummy.updateMatrix(); fall.setMatrixAt(i, dummy.matrix);
       }
       fall.instanceMatrix.needsUpdate = true;
       const shown = NP * ease(cl(t0 * 1.15)), pileS = 1 - ease(t1) * 0.95;
@@ -369,24 +403,26 @@ class Component extends DCLogic {
         level = k < 0.45 ? 1 - ease(k / 0.45) * 0.82 : 0.18 + ease(cl((k - 0.45) / 0.55)) * 0.82;
         if (k >= 1) { this.swap = null; level = 1; }
       }
-      ice.forEach((m, i) => { const ti = ease(cl((t2 - 0.05 - i * 0.045) / 0.4)); const d = m.userData; m.position.set(d.x, d.y + (1 - ti) * 5 + Math.sin(time * 1.3 + i) * 0.012, d.z); m.rotation.set(d.r + (1 - ti) * 4, d.r * 0.7, d.r * 0.3); m.visible = ti > 0; });
+      ice.forEach((m, i) => { const ti = ease(cl((t2 - 0.05 - i * 0.045) / 0.4)); const d = m.userData; m.scale.setScalar(d.s * cl(ti * 4)); m.position.set(d.x, d.y + (1 - ti) * 2.6 + Math.sin(time * 1.3 + i) * 0.012, d.z); m.rotation.set(d.r + (1 - ti) * 4, d.r * 0.7, d.r * 0.3); m.visible = ti > 0; });
       const ah = ease(t4) * 0.24 * level, mh = ease(t4) * 1.33 * level, eh = ease(t3) * 0.5 * level;
       setLiquid(ah, mh, eh, this.state.drink || 0);
       const surf = (0.05 + ah + mh + eh) * cs;
-      const stream = (m, on, k) => { m.visible = on; if (!on) return; m.position.set(0, 4.6, 0); m.scale.set(1 + Math.sin(time * 30) * 0.08, Math.max(0.01, 4.6 - surf), 1); };
+      const stream = (m, on, k) => { m.visible = on; if (!on) return; m.position.set(0, 3.4, 0); m.scale.set(1 + Math.sin(time * 30) * 0.08, Math.max(0.01, 3.4 - surf), 1); };
       stream(shot, p > 3.02 && p < 3.92, 0); stream(pourMilk, p > 4.02 && p < 4.9, 1);
       lid.position.y = 2.33 + (1 - ease(cl(t5 / 0.45))) * 3; lid.visible = t5 > 0.01;
       logoMat.opacity = ease(cl((p - 2.3) / 0.5));
-      const ss = ease(cl((t5 - 0.25) / 0.4)); straw.visible = ss > 0.01; straw.position.y = 1.95 + (1 - ss) * 3.2;
+      const ss = ease(cl((t5 - 0.25) / 0.4)); straw.visible = ss > 0.01; straw.position.y = 1.72 + (1 - ss) * 3.2;
       camX += (this.mx - camX) * 0.05; camY += (this.my - camY) * 0.05;
       const tgtY = 0.35 + ease(cl((p - 1.6) / 1)) * 0.85;
       const rad = 9.6 - ease(cl((p - 1.6) / 1)) * 0.6;
       const az = -0.45 + p * 0.07 + camX * 0.22, pol = 1.12 - camY * 0.1;
-      const ox = this.wide ? -1.7 : 0;
+      const ox = this.wide ? -1.9 : 0;
+      // desktop: a bit further back so the cup, pour and straw stay clear of the header bar
+      const rw = this.wide ? 1.13 : 1, tw = this.wide ? 0.12 : 0;
       // Phones (portrait): pull back and aim lower so the 3D object sits above the text
       const narrow = !this.wide && camera.aspect < 0.8, oy = narrow ? -1.95 : 0, rk = narrow ? 1.95 : 1;
-      camera.position.set(ox + rad * rk * Math.sin(pol) * Math.sin(az), tgtY + oy + rad * rk * Math.cos(pol), rad * rk * Math.sin(pol) * Math.cos(az));
-      camera.lookAt(ox, tgtY + oy, 0);
+      camera.position.set(ox + rad * rk * rw * Math.sin(pol) * Math.sin(az), tgtY + tw + oy + rad * rk * rw * Math.cos(pol), rad * rk * rw * Math.sin(pol) * Math.cos(az));
+      camera.lookAt(ox, tgtY + tw + oy, 0);
       renderer.render(scene, camera);
       this._raf = requestAnimationFrame(frame);
     };
