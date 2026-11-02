@@ -201,20 +201,54 @@
           </sc-for>
           <div style="display:flex;justify-content:space-between;padding-top:10px;border-top:1px dashed rgba(13,13,13,.15);font-weight:700"><span>Total</span><span style="font-family:'JetBrains Mono',monospace;color:#e30a2e">{{ totalFmt }}</span></div>
         </div>
+        <div style="padding:16px 18px;border-radius:20px;background:#fff;border:1px solid rgba(13,13,13,.08);display:flex;flex-direction:column;gap:12px">
+          <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:20px;text-transform:uppercase">Your details</div>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Full name
+            <input value="{{ name }}" onChange="{{ setName }}" autocomplete="name" placeholder="e.g. Rani Putri" style="font:inherit;font-weight:400;font-size:15px;padding:14px;border-radius:16px;border:1px solid rgba(13,13,13,.12);background:#fff;outline-color:#e30a2e">
+            <span style="font-size:12px;font-weight:500;color:#e30a2e">{{ nameErr }}</span>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Email
+            <input type="email" value="{{ email }}" onChange="{{ setEmail }}" autocomplete="email" inputmode="email" placeholder="name@email.com" style="font:inherit;font-weight:400;font-size:15px;padding:14px;border-radius:16px;border:1px solid rgba(13,13,13,.12);background:#fff;outline-color:#e30a2e">
+            <span style="font-size:12px;font-weight:500;color:#e30a2e">{{ emailErr }}</span>
+          </label>
+          <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Phone number
+            <input type="tel" value="{{ phone }}" onChange="{{ setPhone }}" autocomplete="tel" inputmode="tel" placeholder="0812xxxxxxx" style="font:inherit;font-weight:400;font-size:15px;padding:14px;border-radius:16px;border:1px solid rgba(13,13,13,.12);background:#fff;outline-color:#e30a2e">
+            <span style="font-size:12px;font-weight:500;color:#e30a2e">{{ phoneErr }}</span>
+          </label>
+        </div>
         <div style="font-size:13px;font-weight:600">Payment method</div>
+        <sc-if value="{{ payLocked }}" hint-placeholder-val="{{ true }}">
+          <div style="font-size:12px;color:#5a5a5a;margin-top:-6px">Fill in your name, email and phone number first to choose a payment method.</div>
+        </sc-if>
+        <div style="{{ methodsWrap }}">
         <sc-for list="{{ methods }}" as="p" hint-placeholder-count="5">
           <button onClick="{{ p.pick }}" style="{{ p.style }}">
             <span style="{{ p.ring }}"></span>
-            <span style="flex:1"><span style="display:block;font-weight:600">{{ p.label }}</span><span style="display:block;font-size:12px;color:#5a5a5a">{{ p.desc }}</span></span>
+            <span style="flex:1;min-width:0"><span style="display:block;font-weight:600">{{ p.label }}</span><span style="display:block;font-size:12px;color:#5a5a5a">{{ p.desc }}</span></span>
+            <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:52%">
+              <sc-for list="{{ p.logos }}" as="lg" hint-placeholder-count="2">
+                <img src="{{ lg.src }}" alt="{{ lg.alt }}" style="height:22px;width:auto;display:block;padding:3px 5px;border-radius:6px;background:#fff;border:1px solid rgba(13,13,13,.08)">
+              </sc-for>
+            </span>
           </button>
         </sc-for>
+        </div>
       </sc-if>
 
       <sc-if value="{{ isQr }}" hint-placeholder-val="{{ false }}">
         <div style="display:flex;flex-direction:column;align-items:center;gap:14px;padding:8px 0">
-          <div style="padding:16px;border-radius:24px;background:#fff;border:1px solid rgba(13,13,13,.08)">{{ qr }}</div>
+          <sc-if value="{{ qrActive }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;max-width:260px">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#5a5a5a">Pay within <span style="font-size:20px;letter-spacing:.04em;color:#0d0d0d;font-weight:500">{{ qrTimer }}</span></div>
+              <div style="width:100%;height:6px;border-radius:3px;background:rgba(13,13,13,.1);overflow:hidden"><div style="{{ qrBar }}"></div></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ qrExpired }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:8px 14px;border-radius:999px;background:#fdecef;color:#e30a2e;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase">QR code expired</div>
+          </sc-if>
+          <div style="{{ qrBoxStyle }}">{{ qr }}</div>
           <div style="font-family:'JetBrains Mono',monospace;font-size:22px;color:#e30a2e">{{ totalFmt }}</div>
-          <div style="font-size:14px;color:#5a5a5a;text-align:center;max-width:320px">Scan with your banking or e-wallet app. This code is valid for 10 minutes.</div>
+          <div style="font-size:14px;color:#5a5a5a;text-align:center;max-width:320px">Scan with your banking or e-wallet app. This code is valid for 2 minutes.</div>
         </div>
       </sc-if>
 
@@ -349,12 +383,17 @@ const DEALS = [
 ];
 const PKG = 45000, DEPOSIT = 500000;
 const METHODS = [
-  { id: 'qris', label: 'QRIS', desc: 'Scan with any bank or e-wallet', qr: true },
-  { id: 'ewallet', label: 'GoPay / OVO / ShopeePay', desc: 'Continue in your e-wallet app', qr: true },
-  { id: 'credit', label: 'Credit Card', desc: 'Visa, Mastercard, JCB' },
-  { id: 'debit', label: 'Debit Card', desc: 'GPN, Visa Debit' },
-  { id: 'va', label: 'Virtual Account', desc: 'BCA, Mandiri, BNI, BRI' }
+  { id: 'qris', label: 'QRIS', desc: 'Scan with any bank or e-wallet', qr: true, logos: ['qris'] },
+  { id: 'ewallet', label: 'GoPay / OVO / ShopeePay', desc: 'Continue in your e-wallet app', qr: true, logos: ['gopay', 'ovo', 'shopeepay'] },
+  { id: 'credit', label: 'Credit Card', desc: 'Visa, Mastercard, JCB', logos: ['visa', 'mastercard', 'jcb'] },
+  { id: 'debit', label: 'Debit Card', desc: 'GPN, Visa Debit', logos: ['gpn', 'visa'] },
+  { id: 'va', label: 'Virtual Account', desc: 'BCA, Mandiri, BNI, BRI', logos: ['bca', 'mandiri', 'bni', 'bri'] }
 ];
+const LOGO_ALT = { qris: 'QRIS', gopay: 'GoPay', ovo: 'OVO', shopeepay: 'ShopeePay', visa: 'Visa', mastercard: 'Mastercard', jcb: 'JCB', gpn: 'GPN', bca: 'BCA', mandiri: 'Mandiri', bni: 'BNI', bri: 'BRI' };
+const QR_SECONDS = 120;
+const okName = v => v.trim().length >= 2;
+const okEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
+const okPhone = v => /^(\+?62|0)8\d{7,12}$/.test(v.replace(/[\s-]/g, ''));
 const chip = on => ({ all: 'unset', cursor: 'pointer', padding: '10px 16px', borderRadius: 999, fontSize: 14, fontWeight: 600, whiteSpace: 'nowrap', background: on ? '#0d0d0d' : '#fff', color: on ? '#fff' : '#0d0d0d', border: '1px solid ' + (on ? '#0d0d0d' : 'rgba(13,13,13,.12)') });
 const card = on => ({ all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4, padding: 16, borderRadius: 20, background: '#fff', border: '2px solid ' + (on ? '#e30a2e' : 'rgba(13,13,13,.08)') });
 const dot = (done, active) => ({ width: 30, height: 30, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0, fontWeight: 700, fontSize: 13, background: done ? '#e30a2e' : active ? '#0d0d0d' : '#f1f0ed', color: done || active ? '#fff' : '#8a8a8a', transition: 'background .3s' });
@@ -365,7 +404,7 @@ const makeQr = (size, seed) => React.createElement('div', { style: { width: size
     return React.createElement('div', { key: i, style: { background: on ? '#0d0d0d' : 'transparent' } }); }));
 
 class Component extends DCLogic {
-  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '12:00', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', code: '', stage: 0, admin: 0, redeemed: false };
+  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '12:00', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', email: '', phone: '', qrEnd: 0, now: 0, qrSeed: 1, code: '', stage: 0, admin: 0, redeemed: false };
   componentDidMount() {
     document.body.style.overflow = 'hidden';
     try { history.pushState({ order: 1 }, '', '#order'); } catch (e) {}
@@ -379,7 +418,7 @@ class Component extends DCLogic {
     else if (m === 'dine') Object.assign(next, { mode: 'dine', step: 'visit' });
     this.setState(next);
   }
-  componentWillUnmount() { (this._ts || []).forEach(clearTimeout); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
+  componentWillUnmount() { (this._ts || []).forEach(clearTimeout); clearInterval(this._qi); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
   later(fn, ms) { (this._ts = this._ts || []).push(setTimeout(fn, ms)); }
   dayText() { const d = new Date(); d.setDate(d.getDate() + (this.state.dayI || 0)); return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }); }
   menu() { return this.props.menu || []; }
@@ -397,9 +436,16 @@ class Component extends DCLogic {
     const kind = s.mode === 'dine' ? 'Dine-in' : s.mode === 'venue' ? 'Venue booking' : s.fulfil === 'delivery' ? 'Delivery' : 'Takeaway';
     const detail = s.mode === 'dine' ? `${s.pax} people · ${this.dayText()} ${s.slot}` : s.mode === 'venue' ? `${s.date} · ${s.session} · ${s.event} · ${s.guests} guests${s.refresh ? ' · with refreshments' : ''}` : s.fulfil === 'delivery' ? s.address : 'Pickup for ' + s.name;
     const items = s.mode === 'venue' ? [] : this.cartLines();
-    return { code: s.code, date: new Date().toISOString(), kind, detail, items, total, method, food: 0, service: 0, comment: '' };
+    return { code: s.code, date: new Date().toISOString(), kind, detail, items, total, method, customer: { name: s.name.trim(), email: s.email.trim(), phone: s.phone.trim() }, food: 0, service: 0, comment: '' };
+  }
+  startQr() {
+    clearInterval(this._qi);
+    const now = Date.now();
+    this.setState(s => ({ step: 'qr', qrEnd: now + QR_SECONDS * 1000, now, qrSeed: (s.qrSeed || 1) + 1 }));
+    this._qi = setInterval(() => { if (this.state.step !== 'qr') { clearInterval(this._qi); return; } this.setState({ now: Date.now() }); if (Date.now() >= this.state.qrEnd) clearInterval(this._qi); }, 1000);
   }
   payNow() {
+    clearInterval(this._qi);
     const code = '20F-' + Math.random().toString(36).slice(2, 7).toUpperCase();
     this.setState({ step: 'proc', code });
     this.later(() => {
@@ -431,13 +477,16 @@ class Component extends DCLogic {
     const cartN = this.cartLines().reduce((a, i) => a + i.qty, 0), dealN = this.dealLines().reduce((a, d) => a + d.qty, 0);
     const cartSum = this.cartLines().reduce((a, i) => a + i.price * i.qty, 0);
     const titles = { mode: ['Order', 'How would you like it?'], visit: ['Dine-in', 'Reserve your table'], menu: [s.mode === 'dine' ? 'Dine-in' : 'Takeaway', s.mode === 'dine' ? 'Order ahead' : 'What would you like?'], confirm: ['Takeaway', 'Confirm order'], venue: ['Book venue', 'Event details'], pay: ['Payment', 'Confirm & pay'], qr: [method.label, 'Complete your payment'], proc: ['Payment', 'Please wait'], done: ['Order', s.mode === 'venue' ? 'Request sent' : 'Confirmed'] };
+    const nameOk = okName(s.name), emailOk = okEmail(s.email), phoneOk = okPhone(s.phone), detailsOk = nameOk && emailOk && phoneOk;
+    const qrLeft = s.step === 'qr' ? Math.max(0, Math.ceil((s.qrEnd - (s.now || Date.now())) / 1000)) : QR_SECONDS;
+    const qrExpired = s.step === 'qr' && qrLeft === 0;
     const ctas = {
       visit: ['Continue to menu', () => this.setState({ step: 'menu' }), false],
       menu: [cartN ? 'Continue · ' + cartN + ' item' + (cartN > 1 ? 's' : '') + ' · ' + rp(cartSum) : 'Add something to continue', () => this.setState({ step: s.mode === 'dine' ? 'pay' : 'confirm' }), !cartN],
       confirm: ['Confirm order', () => this.setState({ step: 'pay' }), s.fulfil === 'pickup' ? !s.name.trim() : !s.address.trim()],
       venue: ['Continue on WhatsApp', () => this.sendWa(), !s.date],
-      pay: ['Pay ' + rp(total), () => method.qr ? this.setState({ step: 'qr' }) : this.payNow(), false],
-      qr: ['I have paid', () => this.payNow(), false],
+      pay: [detailsOk ? 'Pay ' + rp(total) : 'Fill in your details to pay', () => method.qr ? this.startQr() : this.payNow(), !detailsOk],
+      qr: qrExpired ? ['Generate new QR', () => this.startQr(), false] : ['I have paid', () => this.payNow(), false],
       done: ['Done', () => this.finish(), false]
     };
     const cta = ctas[s.step];
@@ -489,10 +538,18 @@ class Component extends DCLogic {
       events: EVENTS.map(t => ({ label: t, pick: () => this.setState({ event: t }), style: chip(s.event === t) })),
       refreshOpts: [[true, 'With refreshments', 'Drinks + pastries, ' + rp(PKG) + ' / person'], [false, 'Venue only', 'Order at the bar during the event']].map(([v, label, desc]) => ({ label, desc, pick: () => this.setState({ refresh: v }), style: card(s.refresh === v) })),
       lines, totalFmt: rp(total), payLabel: method.label, code: s.code,
+      email: s.email, phone: s.phone,
+      setEmail: e => this.setState({ email: e.target.value }), setPhone: e => this.setState({ phone: e.target.value }),
+      nameErr: s.name && !nameOk ? 'Please enter your name' : '', emailErr: s.email && !emailOk ? 'Please enter a valid email, e.g. name@email.com' : '', phoneErr: s.phone && !phoneOk ? 'Please enter a valid phone number, e.g. 0812xxxxxxx' : '',
+      payLocked: !detailsOk, methodsWrap: { display: 'flex', flexDirection: 'column', gap: 10, opacity: detailsOk ? 1 : .45, pointerEvents: detailsOk ? 'auto' : 'none', transition: 'opacity .25s' },
+      qrTimer: String(Math.floor(qrLeft / 60)).padStart(2, '0') + ':' + String(qrLeft % 60).padStart(2, '0'), qrExpired, qrActive: !qrExpired,
+      qrBar: { height: '100%', borderRadius: 3, background: qrLeft <= 30 ? '#e30a2e' : '#0d0d0d', width: (qrLeft / QR_SECONDS * 100) + '%', transition: 'width 1s linear, background .3s' },
+      qrBoxStyle: { padding: 16, borderRadius: 24, background: '#fff', border: '1px solid rgba(13,13,13,.08)', opacity: qrExpired ? .25 : 1, filter: qrExpired ? 'blur(2px)' : 'none', transition: 'opacity .3s' },
       methods: METHODS.map(m => ({ label: m.label, desc: m.desc, pick: () => this.setState({ pay: m.id }),
+        logos: m.logos.map(k => ({ src: 'logos/' + k + '.svg', alt: LOGO_ALT[k] })),
         ring: { width: 20, height: 20, borderRadius: '50%', boxSizing: 'border-box', flexShrink: 0, border: s.pay === m.id ? '6px solid #e30a2e' : '2px solid rgba(13,13,13,.2)' },
         style: { all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 18, background: '#fff', border: '1px solid ' + (s.pay === m.id ? '#e30a2e' : 'rgba(13,13,13,.08)') } })),
-      qr: s.step === 'qr' ? makeQr(200, 1) : null,
+      qr: s.step === 'qr' ? makeQr(200, s.qrSeed || 1) : null,
       doneTitle: s.mode === 'venue' ? 'Request sent' : 'Payment Successful', doneSub: s.mode === 'venue' ? 'Continue on WhatsApp · ' + s.code : rp(this._total || 0) + ' · ' + method.label + ' · ' + s.code, waUrl: this.waUrl(),
       doneDine: s.mode === 'dine', doneTrack: s.mode === 'take', doneVenue: s.mode === 'venue',
       voucherTitle: 'Table for ' + s.pax,
