@@ -494,6 +494,14 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
   .fx-need { left: 0 !important; bottom: 0 !important; }
   .fx-story-col { position: relative; isolation: isolate; }
   .fx-story-col::before { content: ""; position: absolute; inset: -90px -24px -40px -24px; z-index: -1; pointer-events: none; background: linear-gradient(to top, rgba(11,11,11,.94) 0%, rgba(11,11,11,.86) 55%, rgba(11,11,11,0) 100%); }
+  .fx-order { padding: 16px 16px 40px !important; gap: 16px !important; }
+  .fx-modes { display: flex !important; overflow-x: auto; scroll-snap-type: x mandatory; gap: 12px !important; margin: 0 -16px; padding: 4px 16px 14px; scroll-padding-left: 16px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .fx-modes::-webkit-scrollbar { display: none; }
+  .fx-mode { flex: 0 0 72% !important; min-width: 0 !important; min-height: 230px !important; padding: 18px !important; gap: 14px !important; border-radius: 24px !important; scroll-snap-align: start; }
+  .fx-mode > div:first-child span { font-size: 10px !important; }
+  .fx-mode > div:nth-child(2) > div { font-size: 38px !important; }
+  .fx-mode > div:nth-child(2) > p { font-size: 13px !important; margin-top: 8px !important; }
+  .fx-mode > span { padding: 9px 16px !important; font-size: 15px !important; }
   .fx-fullgrid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
   .fx-co-bar { flex-wrap: wrap !important; justify-content: space-between !important; padding: 10px 14px !important; gap: 8px 10px !important; }
   .fx-co-tabs { order: 3; flex: 1 1 100% !important; flex-wrap: nowrap !important; justify-content: space-between !important; }
@@ -608,13 +616,13 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
     </div>
   </section>
 
-  <section id="order" data-screen-label="Order mode" style="position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:24px 24px 56px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px">
+  <section id="order" class="fx-order" data-screen-label="Order mode" style="position:relative;z-index:1;max-width:1240px;margin:0 auto;padding:24px 24px 56px;box-sizing:border-box;display:flex;flex-direction:column;gap:24px">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:16px;flex-wrap:wrap">
       <h2 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(44px,6vw,80px);line-height:.9">How do you want to <span style="color:#e30a2e">order?</span></h2>
       <p style="margin:0;max-width:340px;color:#5a5a5a;font-size:15px;line-height:1.5">Choose how you want to order, then pick from the menu. Everything is paid online.</p>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px">
-      <button sc-camel-on-click="{{ pickDine }}" style="all:unset;cursor:pointer;box-sizing:border-box;position:relative;overflow:hidden;min-height:340px;display:flex;flex-direction:column;justify-content:space-between;gap:24px;padding:28px;border-radius:32px;background:#0d0d0d;color:#fff;box-shadow:0 20px 50px rgba(13,13,13,.18);transition:transform .35s cubic-bezier(.2,.8,.2,1)" style-hover="transform:translateY(-8px)">
+    <div class="fx-modes" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px">
+      <button class="fx-mode" sc-camel-on-click="{{ pickDine }}" style="all:unset;cursor:pointer;box-sizing:border-box;position:relative;overflow:hidden;min-height:340px;display:flex;flex-direction:column;justify-content:space-between;gap:24px;padding:28px;border-radius:32px;background:#0d0d0d;color:#fff;box-shadow:0 20px 50px rgba(13,13,13,.18);transition:transform .35s cubic-bezier(.2,.8,.2,1)" style-hover="transform:translateY(-8px)">
         <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;color:#e30a2e">01 · DINE-IN</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#a0a0a0">RESERVE A TABLE</span></div>
         <div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-style:italic;text-transform:uppercase;font-size:clamp(52px,5vw,72px);line-height:.85">Dine in<br>with us</div>
@@ -622,7 +630,7 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
         </div>
         <span style="align-self:flex-start;padding:12px 22px;border-radius:999px;background:#e30a2e;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;letter-spacing:.04em;text-transform:uppercase">Reserve table ›</span>
       </button>
-      <button sc-camel-on-click="{{ pickTake }}" style="all:unset;cursor:pointer;box-sizing:border-box;position:relative;overflow:hidden;min-height:340px;display:flex;flex-direction:column;justify-content:space-between;gap:24px;padding:28px;border-radius:32px;background:rgba(255,255,255,.55);backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(255,255,255,.95);box-shadow:inset 0 1px 0 #fff, 0 20px 50px rgba(13,13,13,.08);transition:transform .35s cubic-bezier(.2,.8,.2,1)" style-hover="transform:translateY(-8px)">
+      <button class="fx-mode" sc-camel-on-click="{{ pickTake }}" style="all:unset;cursor:pointer;box-sizing:border-box;position:relative;overflow:hidden;min-height:340px;display:flex;flex-direction:column;justify-content:space-between;gap:24px;padding:28px;border-radius:32px;background:rgba(255,255,255,.55);backdrop-filter:blur(22px) saturate(180%);-webkit-backdrop-filter:blur(22px) saturate(180%);border:1px solid rgba(255,255,255,.95);box-shadow:inset 0 1px 0 #fff, 0 20px 50px rgba(13,13,13,.08);transition:transform .35s cubic-bezier(.2,.8,.2,1)" style-hover="transform:translateY(-8px)">
         <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;color:#e30a2e">02 · TAKEAWAY</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#5a5a5a">PICKUP / DELIVERY</span></div>
         <div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-style:italic;text-transform:uppercase;font-size:clamp(52px,5vw,72px);line-height:.85">Take it<br>with you</div>
@@ -630,7 +638,7 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
         </div>
         <span style="align-self:flex-start;padding:12px 22px;border-radius:999px;background:#0d0d0d;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;letter-spacing:.04em;text-transform:uppercase">Order takeaway ›</span>
       </button>
-      <button sc-camel-on-click="{{ pickVenue }}" style="all:unset;cursor:pointer;box-sizing:border-box;position:relative;overflow:hidden;min-height:340px;display:flex;flex-direction:column;justify-content:space-between;gap:24px;padding:28px;border-radius:32px;background:#e30a2e;color:#fff;box-shadow:0 20px 50px rgba(227,10,46,.28);transition:transform .35s cubic-bezier(.2,.8,.2,1)" style-hover="transform:translateY(-8px)">
+      <button class="fx-mode" sc-camel-on-click="{{ pickVenue }}" style="all:unset;cursor:pointer;box-sizing:border-box;position:relative;overflow:hidden;min-height:340px;display:flex;flex-direction:column;justify-content:space-between;gap:24px;padding:28px;border-radius:32px;background:#e30a2e;color:#fff;box-shadow:0 20px 50px rgba(227,10,46,.28);transition:transform .35s cubic-bezier(.2,.8,.2,1)" style-hover="transform:translateY(-8px)">
         <div style="display:flex;justify-content:space-between;align-items:center"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em">03 · VENUE</span><span style="font-family:'JetBrains Mono',monospace;font-size:12px">10–60 PAX</span></div>
         <div>
           <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-style:italic;text-transform:uppercase;font-size:clamp(52px,5vw,72px);line-height:.85">Book<br>venue</div>
