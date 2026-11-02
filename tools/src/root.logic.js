@@ -20,7 +20,6 @@ const lineKey = (id, opts) => id + (opts && opts.length ? '~' + opts.slice().sor
 const optsPrice = (m, opts) => (m.addons || []).reduce((a, g) => a + (g.options || []).filter(o => opts.includes(o.id)).reduce((b, o) => b + (Number(o.price) || 0), 0), 0);
 const optsLabel = (m, opts) => (m.addons || []).map(g => { const o = (g.options || []).find(x => opts.includes(x.id)); return o && !o.default ? o.label : null; }).filter(Boolean).join(' · ');
 const NEED_NAMES = [['Fresh', 'coconut hydrate'], ['Fueling', '20fit signature aren latte'], ['Light energy', 'tropical recovery']];
-const HERO_VIDEO = 'https://media.20fit.id/wp-content/uploads/2026/11/1793607194111.publer.com_.mp4';
 const IG_DEFAULT = 'https://www.instagram.com/reel/DZMf2F3y_6X/';
 const IG_POSTS = ['p/DcTitnFEhQo', 'p/DeG5fVWyR1C', 'p/DY1wzVJSFAU'];
 const IG_CROP = { p: { left: '-2px', top: '-55px', width: 'calc(100% + 4px)', height: 'calc(100% + 55px + 480px)' }, reel: { left: '-21.1%', top: 'calc(-58px - 21.2%)', width: '142.2%', height: 'calc(160% + 58px + 480px)' } };
@@ -111,7 +110,7 @@ class Component extends DCLogic {
   scrollMenu(tab) { if (tab) this.setState({ tab }); const el = document.getElementById('menu'); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 90, behavior: 'smooth' }); }
 
   src(u) { const n = u.split('/').pop().replace('-scaled.jpg', ''); return (this.state.cut || {})[n] || u; }
-  heroSrc() { return this.props.heroVideo || HERO_VIDEO; }
+  heroSrc() { return this.props.heroVideo || ''; }
   syncVid() {
     const v = this.vid.current, s = this.heroSrc(); if (!v || !s) return;
     if (v.getAttribute('src') !== s) { v.src = s; v.loop = true; v.playsInline = true; v.muted = !this.state.sound; }
@@ -248,6 +247,8 @@ class Component extends DCLogic {
       heroDrinks: NEED_NAMES.map(([kind, nm], i) => { const m = this.byName(nm) || this.menuAll()[i] || { id: null, name: '…', imgs: [NO_PHOTO] }; const y = this.state.hy * (0.05 + i * 0.05), on = this.state.heroIn;
         return { kind, name: m.name, imgStyle: { display: 'block', aspectRatio: '1', borderRadius: 16, overflow: 'hidden', backgroundColor: '#e8e6e1', boxShadow: '0 10px 30px rgba(13,13,13,.12)', backgroundImage: 'url("' + this.src(m.imgs[0]) + '")', backgroundSize: 'cover', backgroundPosition: 'center' }, open: () => m.id && this.setState({ sel: m.id }),
           style: { all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, opacity: on ? 1 : 0, transform: 'translateY(' + ((on ? 0 : 40) - y) + 'px) rotate(' + ((i - 1) * (on ? 2 : 8)) + 'deg)', transition: 'opacity .8s ' + (0.2 + i * 0.15) + 's, transform .9s cubic-bezier(.2,.8,.2,1) ' + (i * 0.15) + 's' } }; }),
+      // Pauses the About-section video (site music) while the menu / order / checkout / history / product view is open
+      mediaHold: !!(this.state.checkout || this.state.full || this.state.hist || this.state.sel),
       showFull: this.state.full, openFull: () => this.setState({ full: true, hist: false }), closeFull: () => this.setState({ full: false }),
       showHist: this.state.hist, closeHist: () => this.setState({ hist: false }),
       sub: this.state.sub || 'table',
