@@ -1,5 +1,5 @@
 """Convert a bundled single-file page into index.html + assets/ (no blob: URLs)."""
-import re,json,sys,base64,gzip,os
+import re,json,sys,base64,gzip,os,hashlib
 src,out=sys.argv[1],sys.argv[2]
 s=open(src,encoding='utf-8').read()
 def blk(t):
@@ -13,7 +13,8 @@ paths={}; rel={}
 for u,e in man.items():
     b=base64.b64decode(e['data'])
     if e.get('compressed'): b=gzip.decompress(b)
-    p='assets/%s.%s'%(u,EXT.get(e['mime'],'bin')); rel[u]='./'+p
+    # content hash in the name so browsers never reuse a stale cached copy
+    p='assets/%s.%s.%s'%(u,hashlib.sha256(b).hexdigest()[:8],EXT.get(e['mime'],'bin')); rel[u]='./'+p
     open(out+'/'+p,'wb').write(b); paths[u]=p
 res={x['id']:rel[x['uuid']] for x in ext if x['uuid'] in paths}
 for u,p in rel.items(): tpl=tpl.replace(u,p)
