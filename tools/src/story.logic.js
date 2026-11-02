@@ -233,7 +233,8 @@ class Component extends DCLogic {
     straw.position.set(0.22, 1.72, 0.06); straw.rotation.z = -0.16; straw.castShadow = true; cup.add(straw);
     const iceMat = new THREE.MeshPhysicalMaterial({ color: 0xeef7ff, roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05, ior: 1.31, transparent: true, opacity: 0.62, depthWrite: false, envMapIntensity: 1.8, emissive: 0x334455, emissiveIntensity: 0.15 });
     const iceGeo = new THREE.BoxGeometry(0.36, 0.32, 0.36, 4, 4, 4); { const p = iceGeo.attributes.position, v = new THREE.Vector3(); for (let k = 0; k < p.count; k++) { v.fromBufferAttribute(p, k); const s = v.clone().normalize().multiplyScalar(0.23); v.lerp(s, 0.28); p.setXYZ(k, v.x, v.y, v.z); } iceGeo.computeVertexNormals(); }
-    const ice = Array.from({ length: 11 }, (_, i) => { const m = new THREE.Mesh(iceGeo, iceMat); const a = i * 2.4, rr = 0.12 + rnd(i) * 0.36; m.userData = { x: Math.cos(a) * rr, z: Math.sin(a) * rr, y: 0.3 + i * 0.19, r: rnd(i + 4) * 6 }; m.renderOrder = 3; m.castShadow = true; m.userData.s = 0.85 + rnd(i + 9) * 0.3; m.scale.setScalar(m.userData.s); cup.add(m); return m; });
+    // every cube stays inside the glass: centre radius + cube half-size + wall margin <= inner radius at that height, top below the rim
+    const ice = Array.from({ length: 11 }, (_, i) => { const m = new THREE.Mesh(iceGeo, iceMat); const sc = 0.72 + rnd(i + 9) * 0.18, y = 0.34 + i * 0.15, rmax = Math.max(0, R(y) - 0.25 * sc - 0.07), a = i * 2.4, rr = rmax * (0.35 + rnd(i) * 0.65); m.userData = { x: Math.cos(a) * rr, z: Math.sin(a) * rr, y, r: rnd(i + 4) * 6, s: sc }; m.renderOrder = 3; m.castShadow = true; m.scale.setScalar(m.userData.s); cup.add(m); return m; });
 
     const streamGeo = new THREE.CylinderGeometry(0.035, 0.05, 1, 20); streamGeo.translate(0, -0.5, 0);
     // the pour fades in from above instead of starting off-screen (it used to run up under the header)
@@ -322,7 +323,7 @@ class Component extends DCLogic {
       const az = -0.45 + p * 0.07 + camX * 0.22, pol = 1.12 - camY * 0.1;
       const ox = this.wide ? -1.9 : 0;
       // desktop: a bit further back so the cup, pour and straw stay clear of the header bar
-      const rw = this.wide ? 1.13 : 1, tw = this.wide ? 0.12 : 0;
+      const rw = this.wide ? 1.13 + Math.max(0, camera.aspect - 1.55) * 0.35 : 1, tw = this.wide ? 0.12 + Math.max(0, camera.aspect - 1.55) * 0.25 : 0;  // wider/shorter screens: pull back more
       // Phones (portrait): pull back and aim lower so the 3D object sits above the text
       const narrow = !this.wide && camera.aspect < 0.8, oy = narrow ? -1.95 : 0, rk = narrow ? 1.95 : 1;
       camera.position.set(ox + rad * rk * rw * Math.sin(pol) * Math.sin(az), tgtY + tw + oy + rad * rk * rw * Math.cos(pol), rad * rk * rw * Math.sin(pol) * Math.cos(az));
