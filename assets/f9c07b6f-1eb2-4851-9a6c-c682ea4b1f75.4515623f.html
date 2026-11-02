@@ -18,6 +18,16 @@
       <sc-if value="{{ loading }}" hint-placeholder-val="{{ true }}">
         <div style="position:absolute;right:24px;top:120px;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;color:#8a8a8a">LOADING 3D…</div>
       </sc-if>
+      <sc-if value="{{ showSpin }}" hint-placeholder-val="{{ false }}">
+        <div class="fx-spin" style="position:absolute;right:8%;bottom:92px;z-index:3;display:flex;align-items:center;gap:10px;padding:6px;border-radius:999px;background:rgba(13,13,13,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);animation:pFade .4s ease">
+          <button onClick="{{ prevDrink }}" aria-label="Previous drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">‹</button>
+          <div style="display:flex;flex-direction:column;align-items:center;min-width:150px;text-align:center">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#bdbdbd">↔ Drag to spin the cup</span>
+            <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;letter-spacing:.02em;text-transform:uppercase;color:#fff;white-space:nowrap">{{ drinkName }}</span>
+          </div>
+          <button onClick="{{ nextDrink }}" aria-label="Next drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">›</button>
+        </div>
+      </sc-if>
       <div style="position:relative;height:100%;max-width:1320px;margin:0 auto;padding:120px 24px 120px;box-sizing:border-box;display:flex;align-items:flex-end;pointer-events:none">
         <div class="fx-story-col" style="display:flex;flex-direction:column;gap:16px;max-width:520px;pointer-events:auto">
           <div style="display:flex;align-items:baseline;gap:14px">
@@ -72,9 +82,19 @@ const ease = t => t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 const back = t => { const c = 1.7; return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2); };
 const rnd = s => { const x = Math.sin(s * 127.1) * 43758.5453; return x - Math.floor(x); };
 const R = y => 0.6 + 0.22 * (y / 2.3);
+// Drinks you can spin through on the last step. syrup = bottom layer (dark→light), milk = body (top→bottom), streak = rgb of the marbling.
+const DRINKS = [
+  { name: 'Signature Aren Latte', syrup: ['#2a1206', '#5c2c0f'], milk: ['#ecd9bd', '#cfa476'], streak: [104, 50, 16], cap: 0xdcbb92 },
+  { name: 'Matcha Latte', syrup: ['#2c4510', '#61852c'], milk: ['#f0f3e2', '#c3d29a'], streak: [80, 116, 36], cap: 0xe4ead0 },
+  { name: 'Strawberry Latte', syrup: ['#6a0a1e', '#c4264b'], milk: ['#f8e9eb', '#efc0c9'], streak: [186, 36, 66], cap: 0xf4dade },
+  { name: 'Choco Overload', syrup: ['#1d0c05', '#40200f'], milk: ['#b48460', '#83533a'], streak: [48, 22, 10], cap: 0x9a6b48 },
+  { name: 'Tropical Recovery', syrup: ['#b9380a', '#ee7a1c'], milk: ['#fde08a', '#f7b53e'], streak: [226, 104, 18], cap: 0xf8cf66 }
+];
+const hexRgb = h => h[0] === '#' ? [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) : h.match(/\d+/g).slice(0, 3).map(Number); // '#rrggbb' or 'rgb(r,g,b)'
+const mixHex = (a, b, k) => { const A = hexRgb(a), B = hexRgb(b); return 'rgb(' + A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',') + ')'; };
 
 class Component extends DCLogic {
-  state = { step: 0, pp: 0, loading: true };
+  state = { step: 0, pp: 0, loading: true, drink: 0 };
   track = React.createRef();
   mount = React.createRef();
 
@@ -91,6 +111,7 @@ class Component extends DCLogic {
     this._mouse = e => { this.mx = e.clientX / window.innerWidth - 0.5; this.my = e.clientY / window.innerHeight - 0.5; };
     window.addEventListener('scroll', this._scroll, { passive: true });
     window.addEventListener('mousemove', this._mouse);
+    this.spin = 0; this.spinV = 0; this.spinAcc = 0; this.drag = null;
     this._scroll();
     this.init().catch(e => console.error(e));
   }
@@ -111,9 +132,14 @@ class Component extends DCLogic {
     this.renderer = renderer;
     renderer.setPixelRatio(Math.min(1.75, window.devicePixelRatio)); renderer.localClippingEnabled = true;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
     Object.assign(renderer.domElement.style, { position: 'absolute', inset: '0', width: '100%', height: '100%' });
     el.appendChild(renderer.domElement);
+    const cvs = renderer.domElement; cvs.style.touchAction = 'pan-y'; cvs.style.cursor = 'grab';
+    cvs.addEventListener('pointerdown', e => { this.drag = { x: e.clientX, id: e.pointerId }; this.spinV = 0; cvs.style.cursor = 'grabbing'; try { cvs.setPointerCapture(e.pointerId); } catch (err) {} });
+    cvs.addEventListener('pointermove', e => { if (!this.drag || e.pointerId !== this.drag.id) return; const dx = e.clientX - this.drag.x; this.drag.x = e.clientX; const v = dx * 0.011; this.spin += v; this.spinAcc += v; this.spinV = v; });
+    const endDrag = () => { this.drag = null; cvs.style.cursor = 'grab'; };
+    cvs.addEventListener('pointerup', endDrag); cvs.addEventListener('pointercancel', endDrag);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
     const resize = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); this.wide = w > 900; };
@@ -130,6 +156,8 @@ class Component extends DCLogic {
     key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 20 }); key.shadow.bias = -0.0004; key.shadow.radius = 6;
     scene.add(key);
     const rim = new THREE.PointLight(0xe30a2e, 40, 14); rim.position.set(-3.5, 3, -2.5); scene.add(rim);
+    const backLight = new THREE.DirectionalLight(0xffffff, 1.6); backLight.position.set(1.5, 4, -6); scene.add(backLight); // rim highlight on the cup edges
+    const fill = new THREE.PointLight(0xffe2c4, 14, 9); fill.position.set(2.6, 1.6, 3.2); scene.add(fill); // warm fill so the latte glows
 
     const tableTex = this.canvasTex(THREE, 1024, 1024, (x, w, h) => { x.fillStyle = '#1c1717'; x.fillRect(0, 0, w, h); for (let i = 0; i < 5000; i++) { x.fillStyle = `rgba(255,255,255,${0.05 + rnd(i) * 0.5})`; const s = 0.6 + rnd(i + 9) * 1.6; x.fillRect(rnd(i + 1) * w, rnd(i + 2) * h, s, s); } x.strokeStyle = 'rgba(255,255,255,.05)'; for (let i = 0; i < 18; i++) { x.beginPath(); x.moveTo(rnd(i + 40) * w, rnd(i + 50) * h); x.bezierCurveTo(rnd(i + 60) * w, rnd(i + 70) * h, rnd(i + 80) * w, rnd(i + 90) * h, rnd(i + 99) * w, rnd(i + 33) * h); x.stroke(); } });
     const table = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 0.3, 128), [new THREE.MeshStandardMaterial({ color: 0x141111, roughness: 0.8 }), new THREE.MeshStandardMaterial({ map: tableTex, roughness: 0.7 }), new THREE.MeshStandardMaterial({ color: 0x141111 })]);
@@ -142,7 +170,7 @@ class Component extends DCLogic {
     const cup = new THREE.Group(); scene.add(cup);
     const dropTex = this.canvasTex(THREE, 512, 1024, (x, w, h) => { x.fillStyle = '#000'; x.fillRect(0, 0, w, h); for (let i = 0; i < 1400; i++) { const r = 1 + rnd(i * 3) * (rnd(i * 7) > 0.92 ? 7 : 2.6), px = rnd(i) * w, py = h * 0.12 + rnd(i + 1) * h * 0.86; const g = x.createRadialGradient(px - r * 0.3, py - r * 0.3, 0, px, py, r); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.beginPath(); x.ellipse(px, py, r, r * 1.15, 0, 0, Math.PI * 2); x.fill(); } });
     dropTex.wrapS = THREE.RepeatWrapping;
-    const glass = new THREE.MeshPhysicalMaterial({ bumpMap: dropTex, bumpScale: 0.6, color: 0xffffff, transmission: 0, roughness: 0.04, metalness: 0, specularIntensity: 1, clearcoat: 1, clearcoatRoughness: 0.03, side: THREE.DoubleSide, transparent: true, opacity: 0.2, depthWrite: false, envMapIntensity: 1.6 });
+    const glass = new THREE.MeshPhysicalMaterial({ bumpMap: dropTex, bumpScale: 0.6, color: 0xffffff, transmission: 0, roughness: 0.04, metalness: 0, specularIntensity: 1, clearcoat: 1, clearcoatRoughness: 0.03, side: THREE.DoubleSide, transparent: true, opacity: 0.15, depthWrite: false, envMapIntensity: 2.2 });
     const rimMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, roughness: 0.1, transparent: true, opacity: 0.9 });
     const prof = [[0, 0.02], [0.58, 0.02], [0.61, 0.06], [0.82, 2.3], [0.87, 2.32], [0.86, 2.36]].map(([a, b]) => new THREE.Vector2(a, b));
     const cupMesh = new THREE.Mesh(new THREE.LatheGeometry(prof, 120), glass); cupMesh.castShadow = true; cupMesh.renderOrder = 10; cup.add(cupMesh);
@@ -152,29 +180,71 @@ class Component extends DCLogic {
 
     const milkTex = this.canvasTex(THREE, 512, 512, (x, w, h) => { x.fillStyle = '#ead9bf'; x.fillRect(0, 0, w, h); for (let i = 0; i < 26; i++) { x.strokeStyle = `rgba(${120 + rnd(i) * 40},${70 + rnd(i + 3) * 30},30,${0.25 + rnd(i + 5) * 0.4})`; x.lineWidth = 4 + rnd(i + 7) * 22; x.beginPath(); const sx = rnd(i + 11) * w; x.moveTo(sx, 0); for (let y = 0; y <= h; y += 32) x.lineTo(sx + Math.sin(y / 60 + i) * 30, y); x.stroke(); } });
     milkTex.wrapS = THREE.RepeatWrapping;
-    const liqCanvas = document.createElement('canvas'); liqCanvas.width = 256; liqCanvas.height = 512;
+    const liqCanvas = document.createElement('canvas'); liqCanvas.width = 512; liqCanvas.height = 1024;
     const liqTex = new THREE.CanvasTexture(liqCanvas); liqTex.colorSpace = THREE.SRGBColorSpace;
     const liquid = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.01, 72, 1), [new THREE.MeshPhysicalMaterial({ map: liqTex, roughness: 0.28, clearcoat: 0.5 }), new THREE.MeshPhysicalMaterial({ color: 0x3a1c0c, roughness: 0.15, clearcoat: 1 }), new THREE.MeshPhysicalMaterial({ color: 0x8a4a18 })]); liquid.visible = false; cup.add(liquid);
     let liqKey = '';
-    const drawLiquid = (a, m, e) => { const x = liqCanvas.getContext('2d'), W = 256, H = 512, tot = 2.15; const ya = H * (1 - a / tot), ym = H * (1 - (a + m) / tot);
-      const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#2a1408'); g.addColorStop(Math.max(0.001, ym / H - 0.06), '#4a2410'); g.addColorStop(Math.min(0.998, ym / H + 0.08), m > 0.01 ? '#d9bf9c' : '#4a2410'); g.addColorStop(Math.max(0.001, Math.min(0.998, ya / H - 0.05)), m > 0.01 ? '#e9dcc6' : '#4a2410'); g.addColorStop(Math.min(0.999, ya / H + 0.04), '#b0601e'); g.addColorStop(1, '#7a3a10'); x.fillStyle = g; x.fillRect(0, 0, W, H);
-      if (m > 0.01) for (let i = 0; i < 22; i++) { x.strokeStyle = `rgba(${90 + rnd(i) * 50},${45 + rnd(i + 2) * 25},16,${0.18 + rnd(i + 4) * 0.35})`; x.lineWidth = 2 + rnd(i + 6) * 10; x.beginPath(); const sx = rnd(i + 8) * W, len = (ya - ym) * (0.3 + rnd(i + 9) * 0.7); x.moveTo(sx, ym); for (let y = 0; y <= len; y += 12) x.lineTo(sx + Math.sin((y + i * 40) / 38) * 9, ym + y); x.stroke(); }
+    const drawLiquid = (a, m, e, d) => {
+      const x = liqCanvas.getContext('2d'), W = liqCanvas.width, H = liqCanvas.height, tot = 2.15;
+      const yTop = H * (1 - (a + m + e) / tot), ya = H * (1 - a / tot), mix = cl(m / 1.1), esp = '#3a1c0c';
+      const span = Math.max(1, H - yTop), at = y => Math.min(0.999, Math.max(0.001, (y - yTop) / span));
+      x.filter = 'none';
+      const g = x.createLinearGradient(0, yTop, 0, H);
+      g.addColorStop(0, mix > 0 ? mixHex(esp, d.milk[0], mix) : esp);
+      if (m > 0.01) { g.addColorStop(at(yTop + (ya - yTop) * 0.55), mixHex(esp, mixHex(d.milk[0], d.milk[1], 0.45), mix)); g.addColorStop(at(ya - 26), mixHex(esp, d.milk[1], mix)); }
+      g.addColorStop(at(ya + 10), d.syrup[1]); g.addColorStop(1, d.syrup[0]);
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      if (m > 0.01) {
+        const [r0, g0, b0] = d.streak, body = ya - yTop;
+        // soft clouds of syrup rising from the bottom layer into the milk (like an iced aren latte)
+        // random-walk path so the marbling looks poured, not drawn
+        const wander = (i, sx, y0, len, step, jitter) => { x.beginPath(); let px = sx, vx = (rnd(i * 7 + 1) - 0.5) * 2; x.moveTo(px, y0);
+          for (let y = step, k = 0; y <= len; y += step, k++) { vx = vx * 0.86 + (rnd(i * 131 + k * 17) - 0.5) * jitter; px += vx; x.lineTo(px, y0 - y); } x.stroke(); };
+        x.filter = 'blur(16px)'; x.lineCap = 'round';
+        for (let i = 0; i < 30; i++) {
+          x.strokeStyle = `rgba(${r0},${g0},${b0},${(0.18 + rnd(i + 3) * 0.36) * mix})`; x.lineWidth = 18 + rnd(i + 6) * 60;
+          wander(i, rnd(i + 8) * W, ya + 10, body * (0.15 + rnd(i + 9) * 0.6), 18, 9);
+        }
+        // crisp darker veins for the marbled look
+        x.filter = 'blur(3px)';
+        for (let i = 0; i < 18; i++) {
+          x.strokeStyle = `rgba(${Math.round(r0 * 0.8)},${Math.round(g0 * 0.8)},${Math.round(b0 * 0.8)},${(0.24 + rnd(i + 21) * 0.32) * mix})`; x.lineWidth = 3 + rnd(i + 22) * 9;
+          wander(i + 50, rnd(i + 23) * W, ya + 4, body * (0.1 + rnd(i + 24) * 0.45), 12, 7);
+        }
+        // creamy top band
+        x.filter = 'blur(6px)'; const tg = x.createLinearGradient(0, yTop, 0, yTop + body * 0.25);
+        tg.addColorStop(0, `rgba(255,248,236,${0.35 * mix})`); tg.addColorStop(1, 'rgba(255,248,236,0)'); x.fillStyle = tg; x.fillRect(0, yTop - 4, W, body * 0.25);
+        x.filter = 'none';
+      }
       liqTex.needsUpdate = true; };
     const LMAX = 2.15, clip = new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
     liquid.geometry.dispose(); liquid.geometry = new THREE.CylinderGeometry(R(0.05 + LMAX) - 0.03, R(0.05) - 0.03, LMAX, 72, 1, true); liquid.position.y = 0.05 + LMAX / 2;
-    liquid.material = liquid.material[0]; Object.assign(liquid.material, { clippingPlanes: [clip], side: THREE.DoubleSide, transparent: true, opacity: 0.94, depthWrite: true, roughness: 0.18, clearcoat: 1 }); liquid.renderOrder = 1;
-    const cap = new THREE.Mesh(new THREE.CircleGeometry(1, 72), new THREE.MeshPhysicalMaterial({ color: 0x3a1c0c, roughness: 0.08, clearcoat: 1, transparent: true, opacity: 0.9, depthWrite: false })); cap.rotation.x = -Math.PI / 2; cap.renderOrder = 2; cup.add(cap);
-    const setLiquid = (a, m, e) => { const h = a + m + e; liquid.visible = cap.visible = h > 0.004; if (!liquid.visible) return; const top = 0.05 + h;
-      clip.constant = top * cup.scale.y + cup.position.y; cap.position.y = top; cap.scale.setScalar(R(top) - 0.03); cap.material.color.set(e > 0.02 ? 0x3a1c0c : m > 0.02 ? 0xd9bf9c : 0x8a4a18);
-      const k = [a, m, e].map(v => (Math.round(v * 40) / 40).toFixed(3)).join(); if (k !== liqKey) { liqKey = k; drawLiquid(a, m, e); } };
+    liquid.material = liquid.material[0]; Object.assign(liquid.material, { clippingPlanes: [clip], side: THREE.DoubleSide, transparent: true, opacity: 0.97, depthWrite: true, roughness: 0.3, clearcoat: 0.7, clearcoatRoughness: 0.15 }); liquid.renderOrder = 1;
+    const cap = new THREE.Mesh(new THREE.CircleGeometry(1, 72), new THREE.MeshPhysicalMaterial({ color: 0x3a1c0c, roughness: 0.22, clearcoat: 0.8, transparent: true, opacity: 0.95, depthWrite: false })); cap.rotation.x = -Math.PI / 2; cap.renderOrder = 2; cup.add(cap);
+    const setLiquid = (a, m, e, di) => { const h = a + m + e, d = DRINKS[di]; liquid.visible = cap.visible = h > 0.004; if (!liquid.visible) return; const top = 0.05 + h;
+      clip.constant = top * cup.scale.y + cup.position.y; cap.position.y = top; cap.scale.setScalar(R(top) - 0.03); cap.material.color.set(m > 0.02 ? d.cap : e > 0.02 ? 0x3a1c0c : 0x8a4a18);
+      const k = [a, m, e].map(v => (Math.round(v * 40) / 40).toFixed(3)).join() + '|' + di; if (k !== liqKey) { liqKey = k; drawLiquid(a, m, e, d); } };
     const liq = (opts) => { const m = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.01, 64), new THREE.MeshPhysicalMaterial({ roughness: 0.3, clearcoat: 0.4, ...opts })); m.visible = false; cup.add(m); return m; };
     const aren = liq({ color: 0xa8571c }), milk = liq({ map: milkTex }), esp = liq({ color: 0x2e170a, roughness: 0.2 });
     const setLayer = (m, y0, y1) => { const h = y1 - y0; m.visible = h > 0.004; if (!m.visible) return; m.geometry.dispose(); m.geometry = new THREE.CylinderGeometry(R(y1) - 0.035, R(y0) - 0.035, h, 64); m.position.y = y0 + h / 2; };
 
-    const logoTex = this.canvasTex(THREE, 1024, 360, (x, w, h) => { x.clearRect(0, 0, w, h); x.fillStyle = '#0d0d0d'; x.font = '400 190px Manrope, Arial, sans-serif'; x.textBaseline = 'middle'; x.textAlign = 'center'; x.font = '400 150px Manrope, Arial, sans-serif'; x.textAlign = 'left'; const w2 = x.measureText('2').width, wF = x.measureText('FIT').width, d = 116, gap = 8, tw = w2 + gap + d + gap + wF, sx = (w - tw) / 2; x.fillText('2', sx, 140); x.fillText('FIT', sx + w2 + gap + d + gap, 140); const cx = sx + w2 + gap + d / 2; x.textAlign = 'center'; x.beginPath(); x.arc(cx, 140, d / 2, 0, Math.PI * 2); x.fillStyle = '#0d0d0d'; x.fill(); x.beginPath(); x.arc(cx, 140, d / 2 - 11, 0, Math.PI * 2); x.fillStyle = '#fff'; x.fill(); x.beginPath(); x.arc(cx, 140, d / 2 - 18, 0, Math.PI * 2); x.fillStyle = '#e30a2e'; x.fill(); x.fillStyle = '#e30a2e'; x.font = '400 78px Manrope, Arial, sans-serif'; x.fillText('C A F E', w / 2, 280); });
-    const logoMat = new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, depthWrite: false, opacity: 0 });
-    const logo = new THREE.Mesh(new THREE.CylinderGeometry(R(1.62) + 0.006, R(1.18) + 0.006, 0.44, 64, 1, true, -0.62, 1.24), logoMat); logo.position.y = 1.4; cup.add(logo);
-
+    const logoTex = this.canvasTex(THREE, 1024, 512, (x, w, h) => {
+      x.clearRect(0, 0, w, h); x.textBaseline = 'middle'; x.textAlign = 'left'; x.font = '500 168px Manrope, Arial, sans-serif';
+      const w2 = x.measureText('2').width, wF = x.measureText('FIT').width, d = 132, gap = 10, tw = w2 + gap + d + gap + wF, sx = (w - tw) / 2, cy = 200;
+      x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 10;
+      x.fillStyle = '#ffffff'; x.fillText('2', sx, cy); x.fillText('FIT', sx + w2 + gap + d + gap, cy);
+      const cx = sx + w2 + gap + d / 2;
+      x.beginPath(); x.arc(cx, cy, d / 2, 0, Math.PI * 2); x.fillStyle = '#ffffff'; x.fill(); x.shadowBlur = 0;
+      x.beginPath(); x.arc(cx, cy, d / 2 - 12, 0, Math.PI * 2); x.fillStyle = '#0d0d0d'; x.fill();
+      x.beginPath(); x.arc(cx, cy, d / 2 - 22, 0, Math.PI * 2); x.fillStyle = '#e30a2e'; x.fill();
+      x.shadowColor = 'rgba(0,0,0,.35)'; x.shadowBlur = 8; x.textAlign = 'center'; x.fillStyle = '#ffffff'; x.font = '600 74px Manrope, Arial, sans-serif'; x.fillText('C  A  F  E', w / 2, 360);
+      x.fillStyle = '#e30a2e'; x.fillRect(w / 2 - 120, 430, 240, 8);
+    });
+    const logoMat = new THREE.MeshBasicMaterial({ map: logoTex, transparent: true, depthWrite: false, opacity: 0, toneMapped: false });
+    const logo = new THREE.Mesh(new THREE.CylinderGeometry(R(1.62) + 0.008, R(0.98) + 0.008, 0.64, 72, 1, true, -0.78, 1.56), logoMat); logo.position.y = 1.3; logo.renderOrder = 11; cup.add(logo);
+    // red 20FIT straw (appears with the lid)
+    const straw = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 3.3, 24, 1, true), new THREE.MeshPhysicalMaterial({ color: 0xe30a2e, roughness: 0.35, clearcoat: 0.6, side: THREE.DoubleSide }));
+    straw.position.set(0.22, 1.95, 0.06); straw.rotation.z = -0.16; straw.castShadow = true; cup.add(straw);
     const iceMat = new THREE.MeshPhysicalMaterial({ color: 0xeef7ff, roughness: 0.06, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.05, ior: 1.31, transparent: true, opacity: 0.62, depthWrite: false, envMapIntensity: 1.8, emissive: 0x334455, emissiveIntensity: 0.15 });
     const iceGeo = new THREE.BoxGeometry(0.36, 0.32, 0.36, 4, 4, 4); { const p = iceGeo.attributes.position, v = new THREE.Vector3(); for (let k = 0; k < p.count; k++) { v.fromBufferAttribute(p, k); const s = v.clone().normalize().multiplyScalar(0.23); v.lerp(s, 0.28); p.setXYZ(k, v.x, v.y, v.z); } iceGeo.computeVertexNormals(); }
     const ice = Array.from({ length: 11 }, (_, i) => { const m = new THREE.Mesh(iceGeo, iceMat); const a = i * 2.4, rr = 0.12 + rnd(i) * 0.36; m.userData = { x: Math.cos(a) * rr, z: Math.sin(a) * rr, y: 0.3 + i * 0.19, r: rnd(i + 4) * 6 }; m.renderOrder = 3; m.castShadow = true; m.scale.setScalar(0.85 + rnd(i + 9) * 0.3); cup.add(m); return m; });
@@ -213,15 +283,28 @@ class Component extends DCLogic {
       const gs = ease(cl((t1 - 0.2) / 0.8)) * (1 - ease(cl((p - 2) / 0.45)));
       ground.scale.set(gs, gs, gs); ground.visible = gs > 0.01; ground.position.y = 0.3 * gs;
       const cs = back(cl((p - 2.05) / 0.5)); cup.scale.setScalar(Math.max(0.0001, cs)); cup.visible = p > 2.05;
-      cup.rotation.y = Math.sin(time * 0.4) * 0.06 + (p - 3) * 0.08;
+      if (!this.drag) { this.spin += this.spinV; this.spinAcc += this.spinV; this.spinV *= 0.94; }
+      cup.rotation.y = Math.sin(time * 0.4) * 0.06 + (p - 3) * 0.08 + this.spin;
+      // Spin far enough on the last step -> drain and refill with the next drink
+      const full = p > 4.85;
+      if (full && !this.swap && Math.abs(this.spinAcc) > Math.PI * 0.85) { this.swap = { t0: time, dir: Math.sign(this.spinAcc), done: false }; this.spinAcc = 0; }
+      if (!full) this.spinAcc = 0;
+      let level = 1;
+      if (this.swap) {
+        const k = (time - this.swap.t0) / 1.5;
+        if (k >= 0.45 && !this.swap.done) { this.swap.done = true; const n = DRINKS.length; this.setState(s => ({ drink: ((s.drink + this.swap.dir) % n + n) % n })); }
+        level = k < 0.45 ? 1 - ease(k / 0.45) * 0.82 : 0.18 + ease(cl((k - 0.45) / 0.55)) * 0.82;
+        if (k >= 1) { this.swap = null; level = 1; }
+      }
       ice.forEach((m, i) => { const ti = ease(cl((t2 - 0.05 - i * 0.045) / 0.4)); const d = m.userData; m.position.set(d.x, d.y + (1 - ti) * 5 + Math.sin(time * 1.3 + i) * 0.012, d.z); m.rotation.set(d.r + (1 - ti) * 4, d.r * 0.7, d.r * 0.3); m.visible = ti > 0; });
-      const ah = ease(t4) * 0.22, mh = ease(t4) * 1.35, eh = ease(t3) * 0.5;
-      setLiquid(ah, mh, eh);
+      const ah = ease(t4) * 0.24 * level, mh = ease(t4) * 1.33 * level, eh = ease(t3) * 0.5 * level;
+      setLiquid(ah, mh, eh, this.state.drink || 0);
       const surf = (0.05 + ah + mh + eh) * cs;
       const stream = (m, on, k) => { m.visible = on; if (!on) return; m.position.set(0, 4.6, 0); m.scale.set(1 + Math.sin(time * 30) * 0.08, Math.max(0.01, 4.6 - surf), 1); };
       stream(shot, p > 3.02 && p < 3.92, 0); stream(pourMilk, p > 4.02 && p < 4.9, 1);
       lid.position.y = 2.33 + (1 - ease(cl(t5 / 0.45))) * 3; lid.visible = t5 > 0.01;
-      logoMat.opacity = ease(cl((t5 - 0.35) / 0.35));
+      logoMat.opacity = ease(cl((p - 2.3) / 0.5));
+      const ss = ease(cl((t5 - 0.25) / 0.4)); straw.visible = ss > 0.01; straw.position.y = 1.95 + (1 - ss) * 3.2;
       camX += (this.mx - camX) * 0.05; camY += (this.my - camY) * 0.05;
       const tgtY = 0.35 + ease(cl((p - 1.6) / 1)) * 0.85;
       const rad = 9.6 - ease(cl((p - 1.6) / 1)) * 0.6;
@@ -245,7 +328,9 @@ class Component extends DCLogic {
       steps: STEPS.map((s, i) => ({ short: s.short, go: () => this.goTo(i),
         fill: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#e30a2e', width: (i < step ? 100 : i === step ? Math.round(this.state.pp * 100) : 0) + '%', transition: 'width .15s linear' },
         label: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: i === step ? '#fff' : '#7a7a7a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color .3s' } })),
-      onOrder: () => this.props.onOrder && this.props.onOrder(), onMenu: () => this.props.onMenu && this.props.onMenu()
+      onOrder: () => this.props.onOrder && this.props.onOrder(), onMenu: () => this.props.onMenu && this.props.onMenu(),
+      showSpin: step === 4 && !this.state.loading, drinkName: DRINKS[this.state.drink || 0].name,
+      prevDrink: () => { this.spinV = -0.32; }, nextDrink: () => { this.spinV = 0.32; }
     };
   }
 }
