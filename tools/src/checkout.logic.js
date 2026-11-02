@@ -84,7 +84,7 @@ class Component extends DCLogic {
   }
   payload() {
     const s = this.state, type = s.mode === 'dine' ? 'dine_in' : s.fulfil === 'delivery' ? 'delivery' : 'pickup';
-    const p = { order_type: type, customer_name: s.name.trim(), customer_phone: s.phone.replace(/[\s-]/g, ''), notes: '', payment_method: s.pay,
+    const p = { order_type: type, customer_name: s.name.trim(), customer_phone: s.phone.replace(/[\s-]/g, ''), customer_email: s.email.trim(), notes: '', payment_method: s.pay,
       items: this.cartLines().map(l => ({ menu_id: l.id, qty: l.qty, addon_option_ids: l.opts, note: '' })) };
     if (type === 'delivery') { p.delivery_address = s.address.trim(); p.driver_note = s.note.trim(); }
     if (type === 'dine_in') { p.reservation_date = API().ymd(s.dayI); p.reservation_slot = s.slot; p.pax = s.pax; }
