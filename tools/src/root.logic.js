@@ -209,7 +209,7 @@ class Component extends DCLogic {
       soundLabel: this.state.sound ? 'Sound on' : 'Sound off',
       toggleSound: () => { const v = this.vid.current; if (!v) return; v.muted = this.state.sound; if (!v.muted) v.play().catch(() => {}); this.setState({ sound: !this.state.sound }); },
       hasIg: !this.props.heroVideo && !!igId(this.props.instagramUrl ?? IG_DEFAULT), igEmbed: igId(this.props.instagramUrl ?? IG_DEFAULT) ? 'https://www.instagram.com/' + igId(this.props.instagramUrl ?? IG_DEFAULT) + '/embed/' : '',
-      igPosts: IG_POSTS.map(id => ({ embed: 'https://www.instagram.com/' + id + '/embed/', style: { position: 'absolute', border: 0, background: '#0d0d0d', pointerEvents: 'auto', ...IG_CROP[id.split('/')[0]] } })),
+      igPosts: IG_POSTS.map(id => ({ embed: 'https://www.instagram.com/' + id + '/embed/', style: { position: 'absolute', border: 0, background: '#0d0d0d', pointerEvents: 'none', ...IG_CROP[id.split('/')[0]] } })),
       igTrack: { position: 'absolute', inset: 0, display: 'flex', transform: 'translateX(' + (-100 * (this.state.igI || 0)) + '%)', transition: 'transform .9s cubic-bezier(.7,0,.2,1)' },
       igDots: IG_POSTS.map((_, i) => ({ style: { position: 'relative', width: 28, height: 3, borderRadius: 2, overflow: 'hidden', background: 'rgba(255,255,255,.35)' }, fill: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#fff', width: i < (this.state.igI || 0) ? '100%' : i === (this.state.igI || 0) ? (this.state.igHold ? '0%' : '100%') : '0%', transition: i === (this.state.igI || 0) && !this.state.igHold ? 'width ' + IG_MS + 'ms linear' : 'none' } })),
       noMedia: !this.props.heroVideo && !igId(this.props.instagramUrl ?? IG_DEFAULT),
