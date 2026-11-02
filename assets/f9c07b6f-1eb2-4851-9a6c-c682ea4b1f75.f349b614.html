@@ -58,15 +58,34 @@
       <h2 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(48px,7vw,96px);line-height:.88;text-wrap:balance">The fuel stop for people who <span style="color:#e30a2e;font-style:italic">train.</span></h2>
       <p style="margin:0;font-size:18px;line-height:1.6;color:#3a3a3a;max-width:480px">20FIT Cafe sits inside the 20FIT community. We make coffee, protein drinks and simple food for before and after your session.</p>
       <p style="margin:0;font-size:18px;line-height:1.6;color:#3a3a3a;max-width:480px">Every cup is made by hand, one at a time.</p>
+      <div class="fx-venue" style="display:flex;flex-direction:column;gap:10px;margin-top:6px;padding:22px;border-radius:22px;background:#0d0d0d;color:#fff;max-width:480px;box-shadow:0 18px 44px rgba(13,13,13,.18)">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#e30a2e">● The space</span>
+        <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(30px,3.4vw,40px);line-height:.92">Train. Refuel. Hang out.</span>
+        <span style="font-size:15px;line-height:1.55;color:#cfcfcf">Drop by after your session for a fresh drink, or book the whole cafe for your community, class or event.</span>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px">
+          <button onClick="{{ onDine }}" style="all:unset;cursor:pointer;white-space:nowrap;padding:11px 20px;border-radius:999px;background:#e30a2e;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:16px;letter-spacing:.05em" style-hover="background:#c70026">Reserve a table ›</button>
+          <button onClick="{{ onVenue }}" style="all:unset;cursor:pointer;white-space:nowrap;padding:11px 20px;border-radius:999px;border:1px solid rgba(255,255,255,.45);color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:16px;letter-spacing:.05em" style-hover="border-color:#fff;background:rgba(255,255,255,.08)">Book venue ›</button>
+        </div>
+      </div>
       <a href="https://www.instagram.com/20fit.cafe/" target="_blank" rel="noopener" style="align-self:flex-start;font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.1em;color:#e30a2e;text-decoration:none">@20FIT.CAFE ON INSTAGRAM ↗</a>
     </div>
-    <div style="justify-self:center;width:100%;max-width:400px;border-radius:24px;overflow:hidden;background:#fff;box-shadow:0 24px 60px rgba(13,13,13,.12)">
-      <iframe src="https://www.instagram.com/reel/DZMf2F3y_6X/embed/captioned/" title="20FIT Cafe on Instagram" loading="lazy" allowtransparency="true" allow="encrypted-media" style="display:block;width:100%;height:720px;border:0"></iframe>
+    <div style="position:relative;justify-self:center;width:100%;max-width:400px;aspect-ratio:9/16;border-radius:24px;overflow:hidden;background:#0d0d0d;box-shadow:0 24px 60px rgba(13,13,13,.18)">
+      <video ref="{{ vidRef }}" src="{{ vidSrc }}" autoplay="" muted="" loop="" playsinline="" preload="auto" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></video>
+      <span style="position:absolute;left:14px;top:14px;padding:7px 12px;border-radius:999px;background:rgba(13,13,13,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;pointer-events:none">● 20FIT Cafe</span>
+      <button data-snd="1" onClick="{{ toggleSound }}" aria-label="Toggle sound" style="all:unset;cursor:pointer;position:absolute;right:14px;top:14px;z-index:2;padding:8px 13px;border-radius:999px;background:rgba(13,13,13,.6);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase" style-hover="background:#e30a2e">{{ soundLabel }}</button>
+      <button data-snd="1" onClick="{{ onVenue }}" style="all:unset;cursor:pointer;position:absolute;left:14px;right:14px;bottom:14px;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-radius:16px;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#0d0d0d" style-hover="background:#fff">
+        <span style="display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:#e30a2e">Host your event here</span><span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:19px;line-height:1">Book the venue</span></span>
+        <span style="flex-shrink:0;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#e30a2e;color:#fff;font-size:18px">›</span>
+      </button>
     </div>
   </section>
+  <sc-if value="{{ showMusic }}" hint-placeholder-val="{{ false }}">
+    <button class="fx-music" data-snd="1" onClick="{{ toggleSound }}" aria-label="Mute music" style="all:unset;cursor:pointer;position:fixed;left:16px;bottom:16px;z-index:60;display:flex;align-items:center;gap:8px;padding:9px 14px;border-radius:999px;background:rgba(13,13,13,.78);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);color:#fff;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.12em;text-transform:uppercase;box-shadow:0 8px 24px rgba(0,0,0,.25);animation:pFade .4s ease" style-hover="background:#e30a2e">♪ Music on · Mute</button>
+  </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;onOrder&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onMenu&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;onOrder&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onMenu&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onVenue&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onDine&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;mediaHold&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const ABOUT_VIDEO = 'https://media.20fit.id/wp-content/uploads/2026/11/1793607194111.publer.com_.mp4';
 const STEPS = [
   { short: 'Select', title: 'Picked by hand', body: 'Our baristas sort and weigh specialty beans by hand, batch by batch, before anything is brewed.' },
   { short: 'Grind', title: 'Ground to order', body: 'Beans are ground fresh for each cup, so nothing sits around losing its aroma.' },
@@ -96,6 +115,39 @@ class Component extends DCLogic {
   state = { step: 0, pp: 0, loading: true, drink: 0 };
   track = React.createRef();
   mount = React.createRef();
+  vid = React.createRef();
+
+  // About-section video = the site's background music. It starts muted (browsers block sound until the visitor
+  // interacts), turns its sound on at the first tap/click/key, keeps playing while the visitor scrolls, and pauses
+  // only while the menu / order / checkout / history is open (mediaHold) or the tab is hidden.
+  vidLive() { return !this.props.mediaHold && document.visibilityState === 'visible'; }
+  ctlVid() {
+    const v = this.vid.current; if (!v) return;
+    if (!v.loop) { v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.addEventListener('ended', () => { if (this.vidLive()) { v.currentTime = 0; v.play().catch(() => {}); } }); }
+    v.muted = !this.state.sound;
+    if (this.vidLive()) { if (v.paused) v.play().catch(() => { if (!v.muted) { v.muted = true; this.setState({ sound: false }); v.play().catch(() => {}); } }); }
+    else if (!v.paused) v.pause();
+  }
+  componentDidUpdate() { const hold = !!this.props.mediaHold; if (hold !== this._hold) { this._hold = hold; this.ctlVid(); } }
+  setupVid() {
+    const EVS = ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'];
+    const stop = () => EVS.forEach(ev => window.removeEventListener(ev, this._unmute, true));
+    this._unmute = e => {
+      if (e && e.target && e.target.closest && e.target.closest('[data-snd]')) return;
+      if (this.state.userMuted || this.state.sound) return stop();
+      const v = this.vid.current; if (!v || this._unmuting || !this.vidLive()) return;
+      this._unmuting = true; v.muted = false;
+      v.play().then(() => { this._unmuting = false; stop(); this.setState({ sound: true }, () => this.ctlVid()); })
+        .catch(() => { this._unmuting = false; v.muted = true; v.play().catch(() => {}); });
+    };
+    EVS.forEach(ev => window.addEventListener(ev, this._unmute, { capture: true, passive: true }));
+    this._vVis = () => this.ctlVid(); document.addEventListener('visibilitychange', this._vVis);
+    this._stopUnmute = stop;
+    this._hold = !!this.props.mediaHold;
+    // watchdog: if the video ever ends up paused while it should play (or the other way round), fix it
+    this._vWatch = setInterval(() => { const v = this.vid.current; if (v && v.paused === this.vidLive()) this.ctlVid(); }, 1000);
+    this.ctlVid();
+  }
 
   componentDidMount() {
     this.p = 0; this.mx = 0; this.my = 0;
@@ -113,9 +165,11 @@ class Component extends DCLogic {
     this.spin = 0; this.spinV = 0; this.drag = null; this.hoverCup = false;
     this.canHover = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
     this._scroll();
+    this.setupVid();
     this.init().catch(e => console.error(e));
   }
   componentWillUnmount() {
+    clearInterval(this._vWatch); if (this._stopUnmute) this._stopUnmute(); document.removeEventListener('visibilitychange', this._vVis);
     this.dead = true; cancelAnimationFrame(this._raf);
     window.removeEventListener('scroll', this._scroll); window.removeEventListener('mousemove', this._mouse);
     if (this._ro) this._ro.disconnect();
@@ -350,6 +404,11 @@ class Component extends DCLogic {
         fill: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#e30a2e', width: (i < step ? 100 : i === step ? Math.round(this.state.pp * 100) : 0) + '%', transition: 'width .15s linear' },
         label: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: i === step ? '#fff' : '#7a7a7a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color .3s' } })),
       onOrder: () => this.props.onOrder && this.props.onOrder(), onMenu: () => this.props.onMenu && this.props.onMenu(),
+      onVenue: () => this.props.onVenue && this.props.onVenue(), onDine: () => this.props.onDine && this.props.onDine(),
+      vidRef: this.vid, vidSrc: ABOUT_VIDEO,
+      soundOn: !!this.state.sound, soundLabel: this.state.sound ? '🔊 Mute' : '🔇 Sound on',
+      showMusic: !!this.state.sound && !this.props.mediaHold,
+      toggleSound: e => { if (e && e.stopPropagation) e.stopPropagation(); const v = this.vid.current; if (!v) return; const on = !this.state.sound; v.muted = !on; if (on && this.vidLive()) v.play().catch(() => {}); this.setState({ sound: on, userMuted: !on }); },
       showSpin: step === 4 && !this.state.loading, drinkName: DRINKS[this.state.drink || 0].name,
       spinHint: this.canHover ? 'Hover the cup to change drink' : 'Tap the cup to change drink',
       prevDrink: () => this.swapDrink(-1), nextDrink: () => this.swapDrink(1)

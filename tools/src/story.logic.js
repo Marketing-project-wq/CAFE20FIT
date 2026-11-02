@@ -1,4 +1,5 @@
 
+const ABOUT_VIDEO = 'https://media.20fit.id/wp-content/uploads/2026/11/1793607194111.publer.com_.mp4';
 const STEPS = [
   { short: 'Select', title: 'Picked by hand', body: 'Our baristas sort and weigh specialty beans by hand, batch by batch, before anything is brewed.' },
   { short: 'Grind', title: 'Ground to order', body: 'Beans are ground fresh for each cup, so nothing sits around losing its aroma.' },
@@ -28,6 +29,39 @@ class Component extends DCLogic {
   state = { step: 0, pp: 0, loading: true, drink: 0 };
   track = React.createRef();
   mount = React.createRef();
+  vid = React.createRef();
+
+  // About-section video = the site's background music. It starts muted (browsers block sound until the visitor
+  // interacts), turns its sound on at the first tap/click/key, keeps playing while the visitor scrolls, and pauses
+  // only while the menu / order / checkout / history is open (mediaHold) or the tab is hidden.
+  vidLive() { return !this.props.mediaHold && document.visibilityState === 'visible'; }
+  ctlVid() {
+    const v = this.vid.current; if (!v) return;
+    if (!v.loop) { v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.addEventListener('ended', () => { if (this.vidLive()) { v.currentTime = 0; v.play().catch(() => {}); } }); }
+    v.muted = !this.state.sound;
+    if (this.vidLive()) { if (v.paused) v.play().catch(() => { if (!v.muted) { v.muted = true; this.setState({ sound: false }); v.play().catch(() => {}); } }); }
+    else if (!v.paused) v.pause();
+  }
+  componentDidUpdate() { const hold = !!this.props.mediaHold; if (hold !== this._hold) { this._hold = hold; this.ctlVid(); } }
+  setupVid() {
+    const EVS = ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'];
+    const stop = () => EVS.forEach(ev => window.removeEventListener(ev, this._unmute, true));
+    this._unmute = e => {
+      if (e && e.target && e.target.closest && e.target.closest('[data-snd]')) return;
+      if (this.state.userMuted || this.state.sound) return stop();
+      const v = this.vid.current; if (!v || this._unmuting || !this.vidLive()) return;
+      this._unmuting = true; v.muted = false;
+      v.play().then(() => { this._unmuting = false; stop(); this.setState({ sound: true }, () => this.ctlVid()); })
+        .catch(() => { this._unmuting = false; v.muted = true; v.play().catch(() => {}); });
+    };
+    EVS.forEach(ev => window.addEventListener(ev, this._unmute, { capture: true, passive: true }));
+    this._vVis = () => this.ctlVid(); document.addEventListener('visibilitychange', this._vVis);
+    this._stopUnmute = stop;
+    this._hold = !!this.props.mediaHold;
+    // watchdog: if the video ever ends up paused while it should play (or the other way round), fix it
+    this._vWatch = setInterval(() => { const v = this.vid.current; if (v && v.paused === this.vidLive()) this.ctlVid(); }, 1000);
+    this.ctlVid();
+  }
 
   componentDidMount() {
     this.p = 0; this.mx = 0; this.my = 0;
@@ -45,9 +79,11 @@ class Component extends DCLogic {
     this.spin = 0; this.spinV = 0; this.drag = null; this.hoverCup = false;
     this.canHover = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
     this._scroll();
+    this.setupVid();
     this.init().catch(e => console.error(e));
   }
   componentWillUnmount() {
+    clearInterval(this._vWatch); if (this._stopUnmute) this._stopUnmute(); document.removeEventListener('visibilitychange', this._vVis);
     this.dead = true; cancelAnimationFrame(this._raf);
     window.removeEventListener('scroll', this._scroll); window.removeEventListener('mousemove', this._mouse);
     if (this._ro) this._ro.disconnect();
@@ -282,6 +318,11 @@ class Component extends DCLogic {
         fill: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#e30a2e', width: (i < step ? 100 : i === step ? Math.round(this.state.pp * 100) : 0) + '%', transition: 'width .15s linear' },
         label: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: i === step ? '#fff' : '#7a7a7a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color .3s' } })),
       onOrder: () => this.props.onOrder && this.props.onOrder(), onMenu: () => this.props.onMenu && this.props.onMenu(),
+      onVenue: () => this.props.onVenue && this.props.onVenue(), onDine: () => this.props.onDine && this.props.onDine(),
+      vidRef: this.vid, vidSrc: ABOUT_VIDEO,
+      soundOn: !!this.state.sound, soundLabel: this.state.sound ? '🔊 Mute' : '🔇 Sound on',
+      showMusic: !!this.state.sound && !this.props.mediaHold,
+      toggleSound: e => { if (e && e.stopPropagation) e.stopPropagation(); const v = this.vid.current; if (!v) return; const on = !this.state.sound; v.muted = !on; if (on && this.vidLive()) v.play().catch(() => {}); this.setState({ sound: on, userMuted: !on }); },
       showSpin: step === 4 && !this.state.loading, drinkName: DRINKS[this.state.drink || 0].name,
       spinHint: this.canHover ? 'Hover the cup to change drink' : 'Tap the cup to change drink',
       prevDrink: () => this.swapDrink(-1), nextDrink: () => this.swapDrink(1)
