@@ -50,8 +50,17 @@ import hashlib
 # Content-hashed name so browsers never pair a new page with a stale cached logic file
 logic_name='assets/dc-logic.%s.js'%hashlib.sha256(logic_js.encode('utf-8')).hexdigest()[:10]
 open(out+'/'+logic_name,'w',encoding='utf-8').write(logic_js)
+# Site scripts (vendored libs + data layer), content-hashed like the rest, loaded before the page logic
+here=os.path.dirname(os.path.abspath(__file__))
+extra=[os.path.join(here,'vendor','supabase-js-2.103.0.umd.js'),os.path.join(here,'vendor','qrcode-generator-1.4.4.js'),os.path.join(here,'src','cafe-api.js')]
+tags=''
+for pth in extra:
+    if not os.path.exists(pth): continue
+    b=open(pth,'rb').read(); base=os.path.basename(pth)[:-3]
+    name='assets/%s.%s.js'%(base,hashlib.sha256(b).hexdigest()[:10])
+    open(out+'/'+name,'wb').write(b); tags+='<script src="'+name+'"></script>'
 t=open(out+'/index.html',encoding='utf-8').read()
 m=re.search(r'<head[^>]*>',t,re.I)
-t=t[:m.end()]+'<script src="'+logic_name+'"></script>'+t[m.end():]
+t=t[:m.end()]+tags+'<script src="'+logic_name+'"></script>'+t[m.end():]
 open(out+'/index.html','w',encoding='utf-8').write(t)
 print('patched runtime; precompiled logic blocks:',len(lines)-1)
