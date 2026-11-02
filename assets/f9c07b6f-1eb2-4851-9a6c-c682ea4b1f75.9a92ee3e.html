@@ -22,7 +22,7 @@
         <div class="fx-spin" style="position:absolute;right:8%;bottom:92px;z-index:3;display:flex;align-items:center;gap:10px;padding:6px;border-radius:999px;background:rgba(13,13,13,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);animation:pFade .4s ease">
           <button onClick="{{ prevDrink }}" aria-label="Previous drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">‹</button>
           <div style="display:flex;flex-direction:column;align-items:center;min-width:150px;text-align:center">
-            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#bdbdbd">↔ Drag to spin the cup</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#bdbdbd">{{ spinHint }}</span>
             <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;letter-spacing:.02em;text-transform:uppercase;color:#fff;white-space:nowrap">{{ drinkName }}</span>
           </div>
           <button onClick="{{ nextDrink }}" aria-label="Next drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">›</button>
@@ -36,9 +36,8 @@
           </div>
           <h1 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(56px,7.5vw,120px);line-height:.84;color:#fff;text-wrap:balance">{{ cur.title }}</h1>
           <p style="margin:0;font-size:17px;line-height:1.6;color:#cfcfcf;max-width:420px;min-height:3.2em">{{ cur.body }}</p>
-          <div style="display:flex;gap:10px;flex-wrap:wrap">
-            <button onClick="{{ onOrder }}" style="all:unset;cursor:pointer;white-space:nowrap;padding:13px 24px;border-radius:999px;background:#e30a2e;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;letter-spacing:.04em;text-transform:uppercase" style-hover="background:#c70026">Order now ›</button>
-            <button onClick="{{ onMenu }}" style="all:unset;cursor:pointer;white-space:nowrap;padding:13px 24px;border-radius:999px;border:1px solid rgba(255,255,255,.4);color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:18px;letter-spacing:.04em;text-transform:uppercase" style-hover="border-color:#fff">Full menu</button>
+          <div class="fx-story-cta" style="display:flex;justify-content:flex-end">
+            <button onClick="{{ onOrder }}" style="all:unset;cursor:pointer;white-space:nowrap;padding:9px 18px;border-radius:999px;background:#e30a2e;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;letter-spacing:.05em;text-transform:uppercase" style-hover="background:#c70026">Order now ›</button>
           </div>
         </div>
       </div>
@@ -111,7 +110,8 @@ class Component extends DCLogic {
     this._mouse = e => { this.mx = e.clientX / window.innerWidth - 0.5; this.my = e.clientY / window.innerHeight - 0.5; };
     window.addEventListener('scroll', this._scroll, { passive: true });
     window.addEventListener('mousemove', this._mouse);
-    this.spin = 0; this.spinV = 0; this.spinAcc = 0; this.drag = null;
+    this.spin = 0; this.spinV = 0; this.drag = null; this.hoverCup = false;
+    this.canHover = !!(window.matchMedia && window.matchMedia('(hover: hover) and (pointer: fine)').matches);
     this._scroll();
     this.init().catch(e => console.error(e));
   }
@@ -136,9 +136,25 @@ class Component extends DCLogic {
     Object.assign(renderer.domElement.style, { position: 'absolute', inset: '0', width: '100%', height: '100%' });
     el.appendChild(renderer.domElement);
     const cvs = renderer.domElement; cvs.style.touchAction = 'pan-y'; cvs.style.cursor = 'grab';
-    cvs.addEventListener('pointerdown', e => { this.drag = { x: e.clientX, id: e.pointerId }; this.spinV = 0; cvs.style.cursor = 'grabbing'; try { cvs.setPointerCapture(e.pointerId); } catch (err) {} });
-    cvs.addEventListener('pointermove', e => { if (!this.drag || e.pointerId !== this.drag.id) return; const dx = e.clientX - this.drag.x; this.drag.x = e.clientX; const v = dx * 0.011; this.spin += v; this.spinAcc += v; this.spinV = v; });
-    const endDrag = () => { this.drag = null; cvs.style.cursor = 'grab'; };
+    // Drag spins the cup; hovering the cup (mouse) or tapping it (touch) pours the next drink.
+    const onCup = e => this._hitCup ? this._hitCup(e.clientX, e.clientY) : false;
+    cvs.addEventListener('pointerdown', e => { this.drag = { x: e.clientX, x0: e.clientX, y0: e.clientY, t0: performance.now(), id: e.pointerId }; this.spinV = 0; cvs.style.cursor = 'grabbing'; try { cvs.setPointerCapture(e.pointerId); } catch (err) {} });
+    cvs.addEventListener('pointermove', e => {
+      if (!this.drag) {
+        if (e.pointerType !== 'mouse') return;
+        const over = onCup(e);
+        if (over && !this.hoverCup) this.swapDrink(1);
+        this.hoverCup = over;
+        return;
+      }
+      if (e.pointerId !== this.drag.id) return;
+      const dx = e.clientX - this.drag.x; this.drag.x = e.clientX; const v = dx * 0.011; this.spin += v; this.spinV = v;
+    });
+    cvs.addEventListener('pointerleave', () => { this.hoverCup = false; });
+    const endDrag = e => {
+      const d = this.drag; this.drag = null; cvs.style.cursor = 'grab';
+      if (d && e && e.type === 'pointerup' && e.pointerType !== 'mouse' && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 10 && performance.now() - d.t0 < 400 && onCup(e)) this.swapDrink(1);
+    };
     cvs.addEventListener('pointerup', endDrag); cvs.addEventListener('pointercancel', endDrag);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
@@ -174,6 +190,8 @@ class Component extends DCLogic {
     const rimMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, transmission: 0.6, roughness: 0.1, transparent: true, opacity: 0.9 });
     const prof = [[0, 0.02], [0.58, 0.02], [0.61, 0.06], [0.82, 2.3], [0.87, 2.32], [0.86, 2.36]].map(([a, b]) => new THREE.Vector2(a, b));
     const cupMesh = new THREE.Mesh(new THREE.LatheGeometry(prof, 120), glass); cupMesh.castShadow = true; cupMesh.renderOrder = 10; cup.add(cupMesh);
+    const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+    this._hitCup = (x, y) => { if (!cup.visible) return false; const r = cvs.getBoundingClientRect(); ndc.set((x - r.left) / r.width * 2 - 1, -((y - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, camera); return ray.intersectObject(cupMesh, false).length > 0; };
     const lid = new THREE.Group(); cup.add(lid);
     lid.add(new THREE.Mesh(new THREE.LatheGeometry([[0.91, -0.02], [0.92, 0.05], [0.88, 0.09], [0.8, 0.1], [0.78, 0.13], [0.7, 0.14], [0, 0.14]].map(([a, b]) => new THREE.Vector2(a, b)), 120), glass));
     const rimRing = new THREE.Mesh(new THREE.TorusGeometry(0.865, 0.022, 12, 120), rimMat); rimRing.rotation.x = Math.PI / 2; rimRing.position.y = 2.33; cup.add(rimRing);
@@ -283,12 +301,13 @@ class Component extends DCLogic {
       const gs = ease(cl((t1 - 0.2) / 0.8)) * (1 - ease(cl((p - 2) / 0.45)));
       ground.scale.set(gs, gs, gs); ground.visible = gs > 0.01; ground.position.y = 0.3 * gs;
       const cs = back(cl((p - 2.05) / 0.5)); cup.scale.setScalar(Math.max(0.0001, cs)); cup.visible = p > 2.05;
-      if (!this.drag) { this.spin += this.spinV; this.spinAcc += this.spinV; this.spinV *= 0.94; }
-      cup.rotation.y = Math.sin(time * 0.4) * 0.06 + (p - 3) * 0.08 + this.spin;
-      // Spin far enough on the last step -> drain and refill with the next drink
-      const full = p > 4.85;
-      if (full && !this.swap && Math.abs(this.spinAcc) > Math.PI * 0.85) { this.swap = { t0: time, dir: Math.sign(this.spinAcc), done: false }; this.spinAcc = 0; }
-      if (!full) this.spinAcc = 0;
+      // Turns a full 360 by itself (~11s per turn); a drag adds momentum on top
+      const dt = Math.min(0.05, Math.max(0, time - (this._lt == null ? time : this._lt))); this._lt = time;
+      if (!this.drag) { this.spin += this.spinV + dt * 0.57; this.spinV *= 0.94; }
+      cup.rotation.y = (p - 3) * 0.08 + this.spin;
+      // Hover / tap / arrows on the last step -> drain and refill with the next drink
+      this.full = p > 4.85; this.now = time;
+      if (this.wantSwap) { if (this.full && !this.swap) this.swap = { t0: time, dir: this.wantSwap, done: false }; this.wantSwap = 0; }
       let level = 1;
       if (this.swap) {
         const k = (time - this.swap.t0) / 1.5;
@@ -320,6 +339,8 @@ class Component extends DCLogic {
     frame();
   }
 
+  swapDrink(dir) { if (this.full && !this.swap) this.wantSwap = dir; }
+
   renderVals() {
     const step = this.state.step;
     return {
@@ -330,7 +351,8 @@ class Component extends DCLogic {
         label: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: i === step ? '#fff' : '#7a7a7a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color .3s' } })),
       onOrder: () => this.props.onOrder && this.props.onOrder(), onMenu: () => this.props.onMenu && this.props.onMenu(),
       showSpin: step === 4 && !this.state.loading, drinkName: DRINKS[this.state.drink || 0].name,
-      prevDrink: () => { this.spinV = -0.32; }, nextDrink: () => { this.spinV = 0.32; }
+      spinHint: this.canHover ? 'Hover the cup to change drink' : 'Tap the cup to change drink',
+      prevDrink: () => this.swapDrink(-1), nextDrink: () => this.swapDrink(1)
     };
   }
 }
