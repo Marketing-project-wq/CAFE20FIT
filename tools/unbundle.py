@@ -44,9 +44,13 @@ lines=['window.__dcLogic = new Map();']
 if srcs_file:
     for src in json.load(open(srcs_file)):
         lines.append('window.__dcLogic.set(%s, function (DCLogic, StreamableLogic, React) {\n%s\n;return (typeof Component!=="undefined"&&Component)||undefined;\n});'%(json.dumps(src).replace('</','<\\/'),src))
-open(out+'/assets/dc-logic.js','w',encoding='utf-8').write('\n'.join(lines)+'\n')
+logic_js='\n'.join(lines)+'\n'
+import hashlib
+# Content-hashed name so browsers never pair a new page with a stale cached logic file
+logic_name='assets/dc-logic.%s.js'%hashlib.sha256(logic_js.encode('utf-8')).hexdigest()[:10]
+open(out+'/'+logic_name,'w',encoding='utf-8').write(logic_js)
 t=open(out+'/index.html',encoding='utf-8').read()
 m=re.search(r'<head[^>]*>',t,re.I)
-t=t[:m.end()]+'<script src="assets/dc-logic.js"></script>'+t[m.end():]
+t=t[:m.end()]+'<script src="'+logic_name+'"></script>'+t[m.end():]
 open(out+'/index.html','w',encoding='utf-8').write(t)
 print('patched runtime; precompiled logic blocks:',len(lines)-1)
