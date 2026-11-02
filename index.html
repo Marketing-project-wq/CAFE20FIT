@@ -766,7 +766,7 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
   </sc-if>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script="" data-props="{&quot;idleSwing&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:0,&quot;max&quot;:80,&quot;step&quot;:5,&quot;unit&quot;:&quot;°&quot;,&quot;default&quot;:35,&quot;tsType&quot;:&quot;number&quot;},&quot;instagramUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;https://www.instagram.com/reel/DZMf2F3y_6X/&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Hero media&quot;},&quot;waNumber&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;6281234567890&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Contact&quot;},&quot;heroVideo&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Hero media&quot;}}">
+<script type="text/x-dc" data-dc-script="" data-props="{&quot;idleSwing&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:0,&quot;max&quot;:80,&quot;step&quot;:5,&quot;unit&quot;:&quot;°&quot;,&quot;default&quot;:35,&quot;tsType&quot;:&quot;number&quot;},&quot;instagramUrl&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;https://www.instagram.com/reel/DZMf2F3y_6X/&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Hero media&quot;},&quot;waNumber&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;6285284200036&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Contact&quot;},&quot;heroVideo&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Hero media&quot;}}">
 const U = n => (window.__resources && window.__resources['img_' + n]) || ('src/' + n + '.jpg');
 const MENU = [
   { id: 'chia', name: 'Chia Pudding', cat: 'Food', imgs: [U('DSC3733'), U('DSC3737-1')] },
@@ -920,7 +920,7 @@ class Component extends DCLogic {
       toMenu: () => this.scrollMenu(),
       openHero: () => this.setState({ sel: 'aren' }),
       toOrder: () => this.setState({ mode: null, checkout: true, sel: null, full: false }),
-      waNumber: this.props.waNumber ?? '6281234567890',
+      waNumber: this.props.waNumber ?? '6285284200036',
       menuLite: MENU.map(m => ({ id: m.id, name: m.name, cat: m.cat, price: this.price(m), src: this.src(m.imgs[0]) })),
       tabs: TABS.map(t => ({ label: t, pick: () => this.setState({ tab: t }),
         style: { all: 'unset', cursor: 'pointer', padding: '9px 18px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '.03em', textTransform: 'uppercase',
