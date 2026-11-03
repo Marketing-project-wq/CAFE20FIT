@@ -69,6 +69,10 @@ if os.path.exists(boot):
     t=t[:mb.end()]+'\n'+open(boot,encoding='utf-8').read()+t[mb.end():]
 # 20FIT first-party tracker (pageviews + CTA clicks, no PII) -- kept here so rebuilds never drop it
 HEAD_EXTRA='<script async src="https://admin.20fit.id/api/t/js" data-unit="cafe"></script>\n'
+# open the connections the first screen needs (menu API, Instagram embeds, three.js CDN) while the page loads
+PRECONNECT=''.join('<link rel="preconnect" href="%s" crossorigin>'%h for h in ['https://cpvzwqptzcxnwzfzgrmt.supabase.co','https://www.instagram.com','https://static.cdninstagram.com','https://scontent.cdninstagram.com','https://cdn.jsdelivr.net'])
+if 'rel="preconnect" href="https://www.instagram.com"' not in t:
+    mh=re.search(r'<meta name="viewport"[^>]*>',t); t=t[:mh.end()]+PRECONNECT+t[mh.end():]
 if 'admin.20fit.id/api/t/js' not in t:
     t=t.replace('</head>',HEAD_EXTRA+'</head>',1)
 # First paint: charset/viewport first, and external scripts deferred (same order, run after parsing) so the
