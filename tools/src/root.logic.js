@@ -33,6 +33,7 @@ const API = () => window.CafeApi;
 const SC = () => window.StoryConfig || { chapters: [], stops: [], needs: ['Fresh', 'Fueling', 'Light energy'], sky: [], teasers: {} };
 const TRACK = (e, p) => { try { window.track && window.track(e, p); } catch (x) {} };
 const clamp01 = x => Math.max(0, Math.min(1, x));
+const reduceMotionNow = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 const hexToRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const mixRgb = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
 // Story layout: horizontal pinned day on wide screens; vertical list on phones or with reduced motion
@@ -44,6 +45,7 @@ class Component extends DCLogic {
   state = { igI: 0, igHold: true, hy: 0, hx: 0, hyM: 0, hon: false, need: 1, heroIn: false, sound: false, tab: 'All', sel: null, cart: {}, checkout: false, full: false, hist: false,
     menu: null, menuErr: '', refs: [], hList: null, hErr: '', hLoading: false, hOpen: {}, hFlash: {}, hDot: false, rates: {}, findCode: '', findPhone: '', findMsg: '', findBusy: false, toast: null, pick: {} };
   rail = React.createRef();
+  careVid = React.createRef();
   day = React.createRef(); dayStage = React.createRef(); dayTrack = React.createRef(); dayHand = React.createRef(); dayMin = React.createRef(); dayTime = React.createRef(); dayTime2 = React.createRef(); progBar = React.createRef();
   // ---- landing story (CH 03 'A day, fueled' + chapter navigation) ----
   storyTick() {
@@ -60,6 +62,18 @@ class Component extends DCLogic {
       if (vis >= Math.min(r.height, innerHeight) * 0.5) window.trackOnce && window.trackOnce('ch:' + c.id, 'story_chapter_view', { chapter: c.id, index: cfg.chapters.indexOf(c) + 1 });
     });
     if (ch !== this.state.ch) this.setState({ ch });
+    // CH 05: headline reveals word by word with the scroll; the polaroids close up
+    const head = document.querySelector('#care [data-head]');
+    if (head) {
+      const r = head.getBoundingClientRect(), pr = reduceMotionNow() ? 1 : clamp01((innerHeight * 0.9 - r.top) / (r.height + innerHeight * 0.45));
+      const ws = head.querySelectorAll('[data-w]'), n = ws.length;
+      ws.forEach((w, i) => { const o = 0.15 + 0.85 * clamp01(pr * (n + 2) - i); if (w._o !== o) { w._o = o; w.style.opacity = o.toFixed(3); } });
+    }
+    const pol = document.querySelector('#care [data-pol]');
+    if (pol) {
+      const r = pol.getBoundingClientRect(), pr = reduceMotionNow() ? 1 : clamp01((innerHeight - r.top) / (innerHeight * 0.85));
+      [...pol.children].forEach((c, i) => { const d = i - 1; c.style.transform = 'translateX(' + (d * (1 - pr) * 38) + '%) rotate(' + (d * (4 + 10 * (1 - pr))) + 'deg) translateY(' + (Math.abs(d) * 14 * pr) + 'px)'; });
+    }
     // CH 03
     const el = this.day.current, stage = this.dayStage.current, track = this.dayTrack.current; if (!el || !stage || !track || !n) return;
     let pos;
@@ -109,6 +123,53 @@ class Component extends DCLogic {
       const dx = t.left + t.width * 0.18 - r.left - r.width / 2, dy = t.top + t.height / 2 - r.top - r.height / 2;
       ghost.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: 'translate(' + dx * 0.5 + 'px,' + (dy * 0.5 - 80) + 'px) scale(.6)', opacity: 1, offset: 0.5 }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.18)', opacity: 0.2 }], { duration: 720, easing: 'cubic-bezier(.5,0,.3,1)' }).onfinish = () => { ghost.remove(); bump(); };
     });
+  }
+  // ---- CH 05 video = the site's music: starts muted, sound on at the first tap/click/key, keeps playing while the
+  // visitor scrolls, pauses only while an overlay (menu / order / checkout / history / product) is open or the tab is hidden.
+  overlayOpen() { const st = this.state; return !!(st.checkout || st.full || st.hist || st.sel); }
+  cVidLive() { return !this.overlayOpen() && document.visibilityState === 'visible'; }
+  ctlCareVid() {
+    const v = this.careVid.current; if (!v) return;
+    if (!v.loop) { v.loop = true; v.playsInline = true; v.setAttribute('playsinline', ''); }
+    v.muted = !this.state.cSound;
+    if (this.cVidLive()) { if (v.paused) v.play().catch(() => { if (!v.muted) { v.muted = true; this.setState({ cSound: false }); v.play().catch(() => {}); } }); }
+    else if (!v.paused) v.pause();
+  }
+  setupCareVid() {
+    const EVS = ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'];
+    const stop = () => EVS.forEach(ev => window.removeEventListener(ev, this._cUnmute, true));
+    this._cUnmute = e => {
+      if (e && e.target && e.target.closest && e.target.closest('[data-snd]')) return;
+      if (this.state.cUserMuted || this.state.cSound) return stop();
+      const v = this.careVid.current; if (!v || this._cUnmuting || !this.cVidLive()) return;
+      this._cUnmuting = true; v.muted = false;
+      v.play().then(() => { this._cUnmuting = false; stop(); this.setState({ cSound: true }, () => this.ctlCareVid()); }).catch(() => { this._cUnmuting = false; v.muted = true; v.play().catch(() => {}); });
+    };
+    EVS.forEach(ev => window.addEventListener(ev, this._cUnmute, { capture: true, passive: true }));
+    this._cStop = stop; this._cVis = () => this.ctlCareVid(); document.addEventListener('visibilitychange', this._cVis);
+    this._cWatch = setInterval(() => { const v = this.careVid.current; if (v && v.paused === this.cVidLive()) this.ctlCareVid(); }, 1000);
+  }
+  // ---- CH 04 quiz ----
+  quizAnswer(qid, val) {
+    const qs = SC().quiz.questions, i = this.state.qi || 0;
+    if (this.state.qPick) return;
+    if (i === 0) TRACK('quiz_start', {});
+    this.setState({ qPick: val });
+    setTimeout(() => {
+      const qa = { ...(this.state.qa || {}), [qid]: val }, next = i + 1;
+      if (next < qs.length) { this.setState({ qa, qi: next, qPick: null }); return; }
+      const r = this.quizResult(qa); const ni = SC().needs.indexOf(r.need);
+      this.setState({ qa, qi: next, qPick: null, ...(ni >= 0 ? { need: ni } : {}) });
+      TRACK('quiz_complete', { result_item: r.items[0] ? r.items[0].name : '' });
+    }, reduceMotionNow() ? 0 : 280);
+  }
+  quizResult(qa) {
+    const Q = SC().quiz, ok = x => x && x.available;
+    const rule = (Q.rules || []).find(r => Object.keys(r.when || {}).every(k => qa[k] === r.when[k]));
+    let items = rule ? rule.items.map(n => this.byName(String(n).toLowerCase())).filter(ok) : [];
+    if (!items.length) items = this.menuAll().filter(m => ok(m) && m.cat === Q.fallbackCategory).slice(0, 3);
+    if (!items.length) items = this.menuAll().filter(ok).slice(0, 3);
+    return { items: items.slice(0, 3), reason: rule && items.length ? rule.reason : Q.fallbackReason, need: rule ? rule.need : null };
   }
   goTo(elId) { const el = document.getElementById(elId); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - (elId === 'order' ? 90 : 0), behavior: 'smooth' }); }
   pickStop() { const want = SC().needs[this.state.need] || 'Fueling'; return Math.max(0, SC().stops.findIndex(s => s.need === want)); }
@@ -202,7 +263,7 @@ class Component extends DCLogic {
   // so its music never runs underneath the ordering flow or while scrolling through the menu.
   vidLive() { const st = this.state; return !!this.vidSeen && !st.checkout && !st.full && !st.hist && !st.sel && document.visibilityState === 'visible'; }
   ctlVid() { const v = this.vid.current; if (!v) return; v.muted = !this.state.sound; if (this.vidLive()) { if (v.paused) v.play().catch(() => { if (!v.muted) { v.muted = true; this.setState({ sound: false }); v.play().catch(() => {}); } }); } else if (!v.paused) v.pause(); }
-  componentDidUpdate() { this.syncVid(); }
+  componentDidUpdate() { this.syncVid(); const ov = this.overlayOpen(); if (ov !== this._ov) { this._ov = ov; this.ctlCareVid(); } }
   componentDidMount() {
     this.loadMenu();
     this.refreshHist(false);
@@ -228,6 +289,10 @@ class Component extends DCLogic {
     this._hs = () => { const y = Math.min(window.scrollY, 1200); if (Math.abs(y - this.state.hy) > 2) this.setState({ hy: y }); }; window.addEventListener('scroll', this._hs, { passive: true }); setTimeout(() => this.setState({ heroIn: true }), 120);
     
     // landing story: chapters on this page, scroll-driven CH 03, chapter rail / progress bar
+    this.setupCareVid();
+    // CH 05 pillars + CH 06 cards animate in once they are on screen
+    this._reveal = new IntersectionObserver(es => es.forEach(e => { if (!e.isIntersecting) return; const k = e.target.dataset.reveal; if (k && !this.state[k]) this.setState({ [k]: true }); this._reveal.unobserve(e.target); }), { threshold: 0.25 });
+    setTimeout(() => document.querySelectorAll('[data-reveal]').forEach(el => this._reveal.observe(el)), 700);
     this._chs = SC().chapters.filter(c => document.getElementById(c.el));
     this._sraf = 0; this._story = () => { if (this._sraf) return; this._sraf = requestAnimationFrame(() => { this._sraf = 0; this.storyTick(); }); };
     window.addEventListener('scroll', this._story, { passive: true }); window.addEventListener('resize', this._story);
@@ -249,7 +314,7 @@ class Component extends DCLogic {
     };
     this._raf = requestAnimationFrame(loop);
   }
-  componentWillUnmount() { window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); cancelAnimationFrame(this._raf); }
+  componentWillUnmount() { clearInterval(this._cWatch); if (this._cStop) this._cStop(); document.removeEventListener('visibilitychange', this._cVis); if (this._reveal) this._reveal.disconnect(); window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); cancelAnimationFrame(this._raf); }
 
   viewer(m, key) {
     const h = React.createElement;
@@ -340,6 +405,40 @@ class Component extends DCLogic {
       }),
       dayCartText: cartN ? cartN + ' in your cup · ' + rp(cartSum) : 'Your cup is empty',
       dayCartOn: cartN > 0, openCart: () => cartN && this.setState(s => ({ checkout: true, sel: null, full: false, mode: s.mode === 'venue' ? null : s.mode })),
+      // CH 04 — Find your fuel
+      quizQ: (() => { const Q = cfg.quiz, i = this.state.qi || 0; if (!Q || i >= Q.questions.length) return null; return Q.questions[i]; })() ? 1 : 0,
+      quizIsQ: !!(cfg.quiz && (this.state.qi || 0) < cfg.quiz.questions.length), quizIsResult: !!(cfg.quiz && (this.state.qi || 0) >= cfg.quiz.questions.length),
+      quizNum: String(Math.min((this.state.qi || 0) + 1, 3)).padStart(2, '0') + ' / 03',
+      quizTitle: cfg.quiz && cfg.quiz.questions[this.state.qi || 0] ? cfg.quiz.questions[this.state.qi || 0].q : '',
+      quizBars: (cfg.quiz ? cfg.quiz.questions : []).map((_, i) => ({ style: { flex: 1, height: 4, borderRadius: 4, background: i < (this.state.qi || 0) ? '#e30a2e' : i === (this.state.qi || 0) ? 'rgba(227,10,46,.45)' : 'rgba(13,13,13,.12)', transition: 'background .3s' } })),
+      quizOpts: (() => { const Q = cfg.quiz, i = this.state.qi || 0; if (!Q || i >= Q.questions.length) return []; const q = Q.questions[i];
+        return q.options.map(([val, label]) => { const on = this.state.qPick === val; return { label, pick: () => this.quizAnswer(q.id, val),
+          style: { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', padding: '18px 26px', borderRadius: 999, border: '2px solid ' + (on ? '#e30a2e' : 'rgba(13,13,13,.14)'), background: on ? '#e30a2e' : 'rgba(255,255,255,.8)', color: on ? '#fff' : '#0d0d0d', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 24, letterSpacing: '.02em', textTransform: 'uppercase', transition: 'background .2s, border-color .2s, transform .2s', transform: on ? 'scale(1.04)' : 'none' } }; }); })(),
+      quizRes: (() => { if (!cfg.quiz || (this.state.qi || 0) < cfg.quiz.questions.length) return { name: '', priceFmt: '', src: NO_PHOTO, reason: '' };
+        const r = this.quizResult(this.state.qa || {}), m = r.items[0];
+        return m ? { name: m.name, priceFmt: rp(m.price), src: this.src(m.imgs[0]), reason: r.reason, add: e => this.storyAdd(m, '04_quiz', e), open: () => this.setState({ sel: m.id, tab: 'All' }), addLabel: this.qtyOf(m.id) ? 'In your order · ' + this.qtyOf(m.id) : 'Add to my order' } : { name: 'Menu is loading…', priceFmt: '', src: NO_PHOTO, reason: '' }; })(),
+      quizAlts: (() => { if (!cfg.quiz || (this.state.qi || 0) < cfg.quiz.questions.length) return []; return this.quizResult(this.state.qa || {}).items.slice(1).map(x => ({ name: x.name, priceFmt: rp(x.price), src: this.src(x.imgs[0]), add: e => this.storyAdd(x, '04_quiz', e), open: () => this.setState({ sel: x.id, tab: 'All' }), addLabel: this.qtyOf(x.id) ? 'In cart · ' + this.qtyOf(x.id) : '+ Add' })); })(),
+      quizAgain: () => this.setState({ qi: 0, qa: {}, qPick: null }),
+      quizTeaser: (cfg.teasers.quiz || ''), toCare: () => this.goTo('care'),
+      // CH 05 — Made with care
+      careWords: (() => { const C = cfg.care || { headline: '', headlineRed: '' }; return String(C.headline).split(' ').map(w => ({ w, style: { opacity: 0.15, color: 'inherit', transition: 'opacity .25s linear' } }))
+        .concat(String(C.headlineRed).split(' ').map(w => ({ w, style: { opacity: 0.15, color: '#e30a2e', transition: 'opacity .25s linear' } }))); })(),
+      pillars: ((cfg.care || {}).pillars || []).map((pl, i) => { const m = this.byName(String(pl.photo).toLowerCase()), on = !!this.state.careIn;
+        return { need: pl.need, line: pl.line, src: this.src((m ? m.imgs : photosFor({ name: String(pl.photo).toLowerCase() }))[0]), pick: needLabel === pl.need,
+          see: () => { const cats = new Set(this.menuAll().map(x => x.cat)); this.setState({ full: true, hist: false, sel: null, tab: cats.has(pl.category) ? pl.category : 'All' }); },
+          style: { display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 28, background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(26px) saturate(170%)', WebkitBackdropFilter: 'blur(26px) saturate(170%)', border: '1px solid rgba(255,255,255,.9)', boxShadow: needLabel === pl.need ? '0 0 0 2px #e30a2e, 0 24px 60px rgba(227,10,46,.16)' : 'inset 0 1px 0 #fff, 0 20px 50px rgba(13,13,13,.08)',
+            opacity: on ? 1 : 0, transform: on ? 'none' : 'translateY(48px)', transition: 'opacity .7s ease ' + (i * 140) + 'ms, transform .8s cubic-bezier(.2,.8,.2,1) ' + (i * 140) + 'ms' } }; }),
+      igPol: IG_POSTS.map((id, k) => ({ embed: 'https://www.instagram.com/' + id + '/embed/', poster: this.src(IG_POSTERS[k % IG_POSTERS.length]),
+        loaded: () => !(this.state.polOk || {})[k] && this.setState(s => ({ polOk: { ...(s.polOk || {}), [k]: true } })),
+        frameStyle: { position: 'absolute', border: 0, opacity: (this.state.polOk || {})[k] ? 1 : 0, transition: 'opacity .6s', pointerEvents: 'none', ...IG_CROP[id.split('/')[0]] } })),
+      careVidRef: this.careVid, careVidSrc: (cfg.care || {}).video || '',
+      cSoundLabel: this.state.cSound ? '🔊 Mute' : '🔇 Sound on',
+      cToggle: e => { if (e && e.stopPropagation) e.stopPropagation(); const v = this.careVid.current; if (!v) return; const on = !this.state.cSound; v.muted = !on; if (on && this.cVidLive()) v.play().catch(() => {}); this.setState({ cSound: on, cUserMuted: !on }); },
+      showMusic: !!this.state.cSound && !overlay,
+      careTeaser: cfg.teasers.care || '', toOrderSec: () => this.goTo('order'),
+      // CH 06 — Your turn
+      orderHasCart: cartN > 0, orderCartText: cartN + ' item' + (cartN > 1 ? 's' : '') + ' · ' + rp(cartSum) + ' — choose how to get it',
+      modesStyle: { '--deal': this.state.orderIn || reduceMotionNow() ? 1 : 0, '--cart': cartN > 0 ? 1 : 0 },
       dayTeaser: document.getElementById('quiz') ? (cfg.teasers.day || '') : (cfg.teasers.dayFallback || ''),
       toAfterDay: () => this.goTo(document.getElementById('quiz') ? 'quiz' : 'order'),
       // Story navigation (rail on desktop, progress bar on phones); hidden while an overlay is open
