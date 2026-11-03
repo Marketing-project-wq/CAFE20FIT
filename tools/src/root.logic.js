@@ -172,7 +172,6 @@ class Component extends DCLogic {
     return { items: items.slice(0, 3), reason: rule && items.length ? rule.reason : Q.fallbackReason, need: rule ? rule.need : null };
   }
   goTo(elId) { const el = document.getElementById(elId); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - (elId === 'order' ? 90 : 0), behavior: 'smooth' }); }
-  pickStop() { const want = SC().needs[this.state.need] || 'Fueling'; return Math.max(0, SC().stops.findIndex(s => s.need === want)); }
   // ---- menu (from POS via cafe_get_web_menu) ----
   // Menu is cached in the browser: repeat visits show it (and its photos) instantly, then refresh from the server.
   loadMenu() {
@@ -381,16 +380,13 @@ class Component extends DCLogic {
     const l = this.list();
     const m = this.byId(sel);
     const H = this.state.hList || [];
-    const cfg = SC(), needLabel = cfg.needs[this.state.need] || 'Fueling', pickI = this.pickStop(), overlay = !!(this.state.checkout || this.state.full || this.state.hist || m);
+    const cfg = SC(), needLabel = cfg.needs[this.state.need] || 'Fueling', overlay = !!(this.state.checkout || this.state.full || this.state.hist || m);
     const cartN = Object.values(this.state.cart).reduce((a, l) => a + l.qty, 0);
     const cartSum = Object.values(this.state.cart).reduce((a, l) => { const x = this.byId(l.id); return a + (x ? (x.price + optsPrice(x, l.opts)) * l.qty : 0); }, 0);
     const words = (t, on) => String(t).split(' ').map((w, k) => ({ w, style: { display: 'inline-block', marginRight: '.22em', opacity: on ? 1 : 0.12, transform: on ? 'none' : 'translateY(18px)', transition: 'opacity .5s ease ' + (k * 70) + 'ms, transform .6s cubic-bezier(.2,.8,.2,1) ' + (k * 70) + 'ms' } }));
     const story = {
       // CH 01 — scroll cue (hidden once the visitor starts scrolling)
       showCue: this.state.hy <= 80,
-      // CH 02 -> 03 teaser (shown on the last 3D step)
-      madeTeaser: cfg.teasers.made || '', madePick: (cfg.teasers.madePick || '').replace('{need}', needLabel).replace('{time}', (cfg.stops[pickI] || {}).time || ''),
-      toDay: () => this.goTo('day'),
       // CH 03 — A day, fueled
       dayRef: this.day, dayStageRef: this.dayStage, dayTrackRef: this.dayTrack, dayHandRef: this.dayHand, dayMinRef: this.dayMin, dayTimeRef: this.dayTime, dayTime2Ref: this.dayTime2,
       dayStart: (cfg.stops[0] || {}).time || '06:00',

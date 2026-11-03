@@ -35,8 +35,6 @@ window.StoryConfig = {
 
   // Teasers that close each chapter (click = smooth scroll to the next chapter)
   teasers: {
-    made: "That's one cup. Here's how it fits into your day",
-    madePick: 'Your {need} moment is at {time}',
     day: 'Not sure which one is yours? Answer 3 questions',
     dayFallback: 'Your cup is waiting. Choose how to get it',
     quiz: 'Why it tastes like this: made with care',

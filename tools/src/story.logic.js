@@ -1,12 +1,12 @@
 
 const STEPS = [
-  { short: 'Picked', title: 'Freshly picked', body: 'Ripe coffee cherries are picked by hand at the farm. Only the deep red ones make the cut.' },
+  { short: 'Picked', title: 'Freshly picked', body: 'Ripe red cherries, picked by hand from the tree.' },
   // TODO-COPY step 2: confirm (a) 'Roasted in small batches by our partner roastery, then ground fresh for each cup.' or
   // (b) '…in our own roastery…'. Until then a neutral line that is true either way:
-  { short: 'Roast', title: 'Roasted in small batches', body: 'The green beans inside are roasted slowly until they turn deep brown and smell like caramel.' },
-  { short: 'Brew', title: 'Ground & brewed', body: 'Ground fresh for every cup, then pulled as a shot. If it is not right, our baristas pull it again.' },
-  { short: 'Pour', title: 'Poured slowly', body: 'Milk and sweetness are measured and poured by hand, one cup at a time.' },
-  { short: 'Fuel', title: 'Filled to fuel your day', body: 'Sealed, checked by the barista and handed over, ready for your session at 20FIT Arena.' }
+  { short: 'Roast', title: 'Roasted in small batches', body: 'Roasted slowly to a deep, caramel brown.' },
+  { short: 'Brew', title: 'Ground & brewed', body: 'Ground fresh and pulled as a shot for every cup.' },
+  { short: 'Pour', title: 'Poured slowly', body: 'Milk and sweetness, poured by hand.' },
+  { short: 'Fuel', title: 'Filled to fuel your day', body: 'Ready for your session at 20FIT Arena.' }
 ];
 const KD = [0, 1, 2, 3, 4, 5], KP = [0, 1, 2, 3.95, 5, 6];
 const toP = d => { for (let i = 0; i < 5; i++) if (d <= KD[i + 1]) return KP[i] + (d - KD[i]) * (KP[i + 1] - KP[i]); return 6; };
@@ -138,15 +138,31 @@ class Component extends DCLogic {
       const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'), P = (BD.locations[key] || {}).paint || { sky: ['#888', '#444', '#111'], accent: '#e30a2e' };
       const gr = g.createLinearGradient(0, 0, 0, h); P.sky.forEach((col, i) => gr.addColorStop(i / (P.sky.length - 1), col)); g.fillStyle = gr; g.fillRect(0, 0, w, h);
       const blob = (x, y, rx, ry, col, a) => { g.globalAlpha = a; g.fillStyle = col; g.beginPath(); g.ellipse(x * w, y * h, rx * w, ry * h, 0, 0, 7); g.fill(); g.globalAlpha = 1; };
-      if (key === 'farm') {
-        const sun = g.createRadialGradient(w * 0.8, h * 0.18, 0, w * 0.8, h * 0.18, w * 0.35); sun.addColorStop(0, 'rgba(255,240,200,.9)'); sun.addColorStop(1, 'rgba(255,240,200,0)'); g.fillStyle = sun; g.fillRect(0, 0, w, h);
-        for (let i = 0; i < 26; i++) blob(rnd(i + 200), 0.45 + rnd(i + 201) * 0.5, 0.06 + rnd(i + 202) * 0.12, 0.05 + rnd(i + 203) * 0.1, ['#3f6b2a', '#4f7d34', '#2f5320'][i % 3], 0.85);
-        for (let i = 0; i < 60; i++) blob(rnd(i + 300), 0.5 + rnd(i + 301) * 0.4, 0.005, 0.009, i % 4 ? '#b3102a' : '#d2392a', 0.9);
-      } else if (key === 'roastery') {
-        const glow = g.createRadialGradient(w * 0.25, h * 0.55, 0, w * 0.25, h * 0.55, w * 0.4); glow.addColorStop(0, 'rgba(255,138,58,.45)'); glow.addColorStop(1, 'rgba(255,138,58,0)'); g.fillStyle = glow; g.fillRect(0, 0, w, h);
-        blob(0.22, 0.5, 0.13, 0.22, '#3a2a20', 1); blob(0.22, 0.5, 0.09, 0.16, '#1a120c', 1); blob(0.22, 0.5, 0.03, 0.05, '#ff8a3a', 0.7);
-        for (let i = 0; i < 5; i++) { g.fillStyle = ['#8a6a44', '#7a5c3a', '#96764d'][i % 3]; g.beginPath(); g.roundRect ? g.roundRect(w * (0.62 + i * 0.07), h * (0.62 - (i % 2) * 0.05), w * 0.08, h * 0.3, 18) : g.rect(w * (0.62 + i * 0.07), h * 0.62, w * 0.08, h * 0.3); g.fill(); }
-        g.fillStyle = 'rgba(255,255,255,.05)'; for (let i = 0; i < 8; i++) blob(0.3 + rnd(i + 400) * 0.5, 0.2 + rnd(i + 401) * 0.4, 0.12, 0.05, '#ffffff', 0.05);
+      const ridge = (y0, amp, seed, col, a) => {   // smooth hill line across the picture, filled down to the bottom
+        g.globalAlpha = a; g.fillStyle = col; g.beginPath(); g.moveTo(0, h);
+        for (let x = 0; x <= w; x += w / 96) { const u = x / w; g.lineTo(x, h * (y0 - amp * (Math.sin(u * 5.1 + seed) * 0.55 + Math.sin(u * 11.3 + seed * 2.1) * 0.25 + Math.sin(u * 2.3 + seed * 0.7) * 0.6))); }
+        g.lineTo(w, h); g.closePath(); g.fill(); g.globalAlpha = 1;
+      };
+      if (key === 'farm') {   // morning on a coffee hillside: haze, distant ridges, terraced rows of shrubs
+        const sk = g.createLinearGradient(0, 0, 0, h * 0.62); sk.addColorStop(0, '#f2e4c6'); sk.addColorStop(1, '#e3ead3'); g.fillStyle = sk; g.fillRect(0, 0, w, h);
+        const sun = g.createRadialGradient(w * 0.78, h * 0.16, 0, w * 0.78, h * 0.16, w * 0.42); sun.addColorStop(0, 'rgba(255,244,214,.95)'); sun.addColorStop(1, 'rgba(255,244,214,0)'); g.fillStyle = sun; g.fillRect(0, 0, w, h);
+        ridge(0.5, 0.06, 1.3, '#c2cfb2', 1); ridge(0.57, 0.05, 4.2, '#a9bd94', 1); ridge(0.66, 0.045, 2.6, '#86a26c', 1);
+        // terraced rows on the near hill: soft darker bands following the slope
+        ridge(0.76, 0.04, 5.4, '#6a8a4f', 1);
+        g.strokeStyle = 'rgba(52,84,36,.28)'; g.lineCap = 'round';
+        for (let r = 0; r < 6; r++) {
+          const y0 = 0.8 + r * 0.035; g.lineWidth = Math.max(2, h * (0.006 + r * 0.0016)); g.beginPath();
+          for (let x = 0; x <= w; x += w / 80) { const u = x / w, y = h * (y0 - 0.04 * (Math.sin(u * 5.1 + 5.4) * 0.55 + Math.sin(u * 11.3 + 11.3) * 0.25 + Math.sin(u * 2.3 + 3.8) * 0.6) * (1 - r * 0.06)); x ? g.lineTo(x, y) : g.moveTo(x, y); }
+          g.stroke();
+        }
+        const haze = g.createLinearGradient(0, h * 0.45, 0, h * 0.75); haze.addColorStop(0, 'rgba(240,236,220,.55)'); haze.addColorStop(1, 'rgba(240,236,220,0)'); g.fillStyle = haze; g.fillRect(0, h * 0.4, w, h * 0.4);
+      } else if (key === 'roastery') {   // warm, dark room: drum roaster on the left, sacks of green beans on the right
+        const glow = g.createRadialGradient(w * 0.22, h * 0.5, 0, w * 0.22, h * 0.5, w * 0.38); glow.addColorStop(0, 'rgba(255,140,60,.5)'); glow.addColorStop(1, 'rgba(255,140,60,0)'); g.fillStyle = glow; g.fillRect(0, 0, w, h);
+        g.fillStyle = '#20140d'; g.fillRect(0, h * 0.7, w, h * 0.3);
+        blob(0.22, 0.48, 0.12, 0.2, '#3b2a1f', 1); blob(0.22, 0.48, 0.085, 0.145, '#140c07', 1); blob(0.22, 0.48, 0.035, 0.06, '#ff9a4a', 0.55);
+        g.fillStyle = '#2c1e15'; g.fillRect(w * 0.205, h * 0.12, w * 0.03, h * 0.18);
+        for (let i = 0; i < 4; i++) { blob(0.66 + i * 0.085, 0.74 - (i % 2) * 0.02, 0.05, 0.1, ['#6e5538', '#614a31', '#75593a'][i % 3], 0.9); }
+        const top = g.createLinearGradient(0, 0, 0, h * 0.3); top.addColorStop(0, 'rgba(0,0,0,.35)'); top.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = top; g.fillRect(0, 0, w, h * 0.3);
       } else if (key === 'bar') {
         g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(0, h * 0.62, w, h * 0.38); g.fillStyle = '#3a2e28'; g.fillRect(0, h * 0.6, w, h * 0.04);
         g.fillStyle = '#2b2b2e'; g.fillRect(w * 0.12, h * 0.3, w * 0.24, h * 0.3); g.fillStyle = P.accent; g.fillRect(w * 0.12, h * 0.3, w * 0.24, h * 0.025);
@@ -157,6 +173,12 @@ class Component extends DCLogic {
         for (let i = 0; i < 6; i++) { const x = (0.1 + i * 0.16) * w, lg = g.createRadialGradient(x, h * 0.1, 0, x, h * 0.1, w * 0.16); lg.addColorStop(0, 'rgba(235,243,255,.85)'); lg.addColorStop(1, 'rgba(235,243,255,0)'); g.fillStyle = lg; g.fillRect(0, 0, w, h); blob(i * 0.16 + 0.1, 0.1, 0.03, 0.012, '#ffffff', 1); }
         g.fillStyle = '#16301f'; g.fillRect(0, h * 0.66, w, h * 0.34); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = Math.max(2, w / 500); for (let i = -6; i <= 6; i++) { g.beginPath(); g.moveTo(w / 2 + i * w * 0.02, h * 0.66); g.lineTo(w / 2 + i * w * 0.2, h); g.stroke(); }
         g.fillStyle = P.accent; g.fillRect(0, h * 0.6, w, h * 0.012); g.globalAlpha = 0.9; g.fillRect(w * 0.06, h * 0.3, w * 0.05, h * 0.26); g.fillRect(w * 0.89, h * 0.3, w * 0.05, h * 0.26); g.globalAlpha = 1;
+      }
+      { // depth of field: the location reads as an out-of-focus photo behind the sharp 3D objects
+        const steps = key === 'farm' ? 2 : 3; let src = c, sw = w, sh = h; const chain = [];
+        for (let k = 0; k < steps; k++) { sw = Math.max(8, sw >> 1); sh = Math.max(8, sh >> 1); const d = document.createElement('canvas'); d.width = sw; d.height = sh; const dg = d.getContext('2d'); dg.imageSmoothingQuality = 'high'; dg.drawImage(src, 0, 0, sw, sh); chain.push(d); src = d; }
+        for (let k = chain.length - 2; k >= 0; k--) { const d = chain[k], dg = d.getContext('2d'); dg.clearRect(0, 0, d.width, d.height); dg.drawImage(chain[k + 1], 0, 0, d.width, d.height); }
+        g.imageSmoothingQuality = 'high'; g.clearRect(0, 0, w, h); g.drawImage(chain[0], 0, 0, w, h);
       }
       const vg = g.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,.45)'); g.fillStyle = vg; g.fillRect(0, 0, w, h);
       return c;
@@ -377,34 +399,93 @@ class Component extends DCLogic {
     const ground = new THREE.Mesh(new THREE.ConeGeometry(1.0, 0.6, 72), new THREE.MeshStandardMaterial({ color: 0x2a1609, roughness: 1 })); ground.position.y = 0.3; ground.castShadow = true; scene.add(ground);
 
 
-    // Step 1 — a coffee branch with ripe cherries hanging over the pedestal; the cherries drop onto it one by one.
-    const BR_Y = 1.8, branch = new THREE.Group(); branch.position.set(0.15, BR_Y, -0.1); scene.add(branch);
-    const stemCurve = new THREE.CatmullRomCurve3([[-2.2, 0.25, -0.3], [-1.1, 0.03, 0], [0, -0.04, 0.1], [1.1, 0.05, -0.05], [2.1, 0.28, -0.3]].map(([a, b, c]) => new THREE.Vector3(a, b, c)));
-    branch.add(new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 64, 0.045, 10, false), new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.85 })));
-    const leafMat2 = new THREE.MeshPhysicalMaterial({ color: 0x3f7a2a, roughness: 0.45, clearcoat: 0.6, side: THREE.DoubleSide });
-    const bigLeaf = new THREE.SphereGeometry(0.42, 20, 10); bigLeaf.scale(1, 0.06, 0.38); bigLeaf.translate(0.38, 0, 0);
-    for (let k = 0; k < 14; k++) {
-      const pt = stemCurve.getPoint(0.04 + k / 14 * 0.92), lf = new THREE.Mesh(bigLeaf, leafMat2);
-      lf.position.copy(pt); lf.rotation.set((rnd(k + 40) - 0.5) * 0.9, (k % 2 ? 1 : -1) * (0.9 + rnd(k + 41) * 0.8), (rnd(k + 42) - 0.3) * 0.9); branch.add(lf);
-    }
-    const cherryGeo = new THREE.SphereGeometry(0.1, 18, 12); cherryGeo.scale(1, 0.92, 1);
-    const cherryMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.15 });
-    const NC = this.phone ? 30 : 44, cherries = new THREE.InstancedMesh(cherryGeo, cherryMat, NC); cherries.castShadow = true; scene.add(cherries);
-    const cherryData = Array.from({ length: NC }, (_, k) => {
-      const cluster = stemCurve.getPoint(0.12 + (k % 7) / 7 * 0.78), a = rnd(k + 60) * 6.28, r = 0.08 + rnd(k + 61) * 0.12;
-      const hang = new THREE.Vector3(cluster.x + Math.cos(a) * r + 0.15, cluster.y + BR_Y - 0.1 - rnd(k + 62) * 0.14, cluster.z + Math.sin(a) * r - 0.1);
-      const pd = pileData[(k * 2) % NP];
-      cherries.setColorAt(k, new THREE.Color(['#b3102a', '#c8142f', '#8e0c22', '#d2392a', '#a5122c'][k % 5]));
-      return { hang, land: new THREE.Vector3(pd.x, 0.12 + pd.y * 0.55, pd.z), at: rnd(k + 63) * 0.7, rx: rnd(k + 64) * 6 };
+    const dummy0 = new THREE.Object3D();
+    // Step 1 — a coffee tree rooted on the floor behind the podium: upright stems, tiers of side branches with glossy
+    // leaves in opposite pairs and cherries clustered at the leaf joints. The ripe cherries above the podium drop onto it.
+    const TREE_POS = new THREE.Vector3(2.25, -0.5, -0.5), tree = new THREE.Group(); tree.position.copy(TREE_POS); scene.add(tree);
+    const UP = new THREE.Vector3(0, 1, 0), tv = new THREE.Vector3(), tv2 = new THREE.Vector3();
+    const barkMat = new THREE.MeshStandardMaterial({ color: 0x6a4e37, roughness: 0.92 });
+    const taperTube = (pts, r0, r1, seg) => {   // TubeGeometry with a radius that shrinks toward the tip
+      const curve = new THREE.CatmullRomCurve3(pts), RAD = 7, geo = new THREE.TubeGeometry(curve, seg, 1, RAD, false), pos = geo.attributes.position;
+      for (let a = 0; a <= seg; a++) { const c = curve.getPointAt(a / seg), r = r0 + (r1 - r0) * Math.pow(a / seg, 0.8); for (let b = 0; b <= RAD; b++) { const k = a * (RAD + 1) + b; tv.fromBufferAttribute(pos, k).sub(c).multiplyScalar(r).add(c); pos.setXYZ(k, tv.x, tv.y, tv.z); } }
+      const m = new THREE.Mesh(geo, barkMat); m.castShadow = true; tree.add(m); return curve;
+    };
+    const V = (x, y, z) => new THREE.Vector3(x, y, z);
+    const stems = [taperTube([V(0, 0, 0), V(0.04, 0.7, 0.02), V(-0.05, 1.45, 0.05), V(0.02, 2.2, 0), V(-0.02, 2.75, 0.02)], 0.08, 0.012, 40),
+      taperTube([V(0.07, 0, 0.05), V(0.24, 0.65, 0.12), V(0.42, 1.35, 0.18), V(0.55, 2.0, 0.16), V(0.6, 2.4, 0.14)], 0.055, 0.01, 32),
+      taperTube([V(-0.05, 0, -0.04), V(-0.2, 0.6, -0.14), V(-0.36, 1.25, -0.26), V(-0.45, 1.85, -0.3), V(-0.5, 2.2, -0.3)], 0.05, 0.01, 32)];
+    // soil mound + contact shadow so the tree stands on the floor
+    const soil = new THREE.Mesh(new THREE.SphereGeometry(0.55, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: 0x3b2618, roughness: 1 })); soil.scale.set(1, 0.28, 1); soil.receiveShadow = true; tree.add(soil);
+    const treeShadow = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 2.4), new THREE.MeshBasicMaterial({ map: contactTex, transparent: true, depthWrite: false, opacity: 0.8 })); treeShadow.rotation.x = -Math.PI / 2; treeShadow.position.y = 0.005; tree.add(treeShadow);
+    // leaf: elliptic with a pointed tip, folded along the midrib, drooping toward the tip, slightly wavy edges
+    const leafGeo = (() => {
+      const NU = this.phone ? 7 : 10, NVv = 4, L = 0.5, W = 0.18, P = [], I = [];
+      for (let a = 0; a <= NU; a++) for (let b = 0; b <= NVv; b++) {
+        const u = a / NU, v = b / NVv * 2 - 1, wd = W * Math.pow(Math.sin(Math.PI * Math.min(1, u * 1.04)), 0.8) * (1 - 0.45 * u * u * u);
+        P.push(u * L, 0.28 * wd * v * v - 0.16 * L * u * u + 0.01 * Math.sin(u * 19) * Math.abs(v), v * wd);
+      }
+      for (let a = 0; a < NU; a++) for (let b = 0; b < NVv; b++) { const k = a * (NVv + 1) + b; I.push(k, k + 1, k + NVv + 1, k + 1, k + NVv + 2, k + NVv + 1); }
+      const gg = new THREE.BufferGeometry(); gg.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); gg.setIndex(I); gg.computeVertexNormals(); return gg;
+    })();
+    const leafPose = [], cherryPose = [];
+    const addLeaf = (at, dir, s, young) => {   // leaf base at `at`, pointing along `dir`
+      const x = dir.clone().normalize(), z = tv2.crossVectors(x, UP).normalize().clone(), y = new THREE.Vector3().crossVectors(z, x);
+      leafPose.push({ m: new THREE.Matrix4().makeBasis(x, y, z).scale(V(s, s, s)).setPosition(at), young });
+    };
+    const towardPodium = Math.atan2(-TREE_POS.z, -TREE_POS.x);   // xz angle from the tree to the podium centre
+    const nodesPerStem = this.phone ? [7, 4, 3] : [9, 5, 4];
+    stems.forEach((stem, si) => {
+      for (let n = 0; n < nodesPerStem[si]; n++) {
+        const h = 0.2 + n / nodesPerStem[si] * 0.72, base = stem.getPointAt(h);
+        // the main stem's first tiers point at the podium so ripe cherries hang above it; the rest spiral round
+        const ang = (si === 0 && n >= 3 && n <= 5 ? towardPodium + (n - 4) * 0.35 : towardPodium + n * 2.4 + si * 1.3) + (rnd(n * 9 + si * 31) - 0.5) * 0.3;
+        const d = V(Math.cos(ang), 0, Math.sin(ang)), facing = Math.cos(ang - towardPodium), hk = 1 - h;
+        const len = (0.5 + hk * 1.4) * (si ? 0.75 : 1) * (si === 0 && facing > 0.8 ? 1.45 : 1) * (0.88 + rnd(n * 7 + si) * 0.24);
+        const droop = 0.18 + hk * 0.32;
+        const lat = taperTube([base.clone(), base.clone().addScaledVector(d, len * 0.3).add(V(0, 0.1, 0)), base.clone().addScaledVector(d, len * 0.65).add(V(0, 0.02, 0)), base.clone().addScaledVector(d, len).add(V(0, -droop, 0))], 0.028 + hk * 0.012, 0.006, 18);
+        const side2 = new THREE.Vector3().crossVectors(d, UP).normalize();
+        const nodes = Math.max(2, Math.round(len / 0.16));
+        for (let k = 1; k <= nodes; k++) {
+          const u = k / (nodes + 0.3), at = lat.getPointAt(u), tip = u > 0.82, sd = n * 13 + k * 3 + si * 57;
+          for (const sg of [1, -1]) addLeaf(at, side2.clone().multiplyScalar(sg).addScaledVector(d, 0.45 + u * 0.5).add(V(0, -0.35 - rnd(sd + (sg > 0 ? 1 : 2)) * 0.4, 0)), (tip ? 0.68 : 1) * (0.8 + rnd(sd + 5) * 0.32), tip);
+          if (u > 0.15 && u < 0.8 && (rnd(sd + 7) < 0.62 || (si === 0 && facing > 0.8))) {   // cherries cluster at the leaf joints, tight around the branch
+            const nCh = 2 + Math.floor(rnd(sd + 9) * 4);
+            for (let c = 0; c < nCh; c++) { const ca = c / nCh * Math.PI * 2 + rnd(c + sd) * 0.6; cherryPose.push({ p: at.clone().addScaledVector(side2, Math.cos(ca) * 0.075).add(V(0, -0.065 + Math.sin(ca) * 0.05, 0)).addScaledVector(d, (rnd(c * 3 + sd) - 0.5) * 0.06), seed: c * 31 + sd }); }
+          }
+        }
+        addLeaf(lat.getPointAt(1), d.clone().add(V(0, -0.15, 0)), 0.6, true);   // tip leaf
+      }
     });
-    cherries.instanceColor.needsUpdate = true;
+    for (const s of stems) { const top = s.getPointAt(1); for (const sg of [1, -1]) addLeaf(top, V(sg * 0.5, 0.8, sg * 0.2), 0.6, true); }
+    const leafMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.42, clearcoat: 0.35, clearcoatRoughness: 0.3, envMapIntensity: 0.55, side: THREE.DoubleSide });
+    const leaves = new THREE.InstancedMesh(leafGeo, leafMat, leafPose.length); leaves.castShadow = true;
+    const LEAF_COLS = ['#1f4617', '#27541c', '#1a3d13', '#2e5f20', '#234c18'].map(c => new THREE.Color(c)), YOUNG = [new THREE.Color('#5b7d2a'), new THREE.Color('#6b6a2a')];
+    leafPose.forEach((l, k) => { leaves.setMatrixAt(k, l.m); leaves.setColorAt(k, l.young ? YOUNG[k % 2] : LEAF_COLS[k % 5]); });
+    leaves.instanceColor.needsUpdate = true; tree.add(leaves);
+    // which cherries get picked: the ones hanging nearest the podium (they arc over onto it)
+    const cherryGeo = new THREE.SphereGeometry(0.07, 16, 10); cherryGeo.scale(1, 0.9, 1);
+    const cherryMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.15 });
+    const NCmax = this.phone ? 30 : 44, worldOf = c => c.p.clone().add(TREE_POS);
+    const picks = cherryPose.map(c => { const w = worldOf(c); return { c, d: Math.hypot(w.x, w.z) - Math.min(0, w.y - 0.6) }; }).sort((a, b) => a.d - b.d).slice(0, NCmax).map(x => x.c);
+    const rest = cherryPose.filter(c => !picks.includes(c));
+    const RIPE = ['#b3102a', '#c8142f', '#8e0c22', '#a5122c', '#d2392a'], UNRIPE = ['#e0782c', '#9fb04a', '#c9a23a'];
+    const treeCherries = new THREE.InstancedMesh(cherryGeo, cherryMat, rest.length); treeCherries.castShadow = true;
+    rest.forEach((c, k) => { dummy0.position.copy(c.p); dummy0.rotation.set(rnd(c.seed) * 6, rnd(c.seed + 1) * 6, 0); dummy0.scale.setScalar(0.85 + rnd(c.seed + 2) * 0.3); dummy0.updateMatrix(); treeCherries.setMatrixAt(k, dummy0.matrix); treeCherries.setColorAt(k, new THREE.Color(rnd(c.seed + 3) < 0.62 ? RIPE[k % 5] : UNRIPE[k % 3])); });
+    if (rest.length) treeCherries.instanceColor.needsUpdate = true; tree.add(treeCherries);
+    const NC = picks.length, cherries = new THREE.InstancedMesh(cherryGeo, cherryMat, Math.max(1, NC)); cherries.count = NC; cherries.castShadow = true; scene.add(cherries);
+    const cherryData = picks.map((c, k) => {
+      const pd = pileData[(k * 2) % NP];
+      cherries.setColorAt(k, new THREE.Color(RIPE[k % 5]));
+      return { local: c.p, land: new THREE.Vector3(pd.x, 0.12 + pd.y * 0.55, pd.z), at: rnd(k + 63) * 0.7, rx: rnd(k + 64) * 6 };
+    });
+    if (NC) cherries.instanceColor.needsUpdate = true;
     // Step 2 — roasting: warm light, a glowing ring and smoke curling up from the beans
     const roastLight = new THREE.PointLight(0xff7a2a, 0, 6); roastLight.position.set(0, 0.6, 0.4); scene.add(roastLight);
     const roastRing = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.03, 8, 120), new THREE.MeshBasicMaterial({ color: 0xff8a3a, transparent: true, opacity: 0 })); roastRing.rotation.x = Math.PI / 2; roastRing.position.y = 0.02; scene.add(roastRing);
     const smoke = Array.from({ length: 12 }, (_, k) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xb8afa6, transparent: true, depthWrite: false, opacity: 0 })); sp.userData = { x: (rnd(k + 80) - 0.5) * 1.4, z: (rnd(k + 81) - 0.5) * 1.0, ph: rnd(k + 82), sp: 0.25 + rnd(k + 83) * 0.2 }; scene.add(sp); return sp; });
     const greenBean = new THREE.Color('#9aa36a'), roastCols = ['#4a2614', '#5a321b', '#683b21', '#3d1f10', '#73452a'].map(c => new THREE.Color(c)), tmpC = new THREE.Color();
 
-    const dummy = new THREE.Object3D(), clock = new THREE.Clock();
+    const dummy = new THREE.Object3D(), clock = new THREE.Clock(), hangW = new THREE.Vector3();
     let camX = 0, camY = 0;
     this.setState({ loading: false }); requestAnimationFrame(() => requestAnimationFrame(() => { renderer.domElement.style.opacity = '1'; }));
     const frame = () => {
@@ -416,17 +497,17 @@ class Component extends DCLogic {
       const p = this.ps;
       if (this.ds == null) this.ds = this.d || 0; this.ds += ((this.d || 0) - this.ds) * (1 - Math.exp(-pdt * 5)); this._bdt = pdt;
       const t = i => cl(p - i), t0 = t(0), t2 = cl((p - 2.55) / 0.5), t3 = t(3), t4 = t(4), t5 = t(5);
-      fall.visible = false;   // (old 'beans falling from the sky' intro, replaced by the coffee branch)
+      fall.visible = false;   // (old 'beans falling from the sky' intro, replaced by the coffee tree)
       const pour = 0;
-      // 1. Picked: the branch sways, cherries drop onto the pedestal, then the branch lifts away
-      const away = ease(cl((p - 0.95) / 0.35)); branch.visible = away < 1;
-      branch.position.y = BR_Y + away * 3; branch.rotation.z = Math.sin(time * 0.8) * 0.03; branch.scale.setScalar(1 - away * 0.3);
+      // 1. Picked: the tree sways in the breeze, ripe cherries drop onto the pedestal, then the tree slides out of shot
+      const away = ease(cl((p - 0.95) / 0.4)); tree.visible = away < 1;
+      tree.position.set(TREE_POS.x + away * 6, TREE_POS.y, TREE_POS.z - away * 1.5);
+      tree.rotation.set(Math.sin(time * 0.5 + 1) * 0.004, 0, Math.sin(time * 0.7) * 0.007); tree.updateMatrixWorld();
       const roastIn = cl((p - 1.05) / 0.35);   // cherries -> beans
       cherryData.forEach((c, k) => {
-        const f = ease(cl((t0 * 1.25 - c.at) / 0.3));
-        dummy.position.set(c.hang.x + (c.land.x - c.hang.x) * f, f < 1 ? c.hang.y + (c.land.y - c.hang.y) * f * f : c.land.y, c.hang.z + (c.land.z - c.hang.z) * f);
-        if (f === 0) { dummy.position.y = c.hang.y + Math.sin(time * 1.4 + k) * 0.01 + away * 3; }
-        dummy.rotation.set(c.rx + f * 4, c.rx, 0); dummy.scale.setScalar(1 - ease(roastIn)); dummy.updateMatrix(); cherries.setMatrixAt(k, dummy.matrix);
+        const f = ease(cl((t0 * 1.25 - c.at) / 0.3)), hang = tree.localToWorld(hangW.copy(c.local));   // still on the tree until it drops
+        dummy.position.set(hang.x + (c.land.x - hang.x) * f, f < 1 ? hang.y + (c.land.y - hang.y) * f * f + Math.sin(f * Math.PI) * 0.35 : c.land.y, hang.z + (c.land.z - hang.z) * f);
+        dummy.rotation.set(c.rx + f * 4, c.rx, 0); dummy.scale.setScalar((1 - ease(roastIn)) * (1 + f * 0.25)); dummy.updateMatrix(); cherries.setMatrixAt(k, dummy.matrix);
       });
       cherries.instanceMatrix.needsUpdate = true; cherries.visible = roastIn < 1;
       // 2. Roast: beans appear green and roast to brown with heat + smoke
@@ -497,14 +578,14 @@ class Component extends DCLogic {
     const step = this.state.step;
     return {
       trackRef: this.track, mountRef: this.mount, loading: this.state.loading,
-      cur: STEPS[step], num: String(step + 1).padStart(2, '0'), counter: 'STEP ' + String(step + 1).padStart(2, '0') + ' / 05 — BY OUR BARISTAS',
+      cur: STEPS[step], num: String(step + 1).padStart(2, '0'), counter: 'STEP ' + String(step + 1).padStart(2, '0') + ' / 05' + (this.phone && this.state.locLabel ? ' · ' + this.state.locLabel : ''),   // phones: the location rides on this line instead of its own
       steps: STEPS.map((s, i) => ({ short: s.short, go: () => this.goTo(i),
         fill: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#e30a2e', width: (i < step ? 100 : i === step ? Math.round(this.state.pp * 100) : 0) + '%', transition: 'width .15s linear' },
         label: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: i === step ? '#fff' : '#8a8a8a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color .3s' } })),
       onOrder: () => this.props.onOrder && this.props.onOrder(), onMenu: () => this.props.onMenu && this.props.onMenu(),
       onVenue: () => this.props.onVenue && this.props.onVenue(), onDine: () => this.props.onDine && this.props.onDine(),
       showSpin: !!this.state.done && !this.state.loading, showOrder: !!this.state.done,
-      showTeaser: !!this.state.done && !!this.props.teaser, teaser: this.props.teaser || '', teaserPick: this.props.teaserPick || '', onNext: () => this.props.onNext && this.props.onNext(), drinkName: DRINKS[this.state.drink || 0].name, drinkBlurb: DRINKS[this.state.drink || 0].blurb,
+      drinkName: DRINKS[this.state.drink || 0].name, drinkBlurb: DRINKS[this.state.drink || 0].blurb,
       noGL: !!this.state.noGL,
       fbStyle: (() => { const BD = window.StoryBackdrops; if (!BD) return {}; const key = BD.steps[Math.min(4, step)], P = (BD.locations[key] || {}).paint || { sky: ['#333', '#111'] }, mob = window.innerWidth < 768 ? '-mobile' : '';
         return { position: 'absolute', inset: 0, backgroundImage: 'url("' + BD.dir + key + '-far' + mob + '.webp"), linear-gradient(180deg,' + P.sky.join(',') + ')', backgroundSize: 'cover', backgroundPosition: 'center', transition: 'background-image .3s' }; })(),
