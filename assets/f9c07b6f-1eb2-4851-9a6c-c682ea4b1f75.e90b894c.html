@@ -46,7 +46,7 @@
           </div>
           <h1 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(56px,7.5vw,120px);line-height:.84;color:#0d0d0d;text-wrap:balance">{{ cur.title }}</h1>
           <p style="margin:0;font-size:17px;line-height:1.6;color:#3f3f44;max-width:420px;min-height:3.2em">{{ cur.body }}</p>
-          <div class="fx-story-cta" style="display:flex;justify-content:flex-end;align-items:center;gap:12px;flex-wrap:wrap">
+          <div class="fx-story-cta" style="display:flex;justify-content:flex-start;align-items:center;gap:12px;flex-wrap:wrap">
             <sc-if value="{{ showSpin }}" hint-placeholder-val="{{ false }}">
               <div class="fx-spin-in" style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:999px;background:rgba(13,13,13,.9);box-shadow:0 10px 30px rgba(13,13,13,.18);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);animation:pFade .4s ease">
                 <button onClick="{{ prevDrink }}" aria-label="Previous drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">‹</button>
