@@ -68,7 +68,7 @@ class Component extends DCLogic {
     this._scroll = () => {
       const el = this.track.current; if (!el) return;
       const r = el.getBoundingClientRect(), total = el.offsetHeight - window.innerHeight;
-      const d = cl(-r.top / Math.max(1, total)) * 5; this.p = toP(d);
+      const d = cl(-r.top / Math.max(1, total * 0.86)) * 5; this.p = toP(d);  // last 14% of the track holds the finished drink
       const step = Math.min(4, Math.floor(d));
       const pp = Math.round((d - step) * 50) / 50;
       if (step !== this.state.step || pp !== this.state.pp) this.setState({ step, pp });
@@ -98,10 +98,12 @@ class Component extends DCLogic {
     const el = this.mount.current; if (this.dead || !el) return;
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     this.renderer = renderer;
-    renderer.setPixelRatio(Math.min(1.75, window.devicePixelRatio)); renderer.localClippingEnabled = true;
+    const phone = window.innerWidth < 760; this.phone = phone;
+    renderer.setPixelRatio(Math.min(phone ? 1.5 : 1.75, window.devicePixelRatio)); renderer.localClippingEnabled = true;
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
     Object.assign(renderer.domElement.style, { position: 'absolute', inset: '0', width: '100%', height: '100%' });
+    renderer.domElement.style.opacity = '0'; renderer.domElement.style.transition = 'opacity .7s ease';
     el.appendChild(renderer.domElement);
     const cvs = renderer.domElement; cvs.style.touchAction = 'pan-y'; cvs.style.cursor = 'grab';
     // Drag spins the cup; hovering the cup (mouse) or tapping it (touch) pours the next drink.
@@ -137,7 +139,7 @@ class Component extends DCLogic {
 
     scene.add(new THREE.HemisphereLight(0xffffff, 0x220508, 0.5));
     const key = new THREE.DirectionalLight(0xfff4ea, 2.4); key.position.set(3, 7, 4); key.castShadow = true;
-    key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 20 }); key.shadow.bias = -0.0004; key.shadow.radius = 6;
+    key.shadow.mapSize.set(this.phone ? 512 : 1024, this.phone ? 512 : 1024); Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 20 }); key.shadow.bias = -0.0004; key.shadow.radius = 6;
     scene.add(key);
     const rim = new THREE.PointLight(0xe30a2e, 40, 14); rim.position.set(-3.5, 3, -2.5); scene.add(rim);
     const backLight = new THREE.DirectionalLight(0xffffff, 1.6); backLight.position.set(1.5, 4, -6); scene.add(backLight); // rim highlight on the cup edges
@@ -245,7 +247,7 @@ class Component extends DCLogic {
 
     // Roasted coffee bean: oval, one flatter face with an S-shaped centre crease showing the pale silverskin,
     // oily clearcoat sheen and a slightly different roast colour per bean.
-    const beanGeo = new THREE.SphereGeometry(0.145, 40, 28); {
+    const beanGeo = new THREE.SphereGeometry(0.145, this.phone ? 24 : 40, this.phone ? 16 : 28); {
       const pos = beanGeo.attributes.position, col = [], v = new THREE.Vector3();
       for (let k = 0; k < pos.count; k++) {
         v.fromBufferAttribute(pos, k);
@@ -273,10 +275,13 @@ class Component extends DCLogic {
 
     const dummy = new THREE.Object3D(), clock = new THREE.Clock();
     let camX = 0, camY = 0;
-    this.setState({ loading: false });
+    this.setState({ loading: false }); requestAnimationFrame(() => requestAnimationFrame(() => { renderer.domElement.style.opacity = '1'; }));
     const frame = () => {
       if (this.dead) return;
-      const time = clock.getElapsedTime(); this.ps = (this.ps == null ? this.p : this.ps) + (this.p - (this.ps == null ? this.p : this.ps)) * 0.075; const p = this.ps;
+      const time = clock.getElapsedTime(); const pdt = Math.min(0.12, Math.max(0, time - (this._pt == null ? time : this._pt))); this._pt = time;
+      if (this.ps == null) this.ps = this.p;
+      this.ps += (this.p - this.ps) * (1 - Math.exp(-pdt * (Math.abs(this.p - this.ps) > 1.2 ? 9 : 5)));  // same catch-up speed at 20 or 60 fps
+      const p = this.ps;
       const t = i => cl(p - i), t0 = t(0), t1 = t(1), t2 = t(2), t3 = t(3), t4 = t(4), t5 = t(5);
       const pour = 1 - cl((p - 0.85) / 0.25);
       for (let i = 0; i < NF; i++) {

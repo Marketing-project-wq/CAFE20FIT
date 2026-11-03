@@ -62,5 +62,22 @@ for pth in extra:
 t=open(out+'/index.html',encoding='utf-8').read()
 m=re.search(r'<head[^>]*>',t,re.I)
 t=t[:m.end()]+tags+'<script src="'+logic_name+'"></script>'+t[m.end():]
+# Loading skeleton right after <body> (shows before any script runs) and site-wide head tags (tracker)
+boot=os.path.join(here,'src','boot.html')
+if os.path.exists(boot):
+    mb=re.search(r'<body[^>]*>',t,re.I); assert mb
+    t=t[:mb.end()]+'\n'+open(boot,encoding='utf-8').read()+t[mb.end():]
+# 20FIT first-party tracker (pageviews + CTA clicks, no PII) -- kept here so rebuilds never drop it
+HEAD_EXTRA='<script async src="https://admin.20fit.id/api/t/js" data-unit="cafe"></script>\n'
+if 'admin.20fit.id/api/t/js' not in t:
+    t=t.replace('</head>',HEAD_EXTRA+'</head>',1)
+# First paint: charset/viewport first, and external scripts deferred (same order, run after parsing) so the
+# skeleton above paints immediately instead of waiting for ~1MB of JavaScript to download.
+metas=''
+for pat in (r'<meta charset="utf-8">\s*', r'<meta name="viewport"[^>]*>\s*'):
+    mm2=re.search(pat,t,re.I)
+    if mm2: metas+=mm2.group(0).strip()+'\n'; t=t[:mm2.start()]+t[mm2.end():]
+m=re.search(r'<head[^>]*>',t,re.I); t=t[:m.end()]+metas+t[m.end():]
+t=re.sub(r'<script src="(\.?/?assets/[^"]+\.js)"></script>',r'<script defer src="\1"></script>',t)
 open(out+'/index.html','w',encoding='utf-8').write(t)
 print('patched runtime; precompiled logic blocks:',len(lines)-1)
