@@ -38,6 +38,41 @@ window.StoryConfig = {
     made: "That's one cup. Here's how it fits into your day",
     madePick: 'Your {need} moment is at {time}',
     day: 'Not sure which one is yours? Answer 3 questions',
-    dayFallback: 'Your cup is waiting. Choose how to get it'
+    dayFallback: 'Your cup is waiting. Choose how to get it',
+    quiz: 'Why it tastes like this: made with care',
+    care: 'Your cup is waiting. Choose how to get it',
+    turn: 'See you at the bar'
+  },
+
+  // CH 04 — Find your fuel. One question per screen; answers auto-advance.
+  quiz: {
+    questions: [
+      { id: 'train', q: 'Training today?', options: [['before', 'Yes, before'], ['after', 'Yes, just finished'], ['rest', 'Rest day']] },
+      { id: 'time', q: 'What time is it for you?', options: [['morning', 'Morning'], ['midday', 'Midday'], ['afternoon', 'Afternoon'], ['evening', 'Evening']] },
+      { id: 'feel', q: 'What do you feel like?', options: [['coffee', 'Coffee'], ['fresh', 'Something fresh'], ['filling', 'Something filling']] }
+    ],
+    // First rule whose `when` matches wins. items = [main, alt, alt] by menu name (sold out / missing are skipped).
+    rules: [
+      { when: { feel: 'fresh' }, items: ['Coconut Hydrate', 'Hydrococo', 'Tropical Recovery'], need: 'Fresh', reason: 'Cold and light, easy on the body at any time of day.' },
+      { when: { train: 'after', feel: 'filling' }, items: ['Protein Brew', 'Almond Endurance', 'Choco Peanut Butter + Whey'], need: 'Fueling', reason: 'You just did the work. Something to refuel right after your session.' },
+      { when: { train: 'before', feel: 'coffee' }, items: ['Espresso', 'Long Black Iced', 'Shakerato'], need: 'Light energy', reason: 'A clean coffee lift, light enough to train on.' },
+      { when: { train: 'rest', time: 'afternoon', feel: 'coffee' }, items: ['20FIT Signature Aren Latte', 'Honey Oat Macchiato', 'Shakerato'], need: 'Light energy', reason: 'Coffee made slow, for the part of the day that drags.' },
+      { when: { feel: 'coffee' }, items: ['20FIT Signature Aren Latte', 'Honey Oat Macchiato', 'Long Black Iced'], need: 'Light energy', reason: 'Our signature, made by hand for a steady lift.' },
+      { when: { time: 'midday', feel: 'filling' }, items: ['Rendang Sandwich', 'Tuna Mayo', 'Acai Bowl'], need: 'Fueling', reason: 'Real food between meetings and your next session.' },
+      { when: { feel: 'filling' }, items: ['Protein Brew', 'Acai Bowl', 'Almond Endurance'], need: 'Fueling', reason: 'Something filling to keep you going.' }
+    ],
+    fallbackCategory: 'Signature', fallbackReason: 'A good place to start: one of our signatures.'
+  },
+
+  // CH 05 — Made with care
+  care: {
+    headline: 'All of our drinks and pastry are prepared with care to help fuel your day,',
+    headlineRed: 'or even your workout.',
+    pillars: [
+      { need: 'Fresh', line: 'Fruit, coconut and cold drinks for a clean, light lift.', photo: 'Coconut Hydrate', category: 'Juice' },
+      { need: 'Fueling', line: 'Coffee and protein drinks for before or after training.', photo: 'Protein Brew', category: 'Signature' },
+      { need: 'Light energy', line: 'Easy on the body, still giving you energy, like Tropical Recovery.', photo: 'Tropical Recovery', category: 'Hybrid' }
+    ],
+    video: 'https://media.20fit.id/wp-content/uploads/2026/11/1793607194111.publer.com_.mp4'
   }
 };
