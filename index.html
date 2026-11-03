@@ -602,7 +602,9 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
   .fx-co-card > div > div:first-child > div:last-child { font-size: 11px !important; }
   .fx-co-card button { font-size: 14px !important; }
   .fx-spin-in { display: none !important; }
-  .fx-spin { display: flex !important; right: 50% !important; transform: translateX(50%) scale(.88); transform-origin: bottom center; bottom: 58px !important; }
+  .fx-spin { display: flex !important; right: 50% !important; transform: translateX(50%) scale(.86); transform-origin: bottom center; bottom: 60px !important; }
+  /* the dark text backdrop now ends just under Order now, so the drink pill sits fully on the grey 3D floor */
+  .fx-story-col::before { bottom: -6px !important; }
   .fx-spin span { white-space: nowrap; }
   .fx-snd { bottom: auto !important; top: 14px; }
   .fx-3dskel-art { right: 50% !important; top: 30% !important; transform: translate(50%,-50%) !important; width: 62vw !important; }
