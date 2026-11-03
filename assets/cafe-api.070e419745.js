@@ -121,7 +121,7 @@
     }
     if (s === 'cancelled') return { pill: 'Cancelled', sub: [o.cancel_reason, o.payment_status === 'refunded' ? 'Refunded' : ''].filter(Boolean).join(' · '), tone: 'grey' };
     if (t === 'dine_in') {
-      if (s === 'booked') return { pill: 'Booked', sub: 'Table for ' + o.pax + ' · ' + dayLabel(o.reservation_date) + ' ' + (o.reservation_slot || '') + ' · Show your code at the cashier' + (o.arrived_at ? ' · Barista notified you’re here' : ''), tone: 'dark' };
+      if (s === 'booked') return { pill: 'Booked', sub: 'Table for ' + o.pax + ' · ' + dayLabel(o.reservation_date) + ' ' + (o.reservation_slot || '') + ' · Check in at the barista counter with your QR / booking code', tone: 'dark' };
       if (s === 'checked_in') return { pill: 'Checked in', sub: 'Checked in at ' + time(o.checked_in_at) + (o.checked_in_by ? ' by ' + o.checked_in_by : ''), tone: 'green' };
       if (s === 'completed') return { pill: 'Completed', sub: '', tone: 'dark' };
       if (s === 'no_show') return { pill: 'No-show', sub: '', tone: 'grey' };
