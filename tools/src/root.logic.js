@@ -207,8 +207,8 @@ class Component extends DCLogic {
       price, hasPrice: price.length > 0,
       timeline: (o.timeline || []).map(t => ({ text: A.status({ ...o, status: t.to }).pill + ' · ' + A.time(t.at) + (t.by ? ' · ' + t.by : '') })), hasTimeline: !!(o.timeline && o.timeline.length),
       showQr: !venue && o.type === 'dine_in' && o.status === 'booked', qr: !venue && o.type === 'dine_in' && o.status === 'booked' && open ? React.createElement('div', { style: { width: 140, height: 140 }, dangerouslySetInnerHTML: { __html: A.qrSvg(o.code, 140) } }) : null,
-      canArrive: !venue && o.type === 'dine_in' && o.status === 'booked' && o.payment_status === 'paid' && !o.arrived_at, arrive: () => this.imAtCafe(o),
-      arrivedNote: !venue && o.type === 'dine_in' && o.status === 'booked' && !!o.arrived_at,
+      canArrive: false,  // guests are checked in by the barista only arrive: () => this.imAtCafe(o),
+      arrivedNote: false,
       canRate: paid, rates: [{ label: 'Food', stars: stars('food') }, { label: 'Service', stars: stars('service') }],
       rateMsg: r.err ? r.err : r.saved ? 'Thanks, rating saved' : (r.food && !r.service) || (!r.food && r.service) ? 'Rate both to save' : ''
     };
