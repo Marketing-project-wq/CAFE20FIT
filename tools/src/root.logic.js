@@ -203,11 +203,21 @@ class Component extends DCLogic {
       method: venue ? 'WhatsApp' : A.methodLabel(o.payment_method), totalFmt: venue ? '' : rp(o.total),
       cardStyle: { display: 'flex', flexDirection: 'column', gap: 12, padding: 20, borderRadius: 24, background: active ? '#fff' : 'rgba(255,255,255,.75)', border: active ? '2px solid #0d0d0d' : '1px solid rgba(255,255,255,.95)', boxShadow: active ? '0 16px 40px rgba(13,13,13,.10)' : 'inset 0 1px 0 #fff, 0 10px 30px rgba(13,13,13,.05)', animation: flash ? 'cafeFlash 1s ease 1' : 'none' },
       toggle: () => this.setState(s => ({ hOpen: { ...s.hOpen, [o.code]: !s.hOpen[o.code] } })), isOpen: open, moreLabel: open ? 'Hide details' : 'Details',
-      lines: venue ? [] : (o.items || []).map(i => ({ label: i.qty + '× ' + i.name, opts: A.optionsText(i.options), value: rp(i.subtotal) })),
+      // Venue requests: show the request itself (it has no menu items, prices or payment timeline)
+      lines: venue ? [
+        ['Event', String(o.event_type || '-').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())],
+        ['Date', A.dayLabel(o.event_date)],
+        ['Session', A.SESSION[String(o.session || '').toLowerCase()] || o.session || '-'],
+        ['Guests', (o.guests || 0) + ' people'],
+        ['Package', o.package === 'with_refreshments' ? 'With refreshments' : 'Venue only'],
+        ['Estimated price', rp(o.est_price)]
+      ].map(([label, value]) => ({ label, opts: '', value })) : (o.items || []).map(i => ({ label: i.qty + '× ' + i.name, opts: A.optionsText(i.options), value: rp(i.subtotal) })),
+      venueNote: venue ? (o.status === 'new' ? 'The cafe will contact you on WhatsApp to confirm your booking.' : o.status === 'confirmed' ? 'Your venue booking is confirmed. See you there!' : '') : '',
+      venueWa: venue && o.is_open !== false, venueWaUrl: venue ? 'https://wa.me/' + String(this.props.waNumber ?? '6285284200036').replace(/\D/g, '') + '?text=' + encodeURIComponent('Hi 20FIT Cafe, about my venue booking ' + o.code + ' (' + A.dayLabel(o.event_date) + ', ' + (o.guests || 0) + ' guests).') : '',
       price, hasPrice: price.length > 0,
       timeline: (o.timeline || []).map(t => ({ text: A.status({ ...o, status: t.to }).pill + ' · ' + A.time(t.at) + (t.by ? ' · ' + t.by : '') })), hasTimeline: !!(o.timeline && o.timeline.length),
       showQr: !venue && o.type === 'dine_in' && o.status === 'booked', qr: !venue && o.type === 'dine_in' && o.status === 'booked' && open ? React.createElement('div', { style: { width: 140, height: 140 }, dangerouslySetInnerHTML: { __html: A.qrSvg(o.code, 140) } }) : null,
-      canArrive: false,  // guests are checked in by the barista only arrive: () => this.imAtCafe(o),
+      canArrive: false, arrive: () => {},  // guests are checked in by the barista only
       arrivedNote: false,
       canRate: paid, rates: [{ label: 'Food', stars: stars('food') }, { label: 'Service', stars: stars('service') }],
       rateMsg: r.err ? r.err : r.saved ? 'Thanks, rating saved' : (r.food && !r.service) || (!r.food && r.service) ? 'Rate both to save' : ''
