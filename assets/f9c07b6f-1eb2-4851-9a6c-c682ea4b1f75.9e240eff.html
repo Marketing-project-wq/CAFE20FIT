@@ -11,21 +11,22 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,700;0,800;1,800&family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap">
 </helmet>
 <div style="position:relative;font-family:Manrope,sans-serif;color:#0d0d0d">
-  <section ref="{{ trackRef }}" id="process" data-screen-label="Hero 3D" style="position:relative;height:600vh;background:#0d0d0d">
-    <div style="position:sticky;top:0;height:100vh;overflow:hidden;background:linear-gradient(180deg,#0b0b0b 0%,#141414 60%,#1d0a0d 100%)">
-      <div style="position:absolute;left:-2vw;right:-2vw;top:50%;transform:translateY(-50%);text-align:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-style:italic;font-size:34vw;line-height:.8;letter-spacing:-0.02em;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.07);pointer-events:none;white-space:nowrap">20FIT</div>
+  <section ref="{{ trackRef }}" id="process" data-screen-label="Hero 3D" style="position:relative;height:600vh;background:#f3f4f7">
+    <div class="fx-studio" style="position:sticky;top:0;height:100vh;overflow:hidden;background:radial-gradient(ellipse 60% 50% at 70% 46%,rgba(227,10,46,.09),rgba(227,10,46,0) 70%),radial-gradient(ellipse 80% 60% at 20% 10%,rgba(120,140,255,.06),rgba(120,140,255,0) 70%),linear-gradient(180deg,#ffffff 0%,#f6f7f9 55%,#eceef3 100%)">
+      <div style="position:absolute;left:-2vw;right:-2vw;top:50%;transform:translateY(-50%);text-align:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-style:italic;font-size:34vw;line-height:.8;letter-spacing:-0.02em;color:transparent;-webkit-text-stroke:1px rgba(13,13,13,.06);pointer-events:none;white-space:nowrap">20FIT</div>
+      <div aria-hidden="true" style="position:absolute;left:24px;top:108px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:rgba(13,13,13,.35);pointer-events:none">20FIT / LAB · INGREDIENTS IN MOTION</div>
       <div ref="{{ mountRef }}" style="position:absolute;inset:0"></div>
       <sc-if value="{{ loading }}" hint-placeholder-val="{{ true }}">
         <div class="fx-3dskel" style="position:absolute;inset:0;pointer-events:none">
           <div class="fx-3dskel-art" style="position:absolute;right:12%;top:50%;transform:translateY(-50%);width:min(36vw,440px);display:flex;flex-direction:column;align-items:center">
-            <span class="fx-skd" style="width:46%;aspect-ratio:1/1.35;border-radius:18px 18px 40px 40px;margin-bottom:-6%"></span>
-            <span class="fx-skd" style="width:100%;aspect-ratio:3/1;border-radius:50%"></span>
+            <span class="fx-skl" style="width:46%;aspect-ratio:1/1.35;border-radius:18px 18px 40px 40px;margin-bottom:-6%"></span>
+            <span class="fx-skl" style="width:100%;aspect-ratio:3/1;border-radius:50%"></span>
           </div>
           <div style="position:absolute;right:24px;top:110px;display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#8a8a8a"><span style="width:7px;height:7px;border-radius:50%;background:#e30a2e;animation:skPulse 1s ease-in-out infinite"></span>Preparing the bar…</div>
         </div>
       </sc-if>
       <sc-if value="{{ showSpin }}" hint-placeholder-val="{{ false }}">
-        <div class="fx-spin" style="position:absolute;right:8%;bottom:92px;z-index:3;display:flex;align-items:center;gap:10px;padding:6px;border-radius:999px;background:rgba(13,13,13,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);animation:pFade .4s ease">
+        <div class="fx-spin" style="position:absolute;right:8%;bottom:92px;z-index:3;display:flex;align-items:center;gap:10px;padding:6px;border-radius:999px;background:rgba(13,13,13,.9);box-shadow:0 10px 30px rgba(13,13,13,.18);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);animation:pFade .4s ease">
           <button onClick="{{ prevDrink }}" aria-label="Previous drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">‹</button>
           <div style="display:flex;flex-direction:column;align-items:center;min-width:150px;text-align:center">
             <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#bdbdbd">{{ spinHint }}</span>
@@ -38,13 +39,13 @@
         <div class="fx-story-col" style="display:flex;flex-direction:column;gap:16px;max-width:520px;pointer-events:auto">
           <div style="display:flex;align-items:baseline;gap:14px">
             <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:72px;line-height:.8;color:transparent;-webkit-text-stroke:1.5px #e30a2e">{{ num }}</span>
-            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.16em;color:#bdbdbd">{{ counter }}</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.16em;color:#6a6a6a">{{ counter }}</span>
           </div>
-          <h1 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(56px,7.5vw,120px);line-height:.84;color:#fff;text-wrap:balance">{{ cur.title }}</h1>
-          <p style="margin:0;font-size:17px;line-height:1.6;color:#cfcfcf;max-width:420px;min-height:3.2em">{{ cur.body }}</p>
+          <h1 style="margin:0;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(56px,7.5vw,120px);line-height:.84;color:#0d0d0d;text-wrap:balance">{{ cur.title }}</h1>
+          <p style="margin:0;font-size:17px;line-height:1.6;color:#3f3f44;max-width:420px;min-height:3.2em">{{ cur.body }}</p>
           <div class="fx-story-cta" style="display:flex;justify-content:flex-end;align-items:center;gap:12px;flex-wrap:wrap">
             <sc-if value="{{ showSpin }}" hint-placeholder-val="{{ false }}">
-              <div class="fx-spin-in" style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:999px;background:rgba(13,13,13,.55);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);animation:pFade .4s ease">
+              <div class="fx-spin-in" style="display:flex;align-items:center;gap:10px;padding:6px;border-radius:999px;background:rgba(13,13,13,.9);box-shadow:0 10px 30px rgba(13,13,13,.18);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);animation:pFade .4s ease">
                 <button onClick="{{ prevDrink }}" aria-label="Previous drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">‹</button>
                 <div style="display:flex;flex-direction:column;align-items:center;min-width:150px;text-align:center">
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#bdbdbd">{{ spinHint }}</span>
@@ -60,7 +61,7 @@
       <div style="position:absolute;left:24px;right:24px;bottom:28px;max-width:1272px;margin:0 auto;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px">
         <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
           <button onClick="{{ s.go }}" aria-label="{{ s.short }}" style="all:unset;cursor:pointer;display:flex;flex-direction:column;gap:8px;min-width:0">
-            <span style="position:relative;display:block;height:3px;border-radius:2px;background:rgba(255,255,255,.16);overflow:hidden"><span style="{{ s.fill }}"></span></span>
+            <span style="position:relative;display:block;height:3px;border-radius:2px;background:rgba(13,13,13,.12);overflow:hidden"><span style="{{ s.fill }}"></span></span>
             <span style="{{ s.label }}">{{ s.short }}</span>
           </button>
         </sc-for>
@@ -244,26 +245,31 @@ class Component extends DCLogic {
     if (this.track.current) this._io3d.observe(this.track.current);
 
     const env = new THREE.Scene();
-    env.add(new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshBasicMaterial({ color: 0x1a1a1a, side: THREE.BackSide })));
+    env.add(new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshBasicMaterial({ color: 0x4a4a4e, side: THREE.BackSide })));  // mid-grey so glass + ice keep visible edges on the white studio
     const soft = (c, i, x, y, z, w, h) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(i), side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); env.add(m); };
     soft(0xffffff, 6, 0, 9, 2, 8, 4); soft(0xffffff, 3, 8, 3, 5, 4, 6); soft(0xe30a2e, 4, -8, 2, -3, 4, 6);
     const pm = new THREE.PMREMGenerator(renderer); scene.environment = pm.fromScene(env, 0.04).texture;
 
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x220508, 0.5));
+    scene.add(new THREE.HemisphereLight(0xffffff, 0xe6e7ec, 0.95));
+    scene.fog = new THREE.Fog(0xf1f2f5, 11, 26);  // the floor fades into the white backdrop
     const key = new THREE.DirectionalLight(0xfff4ea, 2.4); key.position.set(3, 7, 4); key.castShadow = true;
     key.shadow.mapSize.set(this.phone ? 512 : 1024, this.phone ? 512 : 1024); Object.assign(key.shadow.camera, { left: -5, right: 5, top: 5, bottom: -5, near: 1, far: 20 }); key.shadow.bias = -0.0004; key.shadow.radius = 6;
     scene.add(key);
-    const rim = new THREE.PointLight(0xe30a2e, 40, 14); rim.position.set(-3.5, 3, -2.5); scene.add(rim);
+    const rim = new THREE.PointLight(0xe30a2e, 26, 14); rim.position.set(-3.5, 3, -2.5); scene.add(rim);
     const backLight = new THREE.DirectionalLight(0xffffff, 1.6); backLight.position.set(1.5, 4, -6); scene.add(backLight); // rim highlight on the cup edges
     const fill = new THREE.PointLight(0xffe2c4, 14, 9); fill.position.set(2.6, 1.6, 3.2); scene.add(fill); // warm fill so the latte glows
 
     const tableTex = this.canvasTex(THREE, 1024, 1024, (x, w, h) => { x.fillStyle = '#1c1717'; x.fillRect(0, 0, w, h); for (let i = 0; i < 5000; i++) { x.fillStyle = `rgba(255,255,255,${0.05 + rnd(i) * 0.5})`; const s = 0.6 + rnd(i + 9) * 1.6; x.fillRect(rnd(i + 1) * w, rnd(i + 2) * h, s, s); } x.strokeStyle = 'rgba(255,255,255,.05)'; for (let i = 0; i < 18; i++) { x.beginPath(); x.moveTo(rnd(i + 40) * w, rnd(i + 50) * h); x.bezierCurveTo(rnd(i + 60) * w, rnd(i + 70) * h, rnd(i + 80) * w, rnd(i + 90) * h, rnd(i + 99) * w, rnd(i + 33) * h); x.stroke(); } });
     const table = new THREE.Mesh(new THREE.CylinderGeometry(4.6, 4.6, 0.3, 128), [new THREE.MeshStandardMaterial({ color: 0x141111, roughness: 0.8 }), new THREE.MeshStandardMaterial({ map: tableTex, roughness: 0.7 }), new THREE.MeshStandardMaterial({ color: 0x141111 })]);
     table.visible = false;
-    const ped = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.62, 0.5, 96), new THREE.MeshStandardMaterial({ color: 0x121212, roughness: 0.55, metalness: 0.2 })); ped.position.y = -0.25; ped.receiveShadow = true; ped.castShadow = true; scene.add(ped);
+    const ped = new THREE.Mesh(new THREE.CylinderGeometry(1.55, 1.62, 0.5, 96), new THREE.MeshPhysicalMaterial({ color: 0xf7f7f9, roughness: 0.22, metalness: 0.05, clearcoat: 1, clearcoatRoughness: 0.12 })); ped.position.y = -0.25; ped.receiveShadow = true; ped.castShadow = true; scene.add(ped);
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.56, 0.012, 8, 160), new THREE.MeshBasicMaterial({ color: 0xe30a2e })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.001; scene.add(ring);
-    const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0x0e0e0e, roughness: 0.9 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -0.5; floor.receiveShadow = true; scene.add(floor);
-    const grid = new THREE.GridHelper(60, 60, 0x3a0d14, 0x1e1e1e); grid.position.y = -0.495; scene.add(grid);
+    // neon base ring + soft red glow on the floor around the pedestal
+    const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.63, 0.016, 8, 160), new THREE.MeshBasicMaterial({ color: 0xff2a48 })); ring2.rotation.x = Math.PI / 2; ring2.position.y = -0.49; scene.add(ring2);
+    const haloTex = this.canvasTex(THREE, 256, 256, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, w * 0.2, w / 2, h / 2, w / 2); gr.addColorStop(0, 'rgba(227,10,46,.38)'); gr.addColorStop(0.45, 'rgba(227,10,46,.12)'); gr.addColorStop(1, 'rgba(227,10,46,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+    const halo = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 6.4), new THREE.MeshBasicMaterial({ map: haloTex, transparent: true, depthWrite: false })); halo.rotation.x = -Math.PI / 2; halo.position.y = -0.493; scene.add(halo);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0xf2f3f6, roughness: 0.55 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -0.5; floor.receiveShadow = true; scene.add(floor);
+    const grid = new THREE.GridHelper(60, 120, 0xc3c6cf, 0xc3c6cf); grid.material.transparent = true; grid.material.opacity = 0.3; grid.position.y = -0.495; scene.add(grid);
 
     const cup = new THREE.Group(); scene.add(cup);
     const dropTex = this.canvasTex(THREE, 512, 1024, (x, w, h) => { x.fillStyle = '#000'; x.fillRect(0, 0, w, h); for (let i = 0; i < 1400; i++) { const r = 1 + rnd(i * 3) * (rnd(i * 7) > 0.92 ? 7 : 2.6), px = rnd(i) * w, py = h * 0.12 + rnd(i + 1) * h * 0.86; const g = x.createRadialGradient(px - r * 0.3, py - r * 0.3, 0, px, py, r); g.addColorStop(0, '#fff'); g.addColorStop(1, 'rgba(255,255,255,0)'); x.fillStyle = g; x.beginPath(); x.ellipse(px, py, r, r * 1.15, 0, 0, Math.PI * 2); x.fill(); } });
@@ -385,6 +391,44 @@ class Component extends DCLogic {
     const pileData = Array.from({ length: NP }, (_, k) => { const rr = Math.sqrt(k / NP) * 1.05, a = k * 2.39996; return { x: Math.cos(a) * rr, z: Math.sin(a) * rr, y: 0.07 + (1 - rr) * 0.5 * (0.8 + rnd(k) * 0.4), rx: rnd(k + 1) * 6, ry: rnd(k + 2) * 6 }; });
     const ground = new THREE.Mesh(new THREE.ConeGeometry(1.0, 0.6, 72), new THREE.MeshStandardMaterial({ color: 0x2a1609, roughness: 1 })); ground.position.y = 0.3; ground.castShadow = true; scene.add(ground);
 
+    // Floating ingredients drifting around the studio: beans, ice, milk drops, matcha leaves, strawberries, palm sugar.
+    // Kept clear of the cup/pedestal and the camera's line of sight; no shadows, so they cost almost nothing.
+    const roundBox = sz => { const gm = new THREE.BoxGeometry(sz, sz, sz, 3, 3, 3), pa = gm.attributes.position, v = new THREE.Vector3(); for (let k = 0; k < pa.count; k++) { v.fromBufferAttribute(pa, k); v.lerp(v.clone().normalize().multiplyScalar(sz * 0.62), 0.3); pa.setXYZ(k, v.x, v.y, v.z); } gm.computeVertexNormals(); return gm; };
+    const leafGeo = new THREE.SphereGeometry(0.24, 18, 10); leafGeo.scale(1, 0.1, 0.46);
+    const dropGeo = new THREE.SphereGeometry(0.12, 20, 14); dropGeo.scale(1, 1.22, 1);
+    const berryGeo = new THREE.SphereGeometry(0.17, 20, 14); { const pa = berryGeo.attributes.position, v = new THREE.Vector3(); for (let k = 0; k < pa.count; k++) { v.fromBufferAttribute(pa, k); const t = (v.y / 0.17 + 1) / 2; v.x *= 0.5 + 0.5 * t; v.z *= 0.5 + 0.5 * t; v.y *= 1.15; pa.setXYZ(k, v.x, v.y, v.z); } berryGeo.computeVertexNormals(); }
+    const kinds = [
+      { geo: beanGeo, mat: beanMat, n: 14, s: 1.15, brown: true },
+      { geo: iceGeo, mat: iceMat, n: 8, s: 0.6 },
+      { geo: dropGeo, mat: new THREE.MeshPhysicalMaterial({ color: 0xf8f2e7, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.1 }), n: 10, s: 1 },
+      { geo: leafGeo, mat: new THREE.MeshStandardMaterial({ color: 0x6f9d2f, roughness: 0.5, side: THREE.DoubleSide }), n: 8, s: 1 },
+      { geo: berryGeo, mat: new THREE.MeshPhysicalMaterial({ color: 0xd61f3c, roughness: 0.32, clearcoat: 0.7 }), n: 6, s: 1 },
+      { geo: roundBox(0.2), mat: new THREE.MeshStandardMaterial({ color: 0x9c6129, roughness: 0.85 }), n: 6, s: 1 }
+    ];
+    const ingr = kinds.map((k, ki) => {
+      const n = this.phone ? Math.ceil(k.n / 2) : k.n, m = new THREE.InstancedMesh(k.geo, k.mat, n), items = [];
+      for (let q = 0, tries = 0; q < n && tries < 400; tries++) {
+        const sd = ki * 97 + tries * 7.3, x = (rnd(sd) - 0.5) * 14, z = -6 + rnd(sd + 1) * 7.5, y = -0.2 + rnd(sd + 2) * 4.8;
+        if (Math.hypot(x, z) < 2.7 || (z > -1 && Math.abs(x) < 2.2)) continue;   // keep the cup and its front clear
+        if (x < -3 && y < 3.4) continue;                                           // and the heading / text area (lower left)
+        items.push({ x, y, z, ph: rnd(sd + 3) * 6.28, sp: 0.35 + rnd(sd + 4) * 0.45, rx: rnd(sd + 5) * 6, ry: rnd(sd + 6) * 6, rs: (rnd(sd + 7) - 0.5) * 0.8, sc: k.s * (0.8 + rnd(sd + 8) * 0.5) }); q++;
+      }
+      m.count = items.length;
+      if (k.brown) { const c = new THREE.Color(); items.forEach((_, q) => m.setColorAt(q, c.set(['#4a2614', '#5a321b', '#683b21', '#73452a'][q % 4]))); m.instanceColor.needsUpdate = true; }
+      scene.add(m); return { m, items };
+    });
+    const ingrTick = time => {
+      const show = ease(cl(time / 1.6));   // drift in after load
+      ingr.forEach(({ m, items }) => {
+        items.forEach((it, q) => {
+          dummy.position.set(it.x + Math.sin(time * it.sp * 0.6 + it.ph) * 0.18, it.y + Math.sin(time * it.sp + it.ph) * 0.28, it.z + Math.cos(time * it.sp * 0.5 + it.ph) * 0.14);
+          dummy.rotation.set(it.rx + time * it.rs, it.ry + time * it.rs * 0.7, it.rx * 0.5);
+          dummy.scale.setScalar(it.sc * show); dummy.updateMatrix(); m.setMatrixAt(q, dummy.matrix);
+        });
+        m.instanceMatrix.needsUpdate = true;
+      });
+    };
+
     const dummy = new THREE.Object3D(), clock = new THREE.Clock();
     let camX = 0, camY = 0;
     this.setState({ loading: false }); requestAnimationFrame(() => requestAnimationFrame(() => { renderer.domElement.style.opacity = '1'; }));
@@ -435,6 +479,7 @@ class Component extends DCLogic {
       lid.position.y = 2.33 + (1 - ease(cl(t5 / 0.45))) * 3; lid.visible = t5 > 0.01;
       logoMat.opacity = ease(cl((p - 2.3) / 0.5));
       const ss = ease(cl((t5 - 0.25) / 0.4)); straw.visible = ss > 0.01; straw.position.y = 1.72 + (1 - ss) * 3.2;
+      ingrTick(time);
       camX += (this.mx - camX) * 0.05; camY += (this.my - camY) * 0.05;
       const tgtY = 0.35 + ease(cl((p - 1.6) / 1)) * 0.85;
       const rad = 9.6 - ease(cl((p - 1.6) / 1)) * 0.6;
@@ -446,6 +491,7 @@ class Component extends DCLogic {
       const narrow = !this.wide && camera.aspect < 0.8, oy = narrow ? -1.95 : 0, rk = narrow ? 1.95 : 1;
       camera.position.set(ox + rad * rk * rw * Math.sin(pol) * Math.sin(az), tgtY + tw + oy + rad * rk * rw * Math.cos(pol), rad * rk * rw * Math.sin(pol) * Math.cos(az));
       camera.lookAt(ox, tgtY + tw + oy, 0);
+      { const cd = rad * rk * rw; scene.fog.near = cd + 2.5; scene.fog.far = cd + 17; }  // fog only on the far floor, whatever the camera distance (phones sit further back)
       renderer.render(scene, camera);
       this._raf = requestAnimationFrame(frame);
     };
@@ -461,7 +507,7 @@ class Component extends DCLogic {
       cur: STEPS[step], num: String(step + 1).padStart(2, '0'), counter: 'STEP ' + String(step + 1).padStart(2, '0') + ' / 05 — BY OUR BARISTAS',
       steps: STEPS.map((s, i) => ({ short: s.short, go: () => this.goTo(i),
         fill: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#e30a2e', width: (i < step ? 100 : i === step ? Math.round(this.state.pp * 100) : 0) + '%', transition: 'width .15s linear' },
-        label: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: i === step ? '#fff' : '#7a7a7a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color .3s' } })),
+        label: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: i === step ? '#0d0d0d' : '#9a9a9a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color .3s' } })),
       onOrder: () => this.props.onOrder && this.props.onOrder(), onMenu: () => this.props.onMenu && this.props.onMenu(),
       onVenue: () => this.props.onVenue && this.props.onVenue(), onDine: () => this.props.onDine && this.props.onDine(),
       vidRef: this.vid, vidSrc: ABOUT_VIDEO,
