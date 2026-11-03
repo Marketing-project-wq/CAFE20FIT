@@ -51,7 +51,7 @@ class Component extends DCLogic {
     else if (m === 'dine') Object.assign(next, { mode: 'dine', step: 'visit' });
     this.setState(next);
   }
-  componentWillUnmount() { (this._ts || []).forEach(clearTimeout); clearInterval(this._qi); this.stopLive(); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
+  componentWillUnmount() { (this._ts || []).forEach(clearTimeout); clearInterval(this._qi); clearInterval(this._wi); this.stopLive(); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
   later(fn, ms) { (this._ts = this._ts || []).push(setTimeout(fn, ms)); }
   dayText() { const d = new Date(); d.setDate(d.getDate() + (this.state.dayI || 0)); return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }); }
   menu() { return this.props.menu || []; }
@@ -98,20 +98,32 @@ class Component extends DCLogic {
       this.setState({ busy: false, created: res, code: res.code, token: res.access_token });
       if (this.props.onPaid) this.props.onPaid(); // history picks up the new ref right away
       this.startLive();
-      if (method.qr) this.startQr(); else this.setState({ step: 'wait' });
+      if (method.qr) this.startQr(); else this.startWait();
     }).catch(e => this.setState({ busy: false, err: e.message || 'Could not create your order' }));
   }
   startLive() {
     this.stopLive();
     const t = this.state.token; if (!t) return;
     this._unwatch = API().watch(t, () => this.fetchLive());
-    this._lp = setInterval(() => this.fetchLive(), 20000);
+    this._lpAt = 0;
+    this._lp = setInterval(() => { const waiting = ['qr', 'wait'].includes(this.state.step); if (waiting || Date.now() - this._lpAt > 20000) this.fetchLive(); }, 4000);  // fast while waiting for the cafe
     this._vis = () => { if (document.visibilityState === 'visible') this.fetchLive(); }; document.addEventListener('visibilitychange', this._vis);
     this.fetchLive();
+  }
+  // 'Waiting for the cafe' screen: a running timer, and after 45s a WhatsApp nudge to the cafe with the order code
+  startWait() {
+    clearInterval(this._wi); this._w0 = Date.now(); this.setState({ step: 'wait', now: Date.now() });
+    this._wi = setInterval(() => { if (this.state.step !== 'wait') { clearInterval(this._wi); return; } this.setState({ now: Date.now() }); }, 1000);
+  }
+  nudgeUrl() {
+    const s = this.state, n = String((s.cfg && s.cfg.wa_number) || this.props.waNumber || '').replace(/\D/g, '');
+    const amt = s.live && s.live.total != null ? ' (' + rp(s.live.total) + ')' : '';
+    return 'https://wa.me/' + n + '?text=' + encodeURIComponent('Hi 20FIT Cafe, I have paid for order ' + s.code + amt + '. Could you please confirm my payment? Thank you!');
   }
   stopLive() { this._unwatch && this._unwatch(); this._unwatch = null; clearInterval(this._lp); if (this._vis) document.removeEventListener('visibilitychange', this._vis); }
   fetchLive() {
     const { code, token } = this.state; if (!code || !token) return;
+    this._lpAt = Date.now();
     (this.state.mode === 'venue' ? API().getMyOrders().then(l => l.find(o => o.code === code)) : API().getOrder(code, token)).then(o => {
       if (!o) return;
       const next = { live: o };
@@ -167,7 +179,7 @@ class Component extends DCLogic {
       confirm: ['Confirm order', () => this.setState({ step: 'pay' }), s.fulfil === 'pickup' ? !s.name.trim() : !s.address.trim()],
       venue: [s.busy ? 'Sending…' : 'Continue on WhatsApp', () => this.sendWa(), !s.date || !vNameOk || !vPhoneOk || s.busy],
       pay: [s.busy ? 'Creating your order…' : detailsOk ? 'Pay ' + rp(total) : 'Fill in your details to pay', () => this.createOrder(), !detailsOk || s.busy || cfg.ordering_open === false],
-      qr: qrExpired ? ['Generate new QR', () => this.startQr(), false] : ['I have paid', () => { clearInterval(this._qi); this.setState({ step: 'wait' }); this.fetchLive(); }, false],
+      qr: qrExpired ? ['Generate new QR', () => this.startQr(), false] : ['I have paid', () => { clearInterval(this._qi); this.startWait(); this.fetchLive(); }, false],
       done: ['Done', () => this.finish(), false]
     };
     const cta = ctas[s.step];
@@ -217,6 +229,9 @@ class Component extends DCLogic {
       sessions: SESSIONS.map(t => ({ label: t, pick: () => this.setState({ session: t }), style: chip(s.session === t) })),
       events: EVENTS.map(t => ({ label: t, pick: () => this.setState({ event: t }), style: chip(s.event === t) })),
       refreshOpts: [[true, 'With refreshments', 'Drinks + pastries, ' + rp(cfg.venue_refresh_price || 0) + ' / person'], [false, 'Venue only', 'Order at the bar during the event']].map(([v, label, desc]) => ({ label, desc, pick: () => this.setState({ refresh: v }), style: card(s.refresh === v) })),
+      waitElapsed: (() => { const t = Math.max(0, Math.floor(((s.now || Date.now()) - (this._w0 || Date.now())) / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); })(),
+      waitNudge: s.step === 'wait' && !(live && (live.payment_status === 'expired' || live.payment_status === 'failed')) && (s.now || 0) - (this._w0 || Date.now()) >= 45000,
+      openNudge: () => window.open(this.nudgeUrl(), '_blank', 'noopener'),
       lines, totalFmt: rp(total), totalLabel: estimate ? 'Estimated total' : 'Total', payLabel: method.label, code: s.code,
       hasErr: !!errMsg, errMsg, vNameErr: s.name && !vNameOk ? 'Please enter your name' : '', vPhoneErr: s.phone && !vPhoneOk ? 'Please enter a valid WhatsApp number, e.g. 0812xxxxxxx' : '',
       waitTitle: live && (live.payment_status === 'expired' || live.payment_status === 'failed') ? st.pill : 'Waiting for the cafe to confirm your payment', waitSub: live && (live.payment_status === 'expired' || live.payment_status === 'failed') ? 'Please start a new order or contact the cafe.' : 'This page updates automatically. You can close it; your order stays in Purchase History · ' + s.code,
