@@ -15,7 +15,9 @@
     <div class="fx-studio" style="position:sticky;top:0;height:100vh;overflow:hidden;background:radial-gradient(ellipse 60% 50% at 70% 46%,rgba(227,10,46,.09),rgba(227,10,46,0) 70%),radial-gradient(ellipse 80% 60% at 20% 10%,rgba(120,140,255,.06),rgba(120,140,255,0) 70%),linear-gradient(180deg,#ffffff 0%,#f6f7f9 55%,#eceef3 100%)">
       <div style="position:absolute;left:-2vw;right:-2vw;top:50%;transform:translateY(-50%);text-align:center;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-style:italic;font-size:34vw;line-height:.8;letter-spacing:-0.02em;color:transparent;-webkit-text-stroke:1px rgba(13,13,13,.06);pointer-events:none;white-space:nowrap">20FIT</div>
       <div aria-hidden="true" style="position:absolute;left:24px;top:108px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:rgba(13,13,13,.35);pointer-events:none">20FIT / LAB · INGREDIENTS IN MOTION</div>
+      <div aria-hidden="true" style="{{ glowStyle }}"></div>
       <div ref="{{ mountRef }}" style="position:absolute;inset:0"></div>
+      <sc-if value="{{ hasTip }}" hint-placeholder-val="{{ false }}"><div style="{{ tipStyle }}">{{ tipText }}</div></sc-if>
       <sc-if value="{{ loading }}" hint-placeholder-val="{{ true }}">
         <div class="fx-3dskel" style="position:absolute;inset:0;pointer-events:none">
           <div class="fx-3dskel-art" style="position:absolute;right:12%;top:50%;transform:translateY(-50%);width:min(36vw,440px);display:flex;flex-direction:column;align-items:center">
@@ -31,6 +33,7 @@
           <div style="display:flex;flex-direction:column;align-items:center;min-width:150px;text-align:center">
             <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#bdbdbd">{{ spinHint }}</span>
             <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;letter-spacing:.02em;text-transform:uppercase;color:#fff;white-space:nowrap">{{ drinkName }}</span>
+            <span style="font-size:11px;color:#bdbdbd;white-space:nowrap">{{ drinkBlurb }}</span>
           </div>
           <button onClick="{{ nextDrink }}" aria-label="Next drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">›</button>
         </div>
@@ -50,11 +53,14 @@
                 <div style="display:flex;flex-direction:column;align-items:center;min-width:150px;text-align:center">
                   <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:#bdbdbd">{{ spinHint }}</span>
                   <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:19px;letter-spacing:.02em;text-transform:uppercase;color:#fff;white-space:nowrap">{{ drinkName }}</span>
+            <span style="font-size:11px;color:#bdbdbd;white-space:nowrap">{{ drinkBlurb }}</span>
                 </div>
                 <button onClick="{{ nextDrink }}" aria-label="Next drink" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:18px;color:#fff;background:rgba(255,255,255,.12)" style-hover="background:#e30a2e">›</button>
               </div>
             </sc-if>
-            <button onClick="{{ onOrder }}" style="all:unset;cursor:pointer;white-space:nowrap;padding:9px 18px;border-radius:999px;background:#e30a2e;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;letter-spacing:.05em;text-transform:uppercase" style-hover="background:#c70026">Order now ›</button>
+            <sc-if value="{{ showOrder }}" hint-placeholder-val="{{ false }}">
+              <button onClick="{{ onOrder }}" style="all:unset;cursor:pointer;white-space:nowrap;padding:9px 18px;border-radius:999px;background:#e30a2e;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;letter-spacing:.05em;text-transform:uppercase;animation:pFade .5s ease" style-hover="background:#c70026">Order now ›</button>
+            </sc-if>
           </div>
         </div>
       </div>
@@ -124,11 +130,11 @@ const rnd = s => { const x = Math.sin(s * 127.1) * 43758.5453; return x - Math.f
 const R = y => 0.6 + 0.22 * (y / 2.3);
 // Drinks you can spin through on the last step. syrup = bottom layer (dark→light), milk = body (top→bottom), streak = rgb of the marbling.
 const DRINKS = [
-  { name: 'Signature Aren Latte', syrup: ['#2a1206', '#5c2c0f'], milk: ['#ecd9bd', '#cfa476'], streak: [104, 50, 16], cap: 0xdcbb92 },
-  { name: 'Matcha Latte', syrup: ['#2c4510', '#61852c'], milk: ['#f0f3e2', '#c3d29a'], streak: [80, 116, 36], cap: 0xe4ead0 },
-  { name: 'Strawberry Latte', syrup: ['#6a0a1e', '#c4264b'], milk: ['#f8e9eb', '#efc0c9'], streak: [186, 36, 66], cap: 0xf4dade },
-  { name: 'Choco Overload', syrup: ['#1d0c05', '#40200f'], milk: ['#b48460', '#83533a'], streak: [48, 22, 10], cap: 0x9a6b48 },
-  { name: 'Tropical Recovery', syrup: ['#e9e6df', '#f6f4ef'], milk: ['#fdfcf9', '#efebe3'], streak: [222, 216, 204], cap: 0xffffff }
+  { name: 'Signature Aren Latte', syrup: ['#2a1206', '#5c2c0f'], milk: ['#ecd9bd', '#cfa476'], streak: [104, 50, 16], cap: 0xdcbb92, accent: '#c47a35', blurb: 'Palm sugar, espresso & fresh milk' },
+  { name: 'Matcha Latte', syrup: ['#2c4510', '#61852c'], milk: ['#f0f3e2', '#c3d29a'], streak: [80, 116, 36], cap: 0xe4ead0, accent: '#6f9d2f', blurb: 'Matcha whisked with fresh milk' },
+  { name: 'Strawberry Latte', syrup: ['#6a0a1e', '#c4264b'], milk: ['#f8e9eb', '#efc0c9'], streak: [186, 36, 66], cap: 0xf4dade, accent: '#e0405e', blurb: 'Real strawberry, milk, light sweetness' },
+  { name: 'Choco Overload', syrup: ['#1d0c05', '#40200f'], milk: ['#b48460', '#83533a'], streak: [48, 22, 10], cap: 0x9a6b48, accent: '#6b3a1c', blurb: 'Rich chocolate, double the cocoa' },
+  { name: 'Tropical Recovery', syrup: ['#e9e6df', '#f6f4ef'], milk: ['#fdfcf9', '#efebe3'], streak: [222, 216, 204], cap: 0xffffff, accent: '#2fb5a3', blurb: 'Coconut, fruit & electrolytes' }
 ];
 const hexRgb = h => h[0] === '#' ? [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) : h.match(/\d+/g).slice(0, 3).map(Number); // '#rrggbb' or 'rgb(r,g,b)'
 const mixHex = (a, b, k) => { const A = hexRgb(a), B = hexRgb(b); return 'rgb(' + A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',') + ')'; };
@@ -228,7 +234,16 @@ class Component extends DCLogic {
       if (e.pointerId !== this.drag.id) return;
       const dx = e.clientX - this.drag.x; this.drag.x = e.clientX; const v = dx * 0.011; this.spin += v; this.spinV = v;
     });
-    cvs.addEventListener('pointerleave', () => { this.hoverCup = false; });
+    cvs.addEventListener('pointerleave', () => { this.hoverCup = false; if (this.pNdc) this.pNdc.on = false; this._hoverDirty = true; });
+    const track = e => { const r = cvs.getBoundingClientRect(); this.pNdc = { on: true, x: (e.clientX - r.left) / r.width * 2 - 1, y: -((e.clientY - r.top) / r.height) * 2 + 1, cx: e.clientX, cy: e.clientY }; this._hoverDirty = e.pointerType === 'mouse'; };
+    cvs.addEventListener('pointermove', track); cvs.addEventListener('pointerdown', e => { track(e); this._down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+    cvs.addEventListener('pointerup', e => { if (e.pointerType !== 'mouse') setTimeout(() => { if (this.pNdc) this.pNdc.on = false; }, 400); });
+    cvs.addEventListener('click', e => {
+      const d = this._down; if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10 || performance.now() - d.t > 500) return;
+      const h = this._ingrHit && this._ingrHit(e.clientX, e.clientY); if (!h) return;
+      h.it.pop = this.now || 0;
+      if (h.g.k.drink != null) this.swapDrink(1, h.g.k.drink);
+    });
     const endDrag = e => {
       const d = this.drag; this.drag = null; cvs.style.cursor = 'grab';
       if (d && e && e.type === 'pointerup' && e.pointerType !== 'mouse' && Math.hypot(e.clientX - d.x0, e.clientY - d.y0) < 10 && performance.now() - d.t0 < 400 && onCup(e)) this.swapDrink(1);
@@ -266,8 +281,8 @@ class Component extends DCLogic {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(1.56, 0.012, 8, 160), new THREE.MeshBasicMaterial({ color: 0xe30a2e })); ring.rotation.x = Math.PI / 2; ring.position.y = 0.001; scene.add(ring);
     // neon base ring + soft red glow on the floor around the pedestal
     const ring2 = new THREE.Mesh(new THREE.TorusGeometry(1.63, 0.016, 8, 160), new THREE.MeshBasicMaterial({ color: 0xff2a48 })); ring2.rotation.x = Math.PI / 2; ring2.position.y = -0.49; scene.add(ring2);
-    const haloTex = this.canvasTex(THREE, 256, 256, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, w * 0.2, w / 2, h / 2, w / 2); gr.addColorStop(0, 'rgba(227,10,46,.38)'); gr.addColorStop(0.45, 'rgba(227,10,46,.12)'); gr.addColorStop(1, 'rgba(227,10,46,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
-    const halo = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 6.4), new THREE.MeshBasicMaterial({ map: haloTex, transparent: true, depthWrite: false })); halo.rotation.x = -Math.PI / 2; halo.position.y = -0.493; scene.add(halo);
+    const haloTex = this.canvasTex(THREE, 256, 256, (g, w, h) => { const gr = g.createRadialGradient(w / 2, h / 2, w * 0.2, w / 2, h / 2, w / 2); gr.addColorStop(0, 'rgba(255,255,255,.42)'); gr.addColorStop(0.45, 'rgba(255,255,255,.14)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
+    const haloMat = new THREE.MeshBasicMaterial({ map: haloTex, transparent: true, depthWrite: false, color: 0xe30a2e }); const halo = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 6.4), haloMat); halo.rotation.x = -Math.PI / 2; halo.position.y = -0.493; scene.add(halo);
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(60, 60), new THREE.MeshStandardMaterial({ color: 0xf2f3f6, roughness: 0.55 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -0.5; floor.receiveShadow = true; scene.add(floor);
     const grid = new THREE.GridHelper(60, 120, 0xc3c6cf, 0xc3c6cf); grid.material.transparent = true; grid.material.opacity = 0.3; grid.position.y = -0.495; scene.add(grid);
 
@@ -398,12 +413,13 @@ class Component extends DCLogic {
     const dropGeo = new THREE.SphereGeometry(0.12, 20, 14); dropGeo.scale(1, 1.22, 1);
     const berryGeo = new THREE.SphereGeometry(0.17, 20, 14); { const pa = berryGeo.attributes.position, v = new THREE.Vector3(); for (let k = 0; k < pa.count; k++) { v.fromBufferAttribute(pa, k); const t = (v.y / 0.17 + 1) / 2; v.x *= 0.5 + 0.5 * t; v.z *= 0.5 + 0.5 * t; v.y *= 1.15; pa.setXYZ(k, v.x, v.y, v.z); } berryGeo.computeVertexNormals(); }
     const kinds = [
-      { geo: beanGeo, mat: beanMat, n: 14, s: 1.15, brown: true },
-      { geo: iceGeo, mat: iceMat, n: 8, s: 0.6 },
-      { geo: dropGeo, mat: new THREE.MeshPhysicalMaterial({ color: 0xf8f2e7, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.1 }), n: 10, s: 1 },
-      { geo: leafGeo, mat: new THREE.MeshStandardMaterial({ color: 0x6f9d2f, roughness: 0.5, side: THREE.DoubleSide }), n: 8, s: 1 },
-      { geo: berryGeo, mat: new THREE.MeshPhysicalMaterial({ color: 0xd61f3c, roughness: 0.32, clearcoat: 0.7 }), n: 6, s: 1 },
-      { geo: roundBox(0.2), mat: new THREE.MeshStandardMaterial({ color: 0x9c6129, roughness: 0.85 }), n: 6, s: 1 }
+      { geo: beanGeo, mat: beanMat, n: 14, s: 1.15, brown: true, label: 'Coffee bean', drink: 0 },
+      { geo: iceGeo, mat: iceMat, n: 8, s: 0.6, label: 'Ice', drink: null },
+      { geo: dropGeo, mat: new THREE.MeshPhysicalMaterial({ color: 0xf8f2e7, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.1 }), n: 10, s: 1, label: 'Coconut milk', drink: 4 },
+      { geo: leafGeo, mat: new THREE.MeshStandardMaterial({ color: 0x6f9d2f, roughness: 0.5, side: THREE.DoubleSide }), n: 8, s: 1, label: 'Matcha', drink: 1 },
+      { geo: berryGeo, mat: new THREE.MeshPhysicalMaterial({ color: 0xd61f3c, roughness: 0.32, clearcoat: 0.7 }), n: 6, s: 1, label: 'Strawberry', drink: 2 },
+      { geo: roundBox(0.2), mat: new THREE.MeshStandardMaterial({ color: 0x9c6129, roughness: 0.85 }), n: 6, s: 1, label: 'Palm sugar', drink: 0 },
+      { geo: roundBox(0.17), mat: new THREE.MeshPhysicalMaterial({ color: 0x3a2113, roughness: 0.4, clearcoat: 0.6 }), n: 6, s: 1, label: 'Dark chocolate', drink: 3 }
     ];
     const ingr = kinds.map((k, ki) => {
       const n = this.phone ? Math.ceil(k.n / 2) : k.n, m = new THREE.InstancedMesh(k.geo, k.mat, n), items = [];
@@ -411,23 +427,60 @@ class Component extends DCLogic {
         const sd = ki * 97 + tries * 7.3, x = (rnd(sd) - 0.5) * 14, z = -6 + rnd(sd + 1) * 7.5, y = -0.2 + rnd(sd + 2) * 4.8;
         if (Math.hypot(x, z) < 2.7 || (z > -1 && Math.abs(x) < 2.2)) continue;   // keep the cup and its front clear
         if (x < -3 && y < 3.4) continue;                                           // and the heading / text area (lower left)
-        items.push({ x, y, z, ph: rnd(sd + 3) * 6.28, sp: 0.35 + rnd(sd + 4) * 0.45, rx: rnd(sd + 5) * 6, ry: rnd(sd + 6) * 6, rs: (rnd(sd + 7) - 0.5) * 0.8, sc: k.s * (0.8 + rnd(sd + 8) * 0.5) }); q++;
+        items.push({ x, y, z, ph: rnd(sd + 3) * 6.28, sp: 0.35 + rnd(sd + 4) * 0.45, rx: rnd(sd + 5) * 6, ry: rnd(sd + 6) * 6, rs: (rnd(sd + 7) - 0.5) * 0.8, sc: k.s * (0.8 + rnd(sd + 8) * 0.5), ox: 0, oy: 0, boost: 0, pop: -9 }); q++;
       }
       m.count = items.length;
       if (k.brown) { const c = new THREE.Color(); items.forEach((_, q) => m.setColorAt(q, c.set(['#4a2614', '#5a321b', '#683b21', '#73452a'][q % 4]))); m.instanceColor.needsUpdate = true; }
-      scene.add(m); return { m, items };
+      // instances move every frame: use a fixed bounding sphere (three.js caches it on first use, while they still have scale 0)
+      m.frustumCulled = false; m.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 2, 0), 40);
+      m.userData.kind = k; scene.add(m); return { m, items, k };
     });
+    // Interactive: ingredients get pushed away from the pointer, show a label on hover and, once the drink is
+    // finished, tapping one pours the drink it belongs to (strawberry -> Strawberry Latte, matcha -> Matcha Latte...).
+    const pv = new THREE.Vector3(), iray = new THREE.Raycaster(), indc = new THREE.Vector2();
+    this._ingrHit = (cx, cy) => {
+      const r = cvs.getBoundingClientRect(); indc.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+      iray.setFromCamera(indc, camera);
+      const hit = iray.intersectObjects(ingr.map(g => g.m), false)[0];
+      if (!hit || hit.instanceId == null) return null;
+      const g = ingr.find(x => x.m === hit.object); return { g, it: g.items[hit.instanceId] };
+    };
     const ingrTick = time => {
       const show = ease(cl(time / 1.6));   // drift in after load
+      const pn = this.pNdc, asp = camera.aspect;
+      par.x += (((pn && pn.on) ? -pn.x * 0.35 : 0) - par.x) * 0.04; par.y += (((pn && pn.on) ? -pn.y * 0.2 : 0) - par.y) * 0.04;
       ingr.forEach(({ m, items }) => {
         items.forEach((it, q) => {
-          dummy.position.set(it.x + Math.sin(time * it.sp * 0.6 + it.ph) * 0.18, it.y + Math.sin(time * it.sp + it.ph) * 0.28, it.z + Math.cos(time * it.sp * 0.5 + it.ph) * 0.14);
-          dummy.rotation.set(it.rx + time * it.rs, it.ry + time * it.rs * 0.7, it.rx * 0.5);
-          dummy.scale.setScalar(it.sc * show); dummy.updateMatrix(); m.setMatrixAt(q, dummy.matrix);
+          pv.set(it.x + Math.sin(time * it.sp * 0.6 + it.ph) * 0.18, it.y + Math.sin(time * it.sp + it.ph) * 0.28, it.z + Math.cos(time * it.sp * 0.5 + it.ph) * 0.14);
+          pv.x += par.x * (1 + it.z * -0.08); pv.y += par.y;   // gentle parallax with the pointer (depth-scaled)
+          let near = 0;
+          if (pn && pn.on) {   // ingredients near the pointer spin up and grow (they stay put, so they are easy to click)
+            dummy.position.copy(pv).project(camera);
+            const d = Math.hypot((dummy.position.x - pn.x) * asp, dummy.position.y - pn.y);
+            if (d < 0.25) { near = (0.25 - d) / 0.25; it.boost = Math.max(it.boost, near); }
+          }
+          it.near = (it.near || 0) + (near - (it.near || 0)) * 0.15; it.boost *= 0.95;
+          const pop = cl(1 - (time - it.pop) / 0.6), popS = 1 + Math.sin(pop * Math.PI) * 0.8;
+          dummy.position.copy(pv);
+          dummy.rotation.set(it.rx + time * it.rs + it.boost * 2 + pop * 6, it.ry + time * it.rs * 0.7 + it.boost * 3, it.rx * 0.5);
+          dummy.scale.setScalar(it.sc * show * popS * (1 + it.near * 0.35 + (it.hover ? 0.15 : 0))); dummy.updateMatrix(); m.setMatrixAt(q, dummy.matrix);
         });
         m.instanceMatrix.needsUpdate = true;
       });
+      // hover label (mouse): only re-render when the hovered ingredient changes
+      if (this._hoverDirty && pn) {
+        this._hoverDirty = false;
+        const h = pn.on ? this._ingrHit(pn.cx, pn.cy) : null;
+        ingr.forEach(g => g.items.forEach(it => { it.hover = false; }));
+        if (h) h.it.hover = true;
+        const text = h ? h.g.k.label + (h.g.k.drink != null ? (this.full ? ' · tap for ' + DRINKS[h.g.k.drink].name : '') : '') : '';
+        cvs.style.cursor = h ? 'pointer' : 'grab';
+        if (text !== (this.state.tip && this.state.tip.text)) { const r = cvs.getBoundingClientRect(); this.setState({ tip: text ? { text, x: pn.cx - r.left, y: pn.cy - r.top } : null }); }
+      }
+      // floor halo + background glow follow the drink being shown
+      haloMat.color.lerp(accentTarget.set(DRINKS[this.state.drink || 0].accent), 0.06);
     };
+    const accentTarget = new THREE.Color(), par = { x: 0, y: 0 };
 
     const dummy = new THREE.Object3D(), clock = new THREE.Clock();
     let camX = 0, camY = 0;
@@ -462,11 +515,12 @@ class Component extends DCLogic {
       cup.rotation.y = (p - 3) * 0.08 + this.spin;
       // Hover / tap / arrows on the last step -> drain and refill with the next drink
       this.full = p > 4.85; this.now = time;
-      if (this.wantSwap) { if (this.full && !this.swap) this.swap = { t0: time, dir: this.wantSwap, done: false }; this.wantSwap = 0; }
+      if (this.wantSwap) { if (this.full && !this.swap) this.swap = { t0: time, dir: this.wantSwap.dir, to: this.wantSwap.to, done: false }; this.wantSwap = null; }
+      if (this.full !== !!this.state.done) this.setState({ done: this.full });   // 'Order now' + drink switcher appear once the animation has finished
       let level = 1;
       if (this.swap) {
         const k = (time - this.swap.t0) / 1.5;
-        if (k >= 0.45 && !this.swap.done) { this.swap.done = true; const n = DRINKS.length; this.setState(s => ({ drink: ((s.drink + this.swap.dir) % n + n) % n })); }
+        if (k >= 0.45 && !this.swap.done) { this.swap.done = true; const n = DRINKS.length; const sw = this.swap; this.setState(s => ({ drink: sw.to != null ? sw.to : ((s.drink + sw.dir) % n + n) % n })); }
         level = k < 0.45 ? 1 - ease(k / 0.45) * 0.82 : 0.18 + ease(cl((k - 0.45) / 0.55)) * 0.82;
         if (k >= 1) { this.swap = null; level = 1; }
       }
@@ -498,7 +552,7 @@ class Component extends DCLogic {
     frame();
   }
 
-  swapDrink(dir) { if (this.full && !this.swap) this.wantSwap = dir; }
+  swapDrink(dir, to) { if (this.full && !this.swap && !(to != null && to === (this.state.drink || 0))) this.wantSwap = { dir: dir || 1, to }; }
 
   renderVals() {
     const step = this.state.step;
@@ -514,8 +568,11 @@ class Component extends DCLogic {
       soundOn: !!this.state.sound, soundLabel: this.state.sound ? '🔊 Mute' : '🔇 Sound on',
       showMusic: !!this.state.sound && !this.props.mediaHold,
       toggleSound: e => { if (e && e.stopPropagation) e.stopPropagation(); const v = this.vid.current; if (!v) return; const on = !this.state.sound; v.muted = !on; if (on && this.vidLive()) v.play().catch(() => {}); this.setState({ sound: on, userMuted: !on }); },
-      showSpin: step === 4 && !this.state.loading, drinkName: DRINKS[this.state.drink || 0].name,
-      spinHint: this.canHover ? 'Hover the cup to change drink' : 'Tap the cup to change drink',
+      showSpin: !!this.state.done && !this.state.loading, showOrder: !!this.state.done, drinkName: DRINKS[this.state.drink || 0].name, drinkBlurb: DRINKS[this.state.drink || 0].blurb,
+      glowStyle: { position: 'absolute', right: '6%', top: '18%', width: '46vw', height: '46vw', maxWidth: 720, maxHeight: 720, borderRadius: '50%', background: DRINKS[this.state.drink || 0].accent, opacity: 0.16, filter: 'blur(90px)', transition: 'background-color .9s ease', pointerEvents: 'none' },
+      hasTip: !!this.state.tip, tipText: this.state.tip ? this.state.tip.text : '',
+      tipStyle: this.state.tip ? { position: 'absolute', left: this.state.tip.x + 14, top: this.state.tip.y - 34, zIndex: 4, padding: '6px 10px', borderRadius: 999, background: 'rgba(13,13,13,.88)', color: '#fff', fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.08em', textTransform: 'uppercase', whiteSpace: 'nowrap', pointerEvents: 'none' } : {},
+      spinHint: this.canHover ? 'Hover the cup or click an ingredient' : 'Tap the cup or an ingredient',
       prevDrink: () => this.swapDrink(-1), nextDrink: () => this.swapDrink(1)
     };
   }
