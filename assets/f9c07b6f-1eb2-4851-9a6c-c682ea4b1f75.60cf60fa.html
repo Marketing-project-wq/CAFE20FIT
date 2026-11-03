@@ -193,7 +193,7 @@ class Component extends DCLogic {
     clearInterval(this._vWatch); if (this._stopUnmute) this._stopUnmute(); document.removeEventListener('visibilitychange', this._vVis);
     this.dead = true; cancelAnimationFrame(this._raf);
     window.removeEventListener('scroll', this._scroll); window.removeEventListener('mousemove', this._mouse);
-    if (this._ro) this._ro.disconnect();
+    if (this._ro) this._ro.disconnect(); if (this._io3d) this._io3d.disconnect();
     if (this.renderer) { this.renderer.dispose(); this.renderer.domElement.remove(); }
   }
   goTo(i) { const el = this.track.current; if (!el) return; const total = el.offsetHeight - window.innerHeight; window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY + total * ((i + 0.6) / 5), behavior: 'smooth' }); }
@@ -237,6 +237,11 @@ class Component extends DCLogic {
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
     const resize = () => { const w = el.clientWidth, h = el.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); this.wide = w > 900; };
     resize(); this._ro = new ResizeObserver(resize); this._ro.observe(el);
+    // Only render while the 3D section is on screen and no overlay (menu / order / checkout / history) covers it:
+    // a hidden WebGL scene redrawn every frame made every other screen update on the page wait for it.
+    this.onScreen = true;
+    this._io3d = new IntersectionObserver(es => { this.onScreen = es[es.length - 1].isIntersecting; }, { rootMargin: '200px 0px' });
+    if (this.track.current) this._io3d.observe(this.track.current);
 
     const env = new THREE.Scene();
     env.add(new THREE.Mesh(new THREE.BoxGeometry(20, 20, 20), new THREE.MeshBasicMaterial({ color: 0x1a1a1a, side: THREE.BackSide })));
@@ -385,6 +390,7 @@ class Component extends DCLogic {
     this.setState({ loading: false }); requestAnimationFrame(() => requestAnimationFrame(() => { renderer.domElement.style.opacity = '1'; }));
     const frame = () => {
       if (this.dead) return;
+      if (!this.onScreen || this.props.mediaHold) { clock.getDelta(); this._pt = null; this._raf = requestAnimationFrame(frame); return; }  // paused
       const time = clock.getElapsedTime(); const pdt = Math.min(0.12, Math.max(0, time - (this._pt == null ? time : this._pt))); this._pt = time;
       if (this.ps == null) this.ps = this.p;
       this.ps += (this.p - this.ps) * (1 - Math.exp(-pdt * (Math.abs(this.p - this.ps) > 1.2 ? 9 : 5)));  // same catch-up speed at 20 or 60 fps
