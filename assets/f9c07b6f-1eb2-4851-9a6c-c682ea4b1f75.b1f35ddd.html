@@ -115,11 +115,11 @@
 <script type="text/x-dc" data-dc-script data-props="{&quot;onOrder&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onMenu&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onVenue&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;onDine&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;},&quot;mediaHold&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;boolean&quot;}}">
 const ABOUT_VIDEO = 'https://media.20fit.id/wp-content/uploads/2026/11/1793607194111.publer.com_.mp4';
 const STEPS = [
-  { short: 'Select', title: 'Picked by hand', body: 'Our baristas sort and weigh specialty beans by hand, batch by batch, before anything is brewed.' },
-  { short: 'Grind', title: 'Ground to order', body: 'Beans are ground fresh for each cup, so nothing sits around losing its aroma.' },
-  { short: 'Extract', title: 'Pulled with care', body: 'Every shot is timed and tasted. If it is not right, our baristas pull it again.' },
+  { short: 'Picked', title: 'Freshly picked', body: 'Ripe coffee cherries are picked by hand at the farm. Only the deep red ones make the cut.' },
+  { short: 'Roast', title: 'Roasted in small batches', body: 'The green beans inside are roasted slowly until they turn deep brown and smell like caramel.' },
+  { short: 'Brew', title: 'Ground & brewed', body: 'Ground fresh for every cup, then pulled as a shot. If it is not right, our baristas pull it again.' },
   { short: 'Pour', title: 'Poured slowly', body: 'Milk and sweetness are measured and poured by hand, one cup at a time.' },
-  { short: 'Finish', title: 'Checked, then yours', body: 'Sealed, checked by the barista and handed over, ready to fuel your day or your workout.' }
+  { short: 'Fuel', title: 'Filled to fuel your day', body: 'Sealed, checked by the barista and handed over, ready to fuel your day or your workout.' }
 ];
 const KD = [0, 1, 2, 3, 4, 5], KP = [0, 1, 2, 3.95, 5, 6];
 const toP = d => { for (let i = 0; i < 5; i++) if (d <= KD[i + 1]) return KP[i] + (d - KD[i]) * (KP[i + 1] - KP[i]); return 6; };
@@ -482,6 +482,33 @@ class Component extends DCLogic {
     };
     const accentTarget = new THREE.Color(), par = { x: 0, y: 0 };
 
+    // Step 1 — a coffee branch with ripe cherries hanging over the pedestal; the cherries drop onto it one by one.
+    const BR_Y = 1.8, branch = new THREE.Group(); branch.position.set(0.15, BR_Y, -0.1); scene.add(branch);
+    const stemCurve = new THREE.CatmullRomCurve3([[-2.2, 0.25, -0.3], [-1.1, 0.03, 0], [0, -0.04, 0.1], [1.1, 0.05, -0.05], [2.1, 0.28, -0.3]].map(([a, b, c]) => new THREE.Vector3(a, b, c)));
+    branch.add(new THREE.Mesh(new THREE.TubeGeometry(stemCurve, 64, 0.045, 10, false), new THREE.MeshStandardMaterial({ color: 0x6b4a2b, roughness: 0.85 })));
+    const leafMat2 = new THREE.MeshPhysicalMaterial({ color: 0x3f7a2a, roughness: 0.45, clearcoat: 0.6, side: THREE.DoubleSide });
+    const bigLeaf = new THREE.SphereGeometry(0.42, 20, 10); bigLeaf.scale(1, 0.06, 0.38); bigLeaf.translate(0.38, 0, 0);
+    for (let k = 0; k < 14; k++) {
+      const pt = stemCurve.getPoint(0.04 + k / 14 * 0.92), lf = new THREE.Mesh(bigLeaf, leafMat2);
+      lf.position.copy(pt); lf.rotation.set((rnd(k + 40) - 0.5) * 0.9, (k % 2 ? 1 : -1) * (0.9 + rnd(k + 41) * 0.8), (rnd(k + 42) - 0.3) * 0.9); branch.add(lf);
+    }
+    const cherryGeo = new THREE.SphereGeometry(0.1, 18, 12); cherryGeo.scale(1, 0.92, 1);
+    const cherryMat = new THREE.MeshPhysicalMaterial({ color: 0xffffff, roughness: 0.25, clearcoat: 1, clearcoatRoughness: 0.15 });
+    const NC = this.phone ? 30 : 44, cherries = new THREE.InstancedMesh(cherryGeo, cherryMat, NC); cherries.castShadow = true; scene.add(cherries);
+    const cherryData = Array.from({ length: NC }, (_, k) => {
+      const cluster = stemCurve.getPoint(0.12 + (k % 7) / 7 * 0.78), a = rnd(k + 60) * 6.28, r = 0.08 + rnd(k + 61) * 0.12;
+      const hang = new THREE.Vector3(cluster.x + Math.cos(a) * r + 0.15, cluster.y + BR_Y - 0.1 - rnd(k + 62) * 0.14, cluster.z + Math.sin(a) * r - 0.1);
+      const pd = pileData[(k * 2) % NP];
+      cherries.setColorAt(k, new THREE.Color(['#b3102a', '#c8142f', '#8e0c22', '#d2392a', '#a5122c'][k % 5]));
+      return { hang, land: new THREE.Vector3(pd.x, 0.12 + pd.y * 0.55, pd.z), at: rnd(k + 63) * 0.7, rx: rnd(k + 64) * 6 };
+    });
+    cherries.instanceColor.needsUpdate = true;
+    // Step 2 — roasting: warm light, a glowing ring and smoke curling up from the beans
+    const roastLight = new THREE.PointLight(0xff7a2a, 0, 6); roastLight.position.set(0, 0.6, 0.4); scene.add(roastLight);
+    const roastRing = new THREE.Mesh(new THREE.TorusGeometry(1.25, 0.03, 8, 120), new THREE.MeshBasicMaterial({ color: 0xff8a3a, transparent: true, opacity: 0 })); roastRing.rotation.x = Math.PI / 2; roastRing.position.y = 0.02; scene.add(roastRing);
+    const smoke = Array.from({ length: 12 }, (_, k) => { const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTex, color: 0xb8afa6, transparent: true, depthWrite: false, opacity: 0 })); sp.userData = { x: (rnd(k + 80) - 0.5) * 1.4, z: (rnd(k + 81) - 0.5) * 1.0, ph: rnd(k + 82), sp: 0.25 + rnd(k + 83) * 0.2 }; scene.add(sp); return sp; });
+    const greenBean = new THREE.Color('#9aa36a'), roastCols = ['#4a2614', '#5a321b', '#683b21', '#3d1f10', '#73452a'].map(c => new THREE.Color(c)), tmpC = new THREE.Color();
+
     const dummy = new THREE.Object3D(), clock = new THREE.Clock();
     let camX = 0, camY = 0;
     this.setState({ loading: false }); requestAnimationFrame(() => requestAnimationFrame(() => { renderer.domElement.style.opacity = '1'; }));
@@ -492,8 +519,25 @@ class Component extends DCLogic {
       if (this.ps == null) this.ps = this.p;
       this.ps += (this.p - this.ps) * (1 - Math.exp(-pdt * (Math.abs(this.p - this.ps) > 1.2 ? 9 : 5)));  // same catch-up speed at 20 or 60 fps
       const p = this.ps;
-      const t = i => cl(p - i), t0 = t(0), t1 = t(1), t2 = t(2), t3 = t(3), t4 = t(4), t5 = t(5);
-      const pour = 1 - cl((p - 0.85) / 0.25);
+      const t = i => cl(p - i), t0 = t(0), t2 = cl((p - 2.55) / 0.5), t3 = t(3), t4 = t(4), t5 = t(5);
+      fall.visible = false;   // (old 'beans falling from the sky' intro, replaced by the coffee branch)
+      const pour = 0;
+      // 1. Picked: the branch sways, cherries drop onto the pedestal, then the branch lifts away
+      const away = ease(cl((p - 0.95) / 0.35)); branch.visible = away < 1;
+      branch.position.y = BR_Y + away * 3; branch.rotation.z = Math.sin(time * 0.8) * 0.03; branch.scale.setScalar(1 - away * 0.3);
+      const roastIn = cl((p - 1.05) / 0.35);   // cherries -> beans
+      cherryData.forEach((c, k) => {
+        const f = ease(cl((t0 * 1.25 - c.at) / 0.3));
+        dummy.position.set(c.hang.x + (c.land.x - c.hang.x) * f, f < 1 ? c.hang.y + (c.land.y - c.hang.y) * f * f : c.land.y, c.hang.z + (c.land.z - c.hang.z) * f);
+        if (f === 0) { dummy.position.y = c.hang.y + Math.sin(time * 1.4 + k) * 0.01 + away * 3; }
+        dummy.rotation.set(c.rx + f * 4, c.rx, 0); dummy.scale.setScalar(1 - ease(roastIn)); dummy.updateMatrix(); cherries.setMatrixAt(k, dummy.matrix);
+      });
+      cherries.instanceMatrix.needsUpdate = true; cherries.visible = roastIn < 1;
+      // 2. Roast: beans appear green and roast to brown with heat + smoke
+      const roastK = ease(cl((p - 1.25) / 0.6)), heat = Math.sin(cl((p - 1.05) / 1.05) * Math.PI);
+      if (p > 1 && p < 2.2) { for (let k = 0; k < NP; k++) pile.setColorAt(k, tmpC.copy(greenBean).lerp(roastCols[k % 5], roastK)); pile.instanceColor.needsUpdate = true; }
+      roastLight.intensity = heat * 9; roastRing.material.opacity = heat * 0.9;
+      smoke.forEach((sm, k) => { const d = sm.userData, ph = (time * d.sp + d.ph) % 1; sm.position.set(d.x + Math.sin(time + k) * 0.1, 0.25 + ph * 2.2, d.z); sm.scale.setScalar(0.5 + ph * 1.1); sm.material.opacity = heat * 0.32 * Math.sin(ph * Math.PI); sm.visible = heat > 0.01; });
       for (let i = 0; i < NF; i++) {
         const sp = 0.32 + rnd(i) * 0.3, ph = (time * sp + rnd(i + 7)) % 1;
         const sx = (rnd(i + 3) - 0.5) * 8, sz = (rnd(i + 5) - 0.5) * 4, ex = (rnd(i + 8) - 0.5) * 1.2, ez = (rnd(i + 9) - 0.5) * 1.2;
@@ -503,12 +547,12 @@ class Component extends DCLogic {
         dummy.scale.setScalar(pour * (ph < 0.96 ? 1 : 0) * cl((2.55 - by) / 0.5)); dummy.updateMatrix(); fall.setMatrixAt(i, dummy.matrix);
       }
       fall.instanceMatrix.needsUpdate = true;
-      const shown = NP * ease(cl(t0 * 1.15)), pileS = 1 - ease(t1) * 0.95;
-      pileData.forEach((d, k) => { dummy.position.set(d.x, d.y * (1 - t1 * 0.5), d.z); dummy.rotation.set(d.rx, d.ry, 0); dummy.scale.setScalar(k < shown ? pileS : 0); dummy.updateMatrix(); pile.setMatrixAt(k, dummy.matrix); });
+      const grind = ease(cl((p - 2) / 0.4)), shown = p > 1.05 ? NP : 0, pileS = ease(roastIn) * (1 - grind * 0.95);
+      pileData.forEach((d, k) => { dummy.position.set(d.x, d.y * (1 - grind * 0.5), d.z); dummy.rotation.set(d.rx, d.ry, 0); dummy.scale.setScalar(k < shown ? pileS : 0); dummy.updateMatrix(); pile.setMatrixAt(k, dummy.matrix); });
       pile.instanceMatrix.needsUpdate = true;
-      const gs = ease(cl((t1 - 0.2) / 0.8)) * (1 - ease(cl((p - 2) / 0.45)));
+      const gs = ease(cl((p - 2.05) / 0.35)) * (1 - ease(cl((p - 2.45) / 0.3)));
       ground.scale.set(gs, gs, gs); ground.visible = gs > 0.01; ground.position.y = 0.3 * gs;
-      const cs = back(cl((p - 2.05) / 0.5)); cup.scale.setScalar(Math.max(0.0001, cs)); cup.visible = p > 2.05;
+      const cs = back(cl((p - 2.55) / 0.5)); cup.scale.setScalar(Math.max(0.0001, cs)); cup.visible = p > 2.55;
       // Turns a full 360 by itself (~11s per turn); a drag adds momentum on top
       const dt = Math.min(0.05, Math.max(0, time - (this._lt == null ? time : this._lt))); this._lt = time;
       if (!this.drag) { this.spin += this.spinV + dt * 0.57; this.spinV *= 0.94; }
@@ -531,7 +575,7 @@ class Component extends DCLogic {
       const stream = (m, on, k) => { m.visible = on; if (!on) return; m.position.set(0, 3.4, 0); m.scale.set(1 + Math.sin(time * 30) * 0.08, Math.max(0.01, 3.4 - surf), 1); };
       stream(shot, p > 3.02 && p < 3.92, 0); stream(pourMilk, p > 4.02 && p < 4.9, 1);
       lid.position.y = 2.33 + (1 - ease(cl(t5 / 0.45))) * 3; lid.visible = t5 > 0.01;
-      logoMat.opacity = ease(cl((p - 2.3) / 0.5));
+      logoMat.opacity = ease(cl((p - 2.8) / 0.5));
       const ss = ease(cl((t5 - 0.25) / 0.4)); straw.visible = ss > 0.01; straw.position.y = 1.72 + (1 - ss) * 3.2;
       ingrTick(time);
       camX += (this.mx - camX) * 0.05; camY += (this.my - camY) * 0.05;
