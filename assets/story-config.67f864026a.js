@@ -64,6 +64,15 @@ window.StoryConfig = {
     fallbackCategory: 'Signature', fallbackReason: 'A good place to start: one of our signatures.'
   },
 
+  // CH 07 — See you at the bar. Never invent details: fields left as 'TODO…' are hidden on the page until filled in.
+  finale: {
+    place: '20FIT Arena',
+    address: 'TODO: street address',
+    hours: 'TODO: opening hours',
+    instagram: '20fit.cafe',
+    photo: '20fit signature aren latte'
+  },
+
   // CH 05 — Made with care
   care: {
     headline: 'All of our drinks and pastry are prepared with care to help fuel your day,',

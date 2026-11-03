@@ -59,7 +59,7 @@ class Component extends DCLogic {
       const r = el.getBoundingClientRect();
       if (r.top <= innerHeight * 0.45) ch = i;
       const vis = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
-      if (vis >= Math.min(r.height, innerHeight) * 0.5) window.trackOnce && window.trackOnce('ch:' + c.id, 'story_chapter_view', { chapter: c.id, index: cfg.chapters.indexOf(c) + 1 });
+      if (vis >= Math.min(r.height, innerHeight) * 0.5) { window.trackOnce && window.trackOnce('ch:' + c.id, 'story_chapter_view', { chapter: c.id, index: cfg.chapters.indexOf(c) + 1 }); if (c.el === 'finale') window.trackOnce && window.trackOnce('finale', 'story_finale_view', {}); }
     });
     if (ch !== this.state.ch) this.setState({ ch });
     // CH 05: headline reveals word by word with the scroll; the polaroids close up
@@ -266,6 +266,8 @@ class Component extends DCLogic {
   componentDidUpdate() { this.syncVid(); const ov = this.overlayOpen(); if (ov !== this._ov) { this._ov = ov; this.ctlCareVid(); } }
   componentDidMount() {
     this.loadMenu();
+    // WhatsApp number for CH 07 comes from the POS web config (same source as checkout)
+    setTimeout(() => { const A = API(); A && A.getConfig && A.getConfig().then(c => { if (c && c.wa_number) this.setState({ waCfg: String(c.wa_number) }); }).catch(() => {}); }, 1500);
     this.refreshHist(false);
     this._offRefs = API().on('refs', () => this.refreshHist(false));
     this._poll = setInterval(() => { if (API().getRefs().length && (this.state.hist || (this.state.hList || []).some(o => o.is_open))) this.refreshHist(false); }, 20000);
@@ -436,6 +438,14 @@ class Component extends DCLogic {
       cToggle: e => { if (e && e.stopPropagation) e.stopPropagation(); const v = this.careVid.current; if (!v) return; const on = !this.state.cSound; v.muted = !on; if (on && this.cVidLive()) v.play().catch(() => {}); this.setState({ cSound: on, cUserMuted: !on }); },
       showMusic: !!this.state.cSound && !overlay,
       careTeaser: cfg.teasers.care || '', toOrderSec: () => this.goTo('order'),
+      turnTeaser: cfg.teasers.turn || '', toFinale: () => this.goTo('finale'),
+      // CH 07 — See you at the bar (details from config; 'TODO…' values stay hidden)
+      fin: (() => { const F = cfg.finale || {}, real = v => v && !/^TODO/i.test(String(v)); const ph = this.byName(String(F.photo || '').toLowerCase());
+        const wa = String(this.state.waCfg || this.props.waNumber || '6285284200036').replace(/\D/g, '');
+        return { place: F.place || '20FIT', address: real(F.address) ? F.address : '', hours: real(F.hours) ? F.hours : '', hasAddress: real(F.address), hasHours: real(F.hours),
+          ig: '@' + (F.instagram || '20fit.cafe'), igUrl: 'https://www.instagram.com/' + (F.instagram || '20fit.cafe') + '/',
+          wa: '+' + wa.replace(/^(\d{2})(\d{3})(\d{4})(\d+)$/, '$1 $2-$3-$4'), waUrl: 'https://wa.me/' + wa + '?text=' + encodeURIComponent('Hi 20FIT Cafe!'),
+          src: this.src((ph ? ph.imgs : photosFor({ name: String(F.photo || '') }))[0]) }; })(),
       // CH 06 — Your turn
       orderHasCart: cartN > 0, orderCartText: cartN + ' item' + (cartN > 1 ? 's' : '') + ' · ' + rp(cartSum) + ' — choose how to get it',
       modesStyle: { '--deal': this.state.orderIn || reduceMotionNow() ? 1 : 0, '--cart': cartN > 0 ? 1 : 0 },
