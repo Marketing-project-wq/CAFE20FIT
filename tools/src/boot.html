@@ -1,0 +1,82 @@
+<!-- Loading skeleton: painted before any script runs, removed once the page has rendered, its fonts are in
+     and the images in the first screen have loaded (or after 9s at most). Prevents the flash of fallback fonts
+     (overlapping heading/header) and the black boxes while the heavy visuals load. -->
+<style>
+  html.booting, html.booting body { overflow: hidden; }
+  #boot { position: fixed; inset: 0; z-index: 2147483000; background: #f4f4f2; overflow: hidden; transition: opacity .5s ease, visibility .5s ease; }
+  #boot.done { opacity: 0; visibility: hidden; pointer-events: none; }
+  #boot .sk { display: block; border-radius: 12px; background: linear-gradient(90deg, #e7e6e3 0%, #f3f2f0 45%, #e7e6e3 90%); background-size: 220% 100%; animation: bootSk 1.25s ease-in-out infinite; }
+  #boot .sk.red { background: linear-gradient(90deg, #f2c6cd 0%, #fbe3e6 45%, #f2c6cd 90%); background-size: 220% 100%; }
+  #boot .sk.dark { background: linear-gradient(90deg, #1b1b1b 0%, #2a2a2a 45%, #1b1b1b 90%); background-size: 220% 100%; }
+  @keyframes bootSk { 0% { background-position: 110% 0; } 100% { background-position: -110% 0; } }
+  #boot .b-hdr { box-sizing: border-box; max-width: 1240px; margin: 16px auto 0; height: 64px; border-radius: 999px; background: #fff; box-shadow: 0 8px 30px rgba(13,13,13,.06); display: flex; align-items: center; gap: 24px; padding: 0 10px 0 24px; }
+  #boot .b-logo { width: 92px; height: 26px; border-radius: 8px; }
+  #boot .b-nav { flex: 1; display: flex; justify-content: center; gap: 22px; }
+  #boot .b-nav .sk { width: 92px; height: 14px; border-radius: 6px; }
+  #boot .b-cta { width: 120px; height: 44px; border-radius: 999px; }
+  #boot .b-hero { box-sizing: border-box; max-width: 1240px; margin: 0 auto; padding: 72px 24px 24px; display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; }
+  #boot .b-col { display: flex; flex-direction: column; gap: 16px; }
+  #boot .b-pill { width: 230px; height: 30px; border-radius: 999px; }
+  #boot .b-h1 { height: clamp(52px, 8vw, 104px); width: 62%; border-radius: 14px; }
+  #boot .b-h1.w2 { width: 92%; } #boot .b-h1.w3 { width: 48%; }
+  #boot .b-p { height: 16px; width: 86%; border-radius: 6px; } #boot .b-p.w2 { width: 64%; }
+  #boot .b-btns { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+  #boot .b-btn { width: 168px; height: 52px; border-radius: 999px; }
+  #boot .b-media { width: 100%; max-width: 440px; justify-self: center; aspect-ratio: 4 / 5; border-radius: 28px; }
+  #boot .b-chips { display: flex; gap: 8px; } #boot .b-chips .sk { width: 96px; height: 40px; border-radius: 999px; }
+  @media (max-width: 760px) {
+    #boot .b-hdr { margin: 12px 12px 0; height: 54px; gap: 10px; padding: 0 6px 0 14px; }
+    #boot .b-logo { width: 74px; height: 22px; } #boot .b-nav { gap: 10px; } #boot .b-nav .sk { width: 44px; height: 12px; }
+    #boot .b-cta { width: 92px; height: 40px; }
+    #boot .b-hero { grid-template-columns: 1fr; padding: 40px 16px 16px; gap: 28px; }
+    #boot .b-pill { width: 180px; } #boot .b-h1 { width: 70%; } #boot .b-h1.w2 { width: 86%; }
+    #boot .b-btn { width: 150px; height: 48px; } #boot .b-media { max-width: none; aspect-ratio: 4 / 4.4; }
+  }
+  @media (prefers-reduced-motion: reduce) { #boot .sk { animation: none; } }
+</style>
+<div id="boot" aria-hidden="true">
+  <div class="b-hdr"><span class="sk b-logo"></span><span class="b-nav"><span class="sk"></span><span class="sk"></span><span class="sk"></span></span><span class="sk red b-cta"></span></div>
+  <div class="b-hero">
+    <div class="b-col">
+      <span class="sk b-pill"></span>
+      <span class="sk b-h1"></span><span class="sk b-h1 w2"></span><span class="sk b-h1 w3"></span>
+      <span class="sk b-p"></span><span class="sk b-p w2"></span>
+      <div class="b-btns"><span class="sk red b-btn"></span><span class="sk b-btn"></span></div>
+      <div class="b-chips"><span class="sk"></span><span class="sk"></span><span class="sk"></span></div>
+    </div>
+    <div class="sk b-media"></div>
+  </div>
+</div>
+<script>
+(function () {
+  var root = document.documentElement, boot = document.getElementById('boot'), t0 = Date.now(), MAX = 9000;
+  root.classList.add('booting');
+  function done() {
+    if (!boot || boot.classList.contains('done')) return;
+    boot.classList.add('done'); root.classList.remove('booting');
+    setTimeout(function () { if (boot && boot.parentNode) boot.parentNode.removeChild(boot); }, 650);
+  }
+  function timeout(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function fonts() {
+    if (!document.fonts || !document.fonts.load) return Promise.resolve();
+    return Promise.all([
+      document.fonts.load("800 40px 'Barlow Condensed'"), document.fonts.load("400 16px 'Manrope'"),
+      document.fonts.load("500 16px 'Manrope'"), document.fonts.load("400 12px 'JetBrains Mono'")
+    ]).then(function () { return document.fonts.ready; }).catch(function () {});
+  }
+  function firstScreenImages() {
+    var imgs = [].slice.call(document.images).filter(function (i) { var r = i.getBoundingClientRect(); return r.width && r.top < innerHeight && !i.complete; });
+    return Promise.all(imgs.map(function (i) { return new Promise(function (r) { i.addEventListener('load', r, { once: true }); i.addEventListener('error', r, { once: true }); }); }));
+  }
+  function waitApp() {
+    return new Promise(function (resolve) {
+      (function poll() { if (document.querySelector('.fx-header') || Date.now() - t0 > MAX) return resolve(); setTimeout(poll, 50); })();
+    });
+  }
+  setTimeout(done, MAX);
+  waitApp()
+    .then(function () { return Promise.race([fonts(), timeout(4000)]); })
+    .then(function () { return Promise.race([firstScreenImages(), timeout(2500)]); })
+    .then(function () { requestAnimationFrame(function () { requestAnimationFrame(done); }); });
+})();
+</script>
