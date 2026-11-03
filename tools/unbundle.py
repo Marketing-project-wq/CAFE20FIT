@@ -52,7 +52,7 @@ logic_name='assets/dc-logic.%s.js'%hashlib.sha256(logic_js.encode('utf-8')).hexd
 open(out+'/'+logic_name,'w',encoding='utf-8').write(logic_js)
 # Site scripts (vendored libs + data layer), content-hashed like the rest, loaded before the page logic
 here=os.path.dirname(os.path.abspath(__file__))
-extra=[os.path.join(here,'vendor','supabase-js-2.103.0.umd.js'),os.path.join(here,'vendor','qrcode-generator-1.4.4.js'),os.path.join(here,'src','cafe-api.js')]
+extra=[os.path.join(here,'vendor','supabase-js-2.103.0.umd.js'),os.path.join(here,'vendor','qrcode-generator-1.4.4.js'),os.path.join(here,'src','cafe-api.js'),os.path.join(here,'src','track.js'),os.path.join(here,'src','story-config.js')]
 tags=''
 for pth in extra:
     if not os.path.exists(pth): continue

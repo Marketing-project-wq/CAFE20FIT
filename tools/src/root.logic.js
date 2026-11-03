@@ -27,6 +27,13 @@ const IG_MS = 7000;
 const igId = u => { const m = /instagram\.com\/(p|reel|reels|tv)\/([\w-]+)/.exec(u || ''); return m ? (m[1] === 'reels' ? 'reel' : m[1]) + '/' + m[2] : ''; };
 const rp = n => 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID');
 const API = () => window.CafeApi;
+const SC = () => window.StoryConfig || { chapters: [], stops: [], needs: ['Fresh', 'Fueling', 'Light energy'], sky: [], teasers: {} };
+const TRACK = (e, p) => { try { window.track && window.track(e, p); } catch (x) {} };
+const clamp01 = x => Math.max(0, Math.min(1, x));
+const hexToRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const mixRgb = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
+// Story layout: horizontal pinned day on wide screens; vertical list on phones or with reduced motion
+const storyFlat = () => !!(window.matchMedia && window.matchMedia('(max-width: 767px), (prefers-reduced-motion: reduce)').matches);
 const isCut = src => /^data:|\.png($|\?)/i.test(src);
 
 class Component extends DCLogic {
@@ -34,6 +41,74 @@ class Component extends DCLogic {
   state = { igI: 0, igHold: true, hy: 0, hx: 0, hyM: 0, hon: false, need: 1, heroIn: false, sound: false, tab: 'All', sel: null, cart: {}, checkout: false, full: false, hist: false,
     menu: null, menuErr: '', refs: [], hList: null, hErr: '', hLoading: false, hOpen: {}, hFlash: {}, hDot: false, rates: {}, findCode: '', findPhone: '', findMsg: '', findBusy: false, toast: null, pick: {} };
   rail = React.createRef();
+  day = React.createRef(); dayStage = React.createRef(); dayTrack = React.createRef(); dayHand = React.createRef(); dayMin = React.createRef(); dayTime = React.createRef(); dayTime2 = React.createRef(); progBar = React.createRef();
+  // ---- landing story (CH 03 'A day, fueled' + chapter navigation) ----
+  storyTick() {
+    const cfg = SC(), stops = cfg.stops, n = stops.length;
+    const H = document.documentElement, max = Math.max(1, H.scrollHeight - innerHeight);
+    if (this.progBar.current) this.progBar.current.style.transform = 'scaleX(' + clamp01(scrollY / max) + ')';
+    // active chapter + one 'story_chapter_view' per chapter per session (>= 50% on screen)
+    let ch = 0;
+    (this._chs || []).forEach((c, i) => {
+      const el = document.getElementById(c.el); if (!el) return;
+      const r = el.getBoundingClientRect();
+      if (r.top <= innerHeight * 0.45) ch = i;
+      const vis = Math.min(r.bottom, innerHeight) - Math.max(r.top, 0);
+      if (vis >= Math.min(r.height, innerHeight) * 0.5) window.trackOnce && window.trackOnce('ch:' + c.id, 'story_chapter_view', { chapter: c.id, index: cfg.chapters.indexOf(c) + 1 });
+    });
+    if (ch !== this.state.ch) this.setState({ ch });
+    // CH 03
+    const el = this.day.current, stage = this.dayStage.current, track = this.dayTrack.current; if (!el || !stage || !track || !n) return;
+    let pos;
+    if (!storyFlat()) {
+      const r = el.getBoundingClientRect(), total = Math.max(1, el.offsetHeight - innerHeight), p = clamp01(-r.top / total / 0.9);   // the last 10% holds the evening stop
+      pos = p * (n - 1);
+      // card i lands exactly where card 0 starts (left padding) when the day reaches stop i
+      const cards = track.querySelectorAll('[data-stop]'), ci = Math.min(n - 2, Math.floor(pos)), cf = pos - ci;
+      const x0 = cards[0] ? cards[0].offsetLeft : 0, xa = cards[Math.max(0, ci)] ? cards[Math.max(0, ci)].offsetLeft : 0, xb = cards[ci + 1] ? cards[ci + 1].offsetLeft : xa;
+      const mv = cf < 0.3 ? 0 : cf > 0.7 ? 1 : (1 - Math.cos((cf - 0.3) / 0.4 * Math.PI)) / 2;   // each card dwells at its stop, moves in between
+      track.style.transform = 'translate3d(' + (-(xa + (xb - xa) * mv - x0)) + 'px,0,0)';
+      track.style.setProperty('--dp', p.toFixed(4));
+    } else {   // vertical: the stop closest to the middle of the screen
+      let best = 0, bd = 1e9;
+      track.querySelectorAll('[data-stop]').forEach((c, i) => { const r = c.getBoundingClientRect(), d = Math.abs(r.top + r.height / 2 - innerHeight / 2); if (d < bd) { bd = d; best = i; } });
+      pos = best; track.style.transform = '';
+    }
+    const i = Math.min(n - 2, Math.floor(pos)), f = pos - i, a = stops[Math.max(0, i)], b = stops[Math.min(n - 1, i + 1)] || a;
+    const hour = a.hour + (b.hour - a.hour) * (n > 1 ? f : 0);
+    const hh = Math.floor(hour), mm = Math.round((hour - hh) * 60 / 5) * 5 % 60;
+    const tt = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    if (this.dayTime.current) this.dayTime.current.textContent = tt;
+    if (this.dayTime2.current) this.dayTime2.current.textContent = tt;
+    if (this.dayHand.current) this.dayHand.current.style.transform = 'rotate(' + ((hour % 12) * 30) + 'deg)';
+    if (this.dayMin.current) this.dayMin.current.style.transform = 'rotate(' + ((hour % 1) * 360) + 'deg)';
+    const sky = cfg.sky.length ? cfg.sky : ['#f4f4f2'], si = Math.min(sky.length - 2, Math.floor(pos)), sf = pos - si;
+    const c = sky.length > 1 ? mixRgb(hexToRgb(sky[Math.max(0, si)]), hexToRgb(sky[Math.max(0, si) + 1]), clamp01(sf)) : hexToRgb(sky[0]);
+    stage.style.backgroundColor = 'rgb(' + c.join(',') + ')';
+    const dark = (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) < 110;
+    if (stage.dataset.dark !== String(dark)) stage.dataset.dark = String(dark);
+    const di = Math.round(pos); if (di !== this.state.dayI) this.setState({ dayI: di });
+  }
+  // '+ Add' from the story: same cart as the menu, with the product thumbnail flying to the cart bar
+  storyAdd(m, chapter, e) {
+    if (!m || !m.available) return;
+    const from = e && e.currentTarget && e.currentTarget.closest('[data-fly]'), img = from && from.querySelector('img');
+    this.add(m.id);
+    TRACK('story_add_to_cart', { chapter, item_name: m.name, price: m.price });
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const bump = () => { const bar = document.querySelector('[data-cartbar]'); if (bar && bar.animate) bar.animate([{ transform: 'translateX(-50%) scale(1)' }, { transform: 'translateX(-50%) scale(1.08)' }, { transform: 'translateX(-50%) scale(1)' }], { duration: 380, easing: 'cubic-bezier(.2,.8,.2,1)' }); };
+    if (!img || reduce || !img.animate) { setTimeout(bump, 60); return; }
+    const r = img.getBoundingClientRect(), ghost = img.cloneNode();
+    Object.assign(ghost.style, { position: 'fixed', left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px', margin: 0, zIndex: 90, borderRadius: '16px', objectFit: 'cover', pointerEvents: 'none', boxShadow: '0 16px 40px rgba(13,13,13,.25)' });
+    document.body.appendChild(ghost);
+    requestAnimationFrame(() => {
+      const bar = document.querySelector('[data-cartbar]'), t = bar ? bar.getBoundingClientRect() : { left: innerWidth / 2 - 20, top: innerHeight - 60, width: 40, height: 40 };
+      const dx = t.left + t.width * 0.18 - r.left - r.width / 2, dy = t.top + t.height / 2 - r.top - r.height / 2;
+      ghost.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: 'translate(' + dx * 0.5 + 'px,' + (dy * 0.5 - 80) + 'px) scale(.6)', opacity: 1, offset: 0.5 }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(.18)', opacity: 0.2 }], { duration: 720, easing: 'cubic-bezier(.5,0,.3,1)' }).onfinish = () => { ghost.remove(); bump(); };
+    });
+  }
+  goTo(elId) { const el = document.getElementById(elId); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - (elId === 'order' ? 90 : 0), behavior: 'smooth' }); }
+  pickStop() { const want = SC().needs[this.state.need] || 'Fueling'; return Math.max(0, SC().stops.findIndex(s => s.need === want)); }
   // ---- menu (from POS via cafe_get_web_menu) ----
   loadMenu() {
     this.setState({ menuErr: '' });
@@ -146,6 +221,11 @@ class Component extends DCLogic {
     this._vVis = () => this.ctlVid(); document.addEventListener('visibilitychange', this._vVis);
     this._hs = () => { const y = Math.min(window.scrollY, 1200); if (Math.abs(y - this.state.hy) > 2) this.setState({ hy: y }); }; window.addEventListener('scroll', this._hs, { passive: true }); setTimeout(() => this.setState({ heroIn: true }), 120);
     
+    // landing story: chapters on this page, scroll-driven CH 03, chapter rail / progress bar
+    this._chs = SC().chapters.filter(c => document.getElementById(c.el));
+    this._sraf = 0; this._story = () => { if (this._sraf) return; this._sraf = requestAnimationFrame(() => { this._sraf = 0; this.storyTick(); }); };
+    window.addEventListener('scroll', this._story, { passive: true }); window.addEventListener('resize', this._story);
+    setTimeout(() => { this._chs = SC().chapters.filter(c => document.getElementById(c.el)); this.storyTick(); }, 600);
     this._key = e => { if (!this.state.sel) return; if (e.key === 'Escape') this.setState({ sel: null }); if (e.key === 'ArrowRight') this.step(1); if (e.key === 'ArrowLeft') this.step(-1); };
     window.addEventListener('keydown', this._key);
     const loop = () => {
@@ -163,7 +243,7 @@ class Component extends DCLogic {
     };
     this._raf = requestAnimationFrame(loop);
   }
-  componentWillUnmount() { if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); cancelAnimationFrame(this._raf); }
+  componentWillUnmount() { window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); cancelAnimationFrame(this._raf); }
 
   viewer(m, key) {
     const h = React.createElement;
@@ -228,7 +308,43 @@ class Component extends DCLogic {
     const l = this.list();
     const m = this.byId(sel);
     const H = this.state.hList || [];
+    const cfg = SC(), needLabel = cfg.needs[this.state.need] || 'Fueling', pickI = this.pickStop(), overlay = !!(this.state.checkout || this.state.full || this.state.hist || m);
+    const cartN = Object.values(this.state.cart).reduce((a, l) => a + l.qty, 0);
+    const cartSum = Object.values(this.state.cart).reduce((a, l) => { const x = this.byId(l.id); return a + (x ? (x.price + optsPrice(x, l.opts)) * l.qty : 0); }, 0);
+    const words = (t, on) => String(t).split(' ').map((w, k) => ({ w, style: { display: 'inline-block', marginRight: '.22em', opacity: on ? 1 : 0.12, transform: on ? 'none' : 'translateY(18px)', transition: 'opacity .5s ease ' + (k * 70) + 'ms, transform .6s cubic-bezier(.2,.8,.2,1) ' + (k * 70) + 'ms' } }));
+    const story = {
+      // CH 01 — scroll cue (hidden once the visitor starts scrolling)
+      showCue: this.state.hy <= 80,
+      // CH 02 -> 03 teaser (shown on the last 3D step)
+      madeTeaser: cfg.teasers.made || '', madePick: (cfg.teasers.madePick || '').replace('{need}', needLabel).replace('{time}', (cfg.stops[pickI] || {}).time || ''),
+      toDay: () => this.goTo('day'),
+      // CH 03 — A day, fueled
+      dayRef: this.day, dayStageRef: this.dayStage, dayTrackRef: this.dayTrack, dayHandRef: this.dayHand, dayMinRef: this.dayMin, dayTimeRef: this.dayTime, dayTime2Ref: this.dayTime2,
+      dayStart: (cfg.stops[0] || {}).time || '06:00',
+      dayStops: cfg.stops.map((st, i) => {
+        const on = storyFlat() || i === (this.state.dayI || 0), pick = st.need === needLabel;
+        const items = (st.items || []).map(nm => this.byName(String(nm).toLowerCase())).filter(x => x && x.available).map((x, k) => ({
+          name: x.name, priceFmt: rp(x.price), src: this.src(x.imgs[0]), open: () => this.setState({ sel: x.id, tab: 'All' }),
+          add: e => this.storyAdd(x, '03_day', e), addLabel: this.qtyOf(x.id) ? 'In cart · ' + this.qtyOf(x.id) : '+ Add',
+          tileStyle: { position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, opacity: on ? 1 : 0.35, transform: on ? 'translateY(0)' : 'translateY(24px)', transition: 'opacity .6s ease ' + (120 + k * 90) + 'ms, transform .7s cubic-bezier(.2,.8,.2,1) ' + (120 + k * 90) + 'ms' },
+          photoStyle: { '--pi': i, display: 'block', width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 18, background: '#e8e6e1', boxShadow: '0 14px 34px rgba(13,13,13,.14)' } }));
+        return { time: st.time, kicker: st.kicker, title: words(st.title, on), copy: st.copy, items, hasItems: items.length > 0, pick, need: st.need,
+          cardStyle: { boxSizing: 'border-box', flex: '0 0 auto', display: 'grid', gap: 24, padding: 28, borderRadius: 32, background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(26px) saturate(170%)', WebkitBackdropFilter: 'blur(26px) saturate(170%)', border: '1px solid rgba(255,255,255,.9)',
+            boxShadow: pick ? '0 0 0 2px #e30a2e, 0 24px 70px rgba(227,10,46,.22)' : 'inset 0 1px 0 #fff, 0 24px 60px rgba(13,13,13,.10)', color: '#0d0d0d', transition: 'box-shadow .4s' } };
+      }),
+      dayCartText: cartN ? cartN + ' in your cup · ' + rp(cartSum) : 'Your cup is empty',
+      dayCartOn: cartN > 0, openCart: () => cartN && this.setState(s => ({ checkout: true, sel: null, full: false, mode: s.mode === 'venue' ? null : s.mode })),
+      dayTeaser: document.getElementById('quiz') ? (cfg.teasers.day || '') : (cfg.teasers.dayFallback || ''),
+      toAfterDay: () => this.goTo(document.getElementById('quiz') ? 'quiz' : 'order'),
+      // Story navigation (rail on desktop, progress bar on phones); hidden while an overlay is open
+      showStoryNav: !overlay,
+      progRef: this.progBar,
+      chapterLabel: ((this._chs || [])[this.state.ch || 0] || {}).label || '',
+      chapters: (this._chs || []).map((c, i) => { const on = i === (this.state.ch || 0); return { label: String(cfg.chapters.indexOf(c) + 1).padStart(2, '0') + ' ' + c.label, go: () => this.goTo(c.el),
+        dotStyle: { display: 'block', width: on ? 12 : 8, height: on ? 12 : 8, borderRadius: '50%', background: on ? '#e30a2e' : 'rgba(13,13,13,.28)', boxShadow: on ? '0 0 0 4px rgba(227,10,46,.18)' : 'none', transition: 'all .25s' } }; })
+    };
     return {
+      ...story,
       navs: [
         { label: 'Full Menu', short: 'Menu', go: () => this.setState({ full: true, hist: false, sel: null }) },
         { label: 'Book Venue', short: 'Venue', go: () => this.setState({ mode: 'venue', checkout: true, sel: null, full: false, hist: false }) },
