@@ -269,6 +269,11 @@ class Component extends DCLogic {
     // WhatsApp number for CH 07 comes from the POS web config (same source as checkout)
     setTimeout(() => { const A = API(); A && A.getConfig && A.getConfig().then(c => { if (c && c.wa_number) this.setState({ waCfg: String(c.wa_number) }); }).catch(() => {}); }, 1500);
     this.refreshHist(false);
+    // Back from Xendit's payment page (?paid=CODE / ?order=CODE): show the order in Purchase History.
+    try {
+      const q = new URLSearchParams(location.search), back = q.get('paid') || q.get('order');
+      if (back) { history.replaceState(null, '', location.pathname + location.hash); setTimeout(() => this.openHist(), 300); if (q.get('paid')) this.showToast('Payment received for ' + back + ' · confirming…'); }
+    } catch (e) {}
     this._offRefs = API().on('refs', () => this.refreshHist(false));
     this._poll = setInterval(() => { if (API().getRefs().length && (this.state.hist || (this.state.hList || []).some(o => o.is_open))) this.refreshHist(false); }, 20000);
     this._focus = () => { if (document.visibilityState === 'visible') this.refreshHist(false); };

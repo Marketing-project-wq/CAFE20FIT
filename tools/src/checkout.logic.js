@@ -16,16 +16,18 @@ const DEALS = [
 ];
 const METHODS = [
   { id: 'qris', label: 'QRIS', desc: 'Scan with any bank or e-wallet', qr: true, logos: ['qris'] },
-  { id: 'ewallet', label: 'GoPay / OVO / ShopeePay', desc: 'Continue in your e-wallet app', qr: true, logos: ['gopay', 'ovo', 'shopeepay'] },
+  { id: 'ewallet', label: 'OVO / ShopeePay / LinkAja', desc: 'Continue in your e-wallet app · GoPay? Choose QRIS', logos: ['ovo', 'shopeepay'] },
   { id: 'credit', label: 'Credit Card', desc: 'Visa, Mastercard, JCB', logos: ['visamc'] },
-  { id: 'debit', label: 'Debit Card', desc: 'GPN, Visa Debit', logos: ['gpn', 'visa'] },
-  { id: 'va', label: 'Virtual Account', desc: 'BCA, Mandiri, BNI, BRI', logos: ['bca', 'mandiri', 'bni', 'bri'] }
+  { id: 'debit', label: 'Debit Card', desc: 'Visa / Mastercard debit', logos: ['visamc'] },
+  { id: 'va', label: 'Virtual Account', desc: 'BCA, Mandiri, BNI, BRI, Permata, BSI', logos: ['bca', 'mandiri', 'bni', 'bri'] }
 ];
+// Every method is paid through Xendit (admin.20fit.id/api/cafe): QRIS shows a real Xendit QR here,
+// the others open Xendit's payment page in a new tab while this page waits for the confirmation.
 const LOGO_ALT = { qris: 'QRIS', gopay: 'GoPay', ovo: 'OVO', shopeepay: 'ShopeePay', visa: 'Visa', visamc: 'Visa, Mastercard', mastercard: 'Mastercard', jcb: 'JCB', gpn: 'GPN', bca: 'BCA', mandiri: 'Mandiri', bni: 'BNI', bri: 'BRI' };
 // Real brand marks where we have them (self-hosted in /logos, same files as the calorie app); the rest keep the lettermark SVGs.
 const LOGO_SRC = { qris: 'logos/qris.png', bca: 'logos/bca.png', bni: 'logos/bni.png', bri: 'logos/bri.png', mandiri: 'logos/mandiri.webp', visamc: 'logos/visa-mastercard.webp' };
 const logoSrc = k => LOGO_SRC[k] || ('logos/' + k + '.svg');
-const QR_SECONDS = 120;
+const QR_SECONDS = 900; // fallback only; the real window is the Xendit QR's expires_at
 const okName = v => v.trim().length >= 2;
 const okEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
 const okPhone = v => /^(\+?62|0)8\d{7,12}$/.test(v.replace(/[\s-]/g, ''));
@@ -33,13 +35,9 @@ const chip = on => ({ all: 'unset', cursor: 'pointer', padding: '10px 16px', bor
 const card = on => ({ all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 4, padding: 16, borderRadius: 20, background: '#fff', border: '2px solid ' + (on ? '#e30a2e' : 'rgba(13,13,13,.08)') });
 const dot = (done, active) => ({ width: 30, height: 30, borderRadius: '50%', display: 'grid', placeItems: 'center', flexShrink: 0, fontWeight: 700, fontSize: 13, background: done ? '#e30a2e' : active ? '#0d0d0d' : '#f1f0ed', color: done || active ? '#fff' : '#8a8a8a', transition: 'background .3s' });
 const pill = (bg, fg) => ({ padding: '6px 12px', borderRadius: 999, background: bg, color: fg, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 });
-const makeQr = (size, seed) => React.createElement('div', { style: { width: size, height: size, display: 'grid', gridTemplateColumns: 'repeat(21,1fr)' } },
-  Array.from({ length: 441 }, (_, i) => { const x = i % 21, y = Math.floor(i / 21); const inF = (a, b) => a >= 0 && a < 7 && b >= 0 && b < 7; const fx = inF(x, y) ? [x, y] : inF(x - 14, y) ? [x - 14, y] : inF(x, y - 14) ? [x, y - 14] : null;
-    const on = fx ? (fx[0] === 0 || fx[0] === 6 || fx[1] === 0 || fx[1] === 6 || (fx[0] >= 2 && fx[0] <= 4 && fx[1] >= 2 && fx[1] <= 4)) : ((x * 7 + y * 13 + x * y + seed) % 3 === 0);
-    return React.createElement('div', { key: i, style: { background: on ? '#0d0d0d' : 'transparent' } }); }));
 
 class Component extends DCLogic {
-  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', email: '', phone: '', qrEnd: 0, now: 0, qrSeed: 1, code: '', token: '', cfg: null, avail: {}, created: null, live: null, busy: false, err: '', rateMsg: 'You can also rate later from Purchase History.' };
+  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', email: '', phone: '', qrEnd: 0, qrStart: 0, qrStr: '', payUrl: '', payBusy: false, now: 0, qrSeed: 1, code: '', token: '', cfg: null, avail: {}, created: null, live: null, busy: false, err: '', rateMsg: 'You can also rate later from Purchase History.' };
   componentDidMount() {
     document.body.style.overflow = 'hidden';
     try { history.pushState({ order: 1 }, '', '#order'); } catch (e) {}
@@ -79,12 +77,35 @@ class Component extends DCLogic {
     if (del) lines.push({ label: 'Delivery fee', value: rp(del) });
     return { lines, total: sub + svc + tax + del, estimate: true };
   }
-  startQr() {
+  // Real Xendit QRIS: counts down to the QR's own expiry; afterwards "Generate new QR" asks for a new one.
+  startQr(pay) {
     clearInterval(this._qi);
-    const now = Date.now();
-    this.setState(s => ({ step: 'qr', qrEnd: now + QR_SECONDS * 1000, now, qrSeed: (s.qrSeed || 1) + 1 }));
+    const now = Date.now(), end = Date.parse(pay && pay.expires_at) || now + QR_SECONDS * 1000;
+    this.setState(s => ({ step: 'qr', qrStr: pay.qr_string, qrEnd: end, qrStart: Math.min(now, end - 60000), now, qrSeed: (s.qrSeed || 1) + 1, err: '' }));
     this._qi = setInterval(() => { if (this.state.step !== 'qr') { clearInterval(this._qi); return; } this.setState({ now: Date.now() }); if (Date.now() >= this.state.qrEnd) clearInterval(this._qi); }, 1000);
   }
+  // Hand the buyer to the payment: QR on this page, or Xendit's page in the tab opened on the click (win).
+  usePay(pay, win) {
+    if (pay && pay.kind === 'qr') { if (win) win.close(); this.startQr(pay); return; }
+    if (pay && pay.kind === 'redirect') {
+      let opened = false;
+      if (win) { try { win.location.href = pay.url; opened = true; } catch (e) {} }
+      if (!opened) { const w = window.open(pay.url, '_blank'); opened = !!w; }
+      this.setState({ payUrl: pay.url, err: opened ? '' : 'Your browser blocked the payment page. Tap "Open payment page".' });
+      this.startWait();
+      return;
+    }
+    if (win) win.close();
+  }
+  // New QR after expiry / reopen Xendit's page / retry after an error. Opens the tab inside the tap so it isn't blocked.
+  retryPay() {
+    const s = this.state; if (s.payBusy || !s.code) return;
+    const method = METHODS.find(m => m.id === s.pay), win = method.qr ? null : window.open('', '_blank');
+    this.setState({ payBusy: true, err: '' });
+    API().pay(s.code, s.token).then(pay => { this.setState({ payBusy: false }); this.usePay(pay, win); })
+      .catch(e => { if (win) win.close(); this.setState({ payBusy: false, err: e.message || 'Could not start the payment' }); this.fetchLive(); });
+  }
+  openPay() { const u = this.state.payUrl; if (u) { const w = window.open(u, '_blank'); if (!w) location.href = u; } else this.retryPay(); }
   payload() {
     const s = this.state, type = s.mode === 'dine' ? 'dine_in' : s.fulfil === 'delivery' ? 'delivery' : 'pickup';
     const p = { order_type: type, customer_name: s.name.trim(), customer_phone: s.phone.replace(/[\s-]/g, ''), customer_email: s.email.trim(), notes: '', payment_method: s.pay,
@@ -96,13 +117,16 @@ class Component extends DCLogic {
   createOrder() {
     if (this.state.busy) return;
     const method = METHODS.find(m => m.id === this.state.pay);
+    // Xendit's page opens in a new tab: open it now, inside the tap, or the browser blocks it.
+    const win = method.qr ? null : window.open('', '_blank');
     this.setState({ busy: true, err: '' });
     API().createOrder(this.payload()).then(res => {
       this.setState({ busy: false, created: res, code: res.code, token: res.access_token });
       if (this.props.onPaid) this.props.onPaid(); // history picks up the new ref right away
       this.startLive();
-      if (method.qr) this.startQr(); else this.startWait();
-    }).catch(e => this.setState({ busy: false, err: e.message || 'Could not create your order' }));
+      if (res.pay) this.usePay(res.pay, win);
+      else { if (win) win.close(); this.setState({ err: res.pay_error || 'Could not start the payment' }); this.startWait(); }
+    }).catch(e => { if (win) win.close(); this.setState({ busy: false, err: e.message || 'Could not create your order' }); });
   }
   startLive() {
     this.stopLive();
@@ -127,7 +151,8 @@ class Component extends DCLogic {
   fetchLive() {
     const { code, token } = this.state; if (!code || !token) return;
     this._lpAt = Date.now();
-    (this.state.mode === 'venue' ? API().getMyOrders().then(l => l.find(o => o.code === code)) : API().getOrder(code, token)).then(o => {
+    const settle = this.state.mode !== 'venue' && ['qr', 'wait'].includes(this.state.step) ? API().payStatus(code, token).catch(() => null) : Promise.resolve();
+    settle.then(() => this.state.mode === 'venue' ? API().getMyOrders().then(l => l.find(o => o.code === code)) : API().getOrder(code, token)).then(o => {
       if (!o) return;
       const next = { live: o };
       if (o.kind !== 'venue' && o.payment_status === 'paid' && ['qr', 'wait'].includes(this.state.step)) { next.step = 'done'; clearInterval(this._qi); }
@@ -175,6 +200,8 @@ class Component extends DCLogic {
     const titles = { mode: ['Order', 'How would you like it?'], visit: ['Dine-in', 'Reserve your table'], menu: [s.mode === 'dine' ? 'Dine-in' : 'Takeaway', s.mode === 'dine' ? 'Order ahead' : 'What would you like?'], confirm: ['Takeaway', 'Confirm order'], venue: ['Book venue', 'Event details'], pay: ['Payment', 'Confirm & pay'], qr: [method.label, 'Complete your payment'], wait: ['Payment', 'Waiting for confirmation'], done: ['Order', s.mode === 'venue' ? 'Request sent' : 'Confirmed'] };
     const nameOk = okName(s.name), emailOk = okEmail(s.email), phoneOk = okPhone(s.phone), detailsOk = nameOk && emailOk && phoneOk;
     const qrLeft = s.step === 'qr' ? Math.max(0, Math.ceil((s.qrEnd - (s.now || Date.now())) / 1000)) : QR_SECONDS;
+    const qrSpan = Math.max(60, Math.round((s.qrEnd - s.qrStart) / 1000) || QR_SECONDS);
+    const payFailed = !!live && (live.payment_status === 'expired' || live.payment_status === 'failed');
     const qrExpired = s.step === 'qr' && qrLeft === 0;
     const ctas = {
       visit: [slotOk ? 'Continue to menu' : 'Pick an available time', () => this.setState({ step: 'menu' }), !slotOk],
@@ -182,7 +209,8 @@ class Component extends DCLogic {
       confirm: ['Confirm order', () => this.setState({ step: 'pay' }), s.fulfil === 'pickup' ? !s.name.trim() : !s.address.trim()],
       venue: [s.busy ? 'Sending…' : 'Continue on WhatsApp', () => this.sendWa(), !s.date || !vNameOk || !vPhoneOk || s.busy],
       pay: [s.busy ? 'Creating your order…' : detailsOk ? 'Pay ' + rp(total) : 'Fill in your details to pay', () => this.createOrder(), !detailsOk || s.busy || cfg.ordering_open === false],
-      qr: qrExpired ? ['Generate new QR', () => this.startQr(), false] : ['I have paid', () => { clearInterval(this._qi); this.startWait(); this.fetchLive(); }, false],
+      qr: qrExpired ? [s.payBusy ? 'Generating…' : 'Generate new QR', () => this.retryPay(), s.payBusy || payFailed] : ['I have paid', () => { clearInterval(this._qi); this.startWait(); this.fetchLive(); }, false],
+      wait: payFailed || !s.code ? null : [s.payBusy ? 'Opening…' : method.qr ? 'Show QR code again' : 'Open payment page', () => (method.qr ? this.retryPay() : this.openPay()), s.payBusy],
       done: ['Done', () => this.finish(), false]
     };
     const cta = ctas[s.step];
@@ -237,13 +265,14 @@ class Component extends DCLogic {
       openNudge: () => window.open(this.nudgeUrl(), '_blank', 'noopener'),
       lines, totalFmt: rp(total), totalLabel: estimate ? 'Estimated total' : 'Total', payLabel: method.label, code: s.code,
       hasErr: !!errMsg, errMsg, vNameErr: s.name && !vNameOk ? 'Please enter your name' : '', vPhoneErr: s.phone && !vPhoneOk ? 'Please enter a valid WhatsApp number, e.g. 0812xxxxxxx' : '',
-      waitTitle: live && (live.payment_status === 'expired' || live.payment_status === 'failed') ? st.pill : 'Waiting for the cafe to confirm your payment', waitSub: live && (live.payment_status === 'expired' || live.payment_status === 'failed') ? 'Please start a new order or contact the cafe.' : 'This page updates automatically. You can close it; your order stays in Purchase History · ' + s.code,
+      waitTitle: payFailed ? st.pill : 'Waiting for your payment', waitSub: payFailed ? 'Please start a new order or contact the cafe.' : (method.qr ? 'Checking with your bank. ' : 'Finish paying on the Xendit page that opened. ') + 'This page updates automatically. You can close it; your order stays in Purchase History · ' + s.code,
       email: s.email, phone: s.phone,
       setEmail: e => this.setState({ email: e.target.value }), setPhone: e => this.setState({ phone: e.target.value }),
       nameErr: s.name && !nameOk ? 'Please enter your name' : '', emailErr: s.email && !emailOk ? 'Please enter a valid email, e.g. name@email.com' : '', phoneErr: s.phone && !phoneOk ? 'Please enter a valid phone number, e.g. 0812xxxxxxx' : '',
       payLocked: !detailsOk, methodsWrap: { display: 'flex', flexDirection: 'column', gap: 10, opacity: detailsOk ? 1 : .45, pointerEvents: detailsOk ? 'auto' : 'none', transition: 'opacity .25s' },
       qrTimer: String(Math.floor(qrLeft / 60)).padStart(2, '0') + ':' + String(qrLeft % 60).padStart(2, '0'), qrExpired, qrActive: !qrExpired,
-      qrBar: { height: '100%', borderRadius: 3, background: qrLeft <= 30 ? '#e30a2e' : '#0d0d0d', width: (qrLeft / QR_SECONDS * 100) + '%', transition: 'width 1s linear, background .3s' },
+      qrBar: { height: '100%', borderRadius: 3, background: qrLeft <= 30 ? '#e30a2e' : '#0d0d0d', width: Math.min(100, qrLeft / qrSpan * 100) + '%', transition: 'width 1s linear, background .3s' },
+      qrNote: 'Scan with any banking or e-wallet app (GoPay, OVO, DANA, ShopeePay, m-banking). This QR is valid for ' + Math.round(qrSpan / 60) + ' minutes.',
       qrBoxStyle: { padding: 16, borderRadius: 24, background: '#fff', border: '1px solid rgba(13,13,13,.08)', opacity: qrExpired ? .25 : 1, filter: qrExpired ? 'blur(2px)' : 'none', transition: 'opacity .3s' },
       methods: METHODS.map(m => ({ label: m.label, desc: m.desc, pick: () => this.setState({ pay: m.id }),
         logos: m.logos.map(k => ({ src: logoSrc(k), alt: LOGO_ALT[k] })),
@@ -251,7 +280,7 @@ class Component extends DCLogic {
           ? { width: 22, height: 22, borderRadius: '50%', boxSizing: 'border-box', flexShrink: 0, border: '2px solid #e30a2e', background: 'radial-gradient(circle, #e30a2e 0 5px, transparent 5px)' }
           : { width: 22, height: 22, borderRadius: '50%', boxSizing: 'border-box', flexShrink: 0, border: '2px solid #8c897e', background: '#fff' },
         style: { all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 18, background: '#fff', border: '1px solid ' + (s.pay === m.id ? '#e30a2e' : 'rgba(13,13,13,.1)'), boxShadow: s.pay === m.id ? '0 0 0 4px rgba(227,10,46,.08)' : 'none', transition: 'border-color .2s, box-shadow .2s' } })),
-      qr: s.step === 'qr' ? makeQr(200, s.qrSeed || 1) : null,
+      qr: s.step === 'qr' && s.qrStr ? React.createElement('div', { style: { width: 220, height: 220 }, role: 'img', 'aria-label': 'QRIS code for ' + s.code, dangerouslySetInnerHTML: { __html: A.qrSvg(s.qrStr, 220) } }) : null,
       doneTitle: s.mode === 'venue' ? 'Request sent' : 'Payment Successful', doneSub: s.mode === 'venue' ? 'Continue on WhatsApp · ' + s.code : rp((live && live.total) || total) + ' · ' + method.label + ' · ' + s.code, waUrl: this.waUrl(),
       doneDine: s.mode === 'dine', doneTrack: s.mode === 'take', doneVenue: s.mode === 'venue',
       voucherTitle: 'Table for ' + ((live && live.pax) || s.pax),
