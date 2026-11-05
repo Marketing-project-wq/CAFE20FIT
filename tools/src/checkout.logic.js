@@ -28,7 +28,7 @@ const METHODS = [
 // Xendit QR, VA shows the account number, OVO pushes to the OVO app, cards are verified (3-D Secure) in-page.
 const LOGO_ALT = { qris: 'QRIS', gopay: 'GoPay', ovo: 'OVO', shopeepay: 'ShopeePay', visa: 'Visa', visamc: 'Visa, Mastercard', mastercard: 'Mastercard', jcb: 'JCB', gpn: 'GPN', bca: 'BCA', mandiri: 'Mandiri', bni: 'BNI', bri: 'BRI' };
 // Real brand marks where we have them (self-hosted in /logos, same files as the calorie app); the rest keep the lettermark SVGs.
-const LOGO_SRC = { qris: 'logos/qris.png', bca: 'logos/bca.png', bni: 'logos/bni.png', bri: 'logos/bri.png', mandiri: 'logos/mandiri.webp', visamc: 'logos/visa-mastercard.webp' };
+const LOGO_SRC = { qris: 'logos/qris.png', ovo: 'logos/ovo-v2.svg', shopeepay: 'logos/shopeepay-v2.svg', bca: 'logos/bca.png', bni: 'logos/bni.png', bri: 'logos/bri.png', mandiri: 'logos/mandiri.webp', visamc: 'logos/visa-mastercard.webp' };
 const logoSrc = k => LOGO_SRC[k] || ('logos/' + k + '.svg');
 const QR_SECONDS = 900; // fallback only; the real window is the Xendit QR's expires_at
 const okName = v => v.trim().length >= 2;
@@ -209,7 +209,7 @@ class Component extends DCLogic {
       const ovo = s.ewChoice === 'ovo', phone = s.ovoPhone != null ? s.ovoPhone : s.phone;
       return wrap([h('div', { key: 'g', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
           chip(!ovo, 'ShopeePay · GoPay · DANA · LinkAja', () => this.setState({ ewChoice: 'qris' })),
-          chip(ovo, 'OVO', () => this.setState({ ewChoice: 'ovo' }), 'logos/ovo.svg')),
+          chip(ovo, 'OVO', () => this.setState({ ewChoice: 'ovo' }), 'logos/ovo-v2.svg')),
         ovo ? h('div', { key: 'o', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, h('div', { style: small }, 'OVO number · we send the payment to your OVO app'), input(phone, v => this.setState({ ovoPhone: v }), '0812xxxxxxx', { type: 'tel', inputMode: 'numeric' }))
           : h('div', { key: 'q', style: small }, 'A QRIS code appears on this page · scan it with your e-wallet app.')]);
     }
@@ -268,7 +268,7 @@ class Component extends DCLogic {
       const sent = s.ovoSent, phone = s.ovoPhone != null ? s.ovoPhone : s.phone;
       return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } }, amount,
         h('div', { style: box },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } }, h('img', { src: 'logos/ovo.svg', alt: 'OVO', style: { height: 22 } }), h('span', { style: { fontWeight: 700 } }, 'OVO')),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } }, h('img', { src: 'logos/ovo-v2.svg', alt: 'OVO', style: { height: 22 } }), h('span', { style: { fontWeight: 700 } }, 'OVO')),
           sent
             ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
                 h('div', { style: { fontSize: 15 } }, 'We sent the payment to OVO ' + sent.phone + '. Open your OVO app and confirm ' + rp(sent.amount) + ' within 60 seconds.'),
