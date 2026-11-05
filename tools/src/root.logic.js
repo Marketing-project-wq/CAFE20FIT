@@ -136,20 +136,7 @@ class Component extends DCLogic {
     if (this.cVidLive()) { if (v.paused) v.play().catch(() => { if (!v.muted) { v.muted = true; this.setState({ cSound: false }); v.play().catch(() => {}); } }); }
     else if (!v.paused) v.pause();
   }
-  setupCareVid() {
-    const EVS = ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'];
-    const stop = () => EVS.forEach(ev => window.removeEventListener(ev, this._cUnmute, true));
-    this._cUnmute = e => {
-      if (e && e.target && e.target.closest && e.target.closest('[data-snd]')) return;
-      if (this.state.cUserMuted || this.state.cSound) return stop();
-      const v = this.careVid.current; if (!v || this._cUnmuting || !this.cVidLive()) return;
-      this._cUnmuting = true; v.muted = false;
-      v.play().then(() => { this._cUnmuting = false; stop(); this.setState({ cSound: true }, () => this.ctlCareVid()); }).catch(() => { this._cUnmuting = false; v.muted = true; v.play().catch(() => {}); });
-    };
-    EVS.forEach(ev => window.addEventListener(ev, this._cUnmute, { capture: true, passive: true }));
-    this._cStop = stop; this._cVis = () => this.ctlCareVid(); document.addEventListener('visibilitychange', this._cVis);
-    this._cWatch = setInterval(() => { const v = this.careVid.current; if (v && v.paused === this.cVidLive()) this.ctlCareVid(); }, 1000);
-  }
+  setupCareVid() { /* Music removed for load performance: the care-section video no longer loads or plays, so no sound/unmute machinery is wired up. */ }
   // ---- CH 04 quiz ----
   quizAnswer(qid, val) {
     const qs = SC().quiz.questions, i = this.state.qi || 0;
@@ -435,10 +422,10 @@ class Component extends DCLogic {
       igPol: IG_POSTS.map((id, k) => ({ embed: 'https://www.instagram.com/' + id + '/embed/', poster: IG_PH,
         loaded: () => !(this.state.polOk || {})[k] && this.setState(s => ({ polOk: { ...(s.polOk || {}), [k]: true } })),
         frameStyle: { position: 'absolute', border: 0, opacity: (this.state.polOk || {})[k] ? 1 : 0, transition: 'opacity .6s', pointerEvents: 'none', ...IG_CROP[id.split('/')[0]] } })),
-      careVidRef: this.careVid, careVidSrc: (cfg.care || {}).video || '',
+      careVidRef: this.careVid, careVidSrc: '',
       cSoundLabel: this.state.cSound ? '🔊 Mute' : '🔇 Sound on',
       cToggle: e => { if (e && e.stopPropagation) e.stopPropagation(); const v = this.careVid.current; if (!v) return; const on = !this.state.cSound; v.muted = !on; if (on && this.cVidLive()) v.play().catch(() => {}); this.setState({ cSound: on, cUserMuted: !on }); },
-      showMusic: !!this.state.cSound && !overlay,
+      showMusic: false,
       careTeaser: cfg.teasers.care || '', toOrderSec: () => this.goTo('order'),
       turnTeaser: cfg.teasers.turn || '', toFinale: () => this.goTo('finale'),
       // CH 07 — See you at the bar (details from config; 'TODO…' values stay hidden)
