@@ -32,9 +32,9 @@ window.StoryBackdrops = {
       paint: { sky: ['#cfc4b6', '#8c7b6a', '#2a2220'], accent: '#e30a2e' }
     },
     arena: {
-      label: '20FIT Arena', focal: { x: 0.6, y: 0.4 },
-      light: { key: '#eef3ff', keyI: 2.7, keyPos: [1, 9, 3], sky: '#dfe6f2', ground: '#141414', hemiI: 0.9, rimI: 40, exposure: 1.1 },
-      paint: { sky: ['#0f1218', '#1c2230', '#0a0b0e'], accent: '#e30a2e' }
+      label: '20FIT Cafe', focal: { x: 0.6, y: 0.46 },
+      light: { key: '#ffe9cf', keyI: 2.5, keyPos: [3, 7, 4], sky: '#efe0cb', ground: '#2a1a10', hemiI: 0.9, rimI: 26, exposure: 1.05 },
+      paint: { sky: ['#e9dcc6', '#caa884', '#5f4027'], accent: '#e30a2e' }
     }
   }
 };
