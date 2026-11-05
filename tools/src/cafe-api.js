@@ -9,6 +9,10 @@
   var SUPABASE_URL = 'https://cpvzwqptzcxnwzfzgrmt.supabase.co';
   var SUPABASE_KEY = 'sb_publishable_0t9vEOYeIo_YM1__X5iNMQ_qXofEozw';
 
+  // Payments (Xendit) run on admin.20fit.id: it creates the order (CAFE-XXXXX), starts the QRIS / invoice
+  // and settles it when Xendit says paid (lib/cafePay.ts in Marketing-project-wq/admin-20fit).
+  var PAY_API = 'https://admin.20fit.id/api/cafe';
+
   var REFS_KEY = '20fit-order-refs';
   var SEEN_KEY = '20fit-order-seen';
   var LEGACY_KEY = '20fit-orders';
@@ -34,6 +38,16 @@
     });
   }
 
+  function payApi(path, body) {
+    var opts = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { method: 'GET' };
+    return fetch(PAY_API + path, opts).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (!r.ok) { var err = new Error(j.error || 'Something went wrong, please try again'); err.status = r.status; throw err; }
+        return j;
+      });
+    }, function () { throw new Error('No connection, please try again'); });
+  }
+
   // ---------- storage ----------
   function lsGet(key, fallback) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; } }
   function lsSet(key, val) { try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {} }
@@ -57,12 +71,18 @@
   function getConfig(force) { if (!configP || force) configP = rpc('cafe_get_web_config').catch(function (e) { configP = null; throw e; }); return configP; }
 
   // ---------- customer RPCs ----------
+  // Returns the order plus `pay`: { kind: 'qr', qr_string, expires_at } | { kind: 'redirect', url, expires_at },
+  // or `pay_error` when the order was made but its payment could not be started (retry with pay()).
   function createOrder(p) {
-    return rpc('cafe_create_order', { p: p }).then(function (res) {
+    return payApi('/order', p).then(function (res) {
       addRef({ code: res.code, token: res.access_token, kind: 'order' }); // saved right away, before the payment screen
       return res;
     });
   }
+  // Live Xendit payment for an unpaid order: the same QR / invoice while it is valid, else a new one.
+  function pay(code, token) { return payApi('/pay', { code: code, token: token || tokenFor(code) }).then(function (r) { return r.pay; }); }
+  // Asks Xendit and settles the order when it is paid; then getOrder() shows the new status.
+  function payStatus(code, token) { return payApi('/pay/status?code=' + encodeURIComponent(code) + '&token=' + encodeURIComponent(token || tokenFor(code) || '')); }
   function createVenue(p) {
     return rpc('cafe_create_venue_booking', { p: p }).then(function (res) {
       addRef({ code: res.code, token: res.access_token, kind: 'venue' });
@@ -85,15 +105,6 @@
   function arrived(code) { return rpc('cafe_customer_arrived', { p_code: code, p_token: tokenFor(code) }); }
   function rate(code, food, service, comment) { return rpc('cafe_rate_order', { p_code: code, p_token: tokenFor(code), p_food: food, p_service: service, p_comment: comment || '' }); }
   function slotAvailability(date) { return rpc('cafe_get_slot_availability', { p_date: date }); }
-  // Per-slot table availability for a day: [{ slot, sizes:[{ capacity, total, booked, left }] }].
-  function tableAvailabilityDay(date) { return rpc('cafe_get_table_availability_day', { p_date: date }); }
-  // Smallest table capacity (per the web config size map) that seats `pax`; null if none fits (merge off).
-  function capForPax(pax, cfg) {
-    var map = (cfg && cfg.table_size_map) || '2:2,4:4,10:10';
-    var caps = map.replace(/\s/g, '').split(',').map(function (p) { var a = p.split(':'); return { max: Number(a[0]), cap: Number(a[1]) }; })
-      .filter(function (t) { return t.max >= pax; }).map(function (t) { return t.cap; });
-    return caps.length ? Math.min.apply(null, caps) : null;
-  }
 
   // Realtime per order: channel cafe-order:<token>, event order_update. Returns an unsubscribe function.
   function watch(token, fn) {
@@ -126,7 +137,7 @@
     var t = o.type, s = o.status;
     if (s === 'pending_payment') {
       if (o.payment_status === 'expired' || o.payment_status === 'failed') return { pill: o.payment_status === 'expired' ? 'Payment expired' : 'Payment failed', sub: 'This order was not paid', tone: 'grey' };
-      return { pill: 'Waiting payment', sub: 'Waiting for the cafe to confirm your payment', tone: 'amber' };
+      return { pill: 'Waiting payment', sub: 'Not paid yet · it updates automatically once your payment goes through', tone: 'amber' };
     }
     if (s === 'cancelled') return { pill: 'Cancelled', sub: [o.cancel_reason, o.payment_status === 'refunded' ? 'Refunded' : ''].filter(Boolean).join(' · '), tone: 'grey' };
     if (t === 'dine_in') {
@@ -177,8 +188,8 @@
     rpc: rpc, on: on, emit: emit,
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
-    createOrder: createOrder, createVenue: createVenue, getOrder: getOrder, getMyOrders: getMyOrders,
-    findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, tableAvailabilityDay: tableAvailabilityDay, capForPax: capForPax, watch: watch,
+    createOrder: createOrder, pay: pay, payStatus: payStatus, createVenue: createVenue, getOrder: getOrder, getMyOrders: getMyOrders,
+    findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, watch: watch,
     rp: rp, time: time, dateTime: dateTime, dayLabel: dayLabel, ymd: ymd, optionsText: optionsText,
     KIND: KIND, methodLabel: methodLabel, SESSION: SESSION, status: status, pillStyle: pillStyle, trackSteps: trackSteps, qrSvg: qrSvg
   };
