@@ -17,11 +17,14 @@ const DEALS = [
 const METHODS = [
   { id: 'qris', label: 'QRIS', desc: 'Scan with any bank or e-wallet', qr: true, logos: ['qris'] },
   { id: 'ewallet', label: 'GoPay / OVO / ShopeePay', desc: 'Continue in your e-wallet app', qr: true, logos: ['gopay', 'ovo', 'shopeepay'] },
-  { id: 'credit', label: 'Credit Card', desc: 'Visa, Mastercard, JCB', logos: ['visa', 'mastercard', 'jcb'] },
+  { id: 'credit', label: 'Credit Card', desc: 'Visa, Mastercard, JCB', logos: ['visamc'] },
   { id: 'debit', label: 'Debit Card', desc: 'GPN, Visa Debit', logos: ['gpn', 'visa'] },
   { id: 'va', label: 'Virtual Account', desc: 'BCA, Mandiri, BNI, BRI', logos: ['bca', 'mandiri', 'bni', 'bri'] }
 ];
-const LOGO_ALT = { qris: 'QRIS', gopay: 'GoPay', ovo: 'OVO', shopeepay: 'ShopeePay', visa: 'Visa', mastercard: 'Mastercard', jcb: 'JCB', gpn: 'GPN', bca: 'BCA', mandiri: 'Mandiri', bni: 'BNI', bri: 'BRI' };
+const LOGO_ALT = { qris: 'QRIS', gopay: 'GoPay', ovo: 'OVO', shopeepay: 'ShopeePay', visa: 'Visa', visamc: 'Visa, Mastercard', mastercard: 'Mastercard', jcb: 'JCB', gpn: 'GPN', bca: 'BCA', mandiri: 'Mandiri', bni: 'BNI', bri: 'BRI' };
+// Real brand marks where we have them (self-hosted in /logos, same files as the calorie app); the rest keep the lettermark SVGs.
+const LOGO_SRC = { qris: 'logos/qris.png', bca: 'logos/bca.png', bni: 'logos/bni.png', bri: 'logos/bri.png', mandiri: 'logos/mandiri.webp', visamc: 'logos/visa-mastercard.webp' };
+const logoSrc = k => LOGO_SRC[k] || ('logos/' + k + '.svg');
 const QR_SECONDS = 120;
 const okName = v => v.trim().length >= 2;
 const okEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
@@ -243,9 +246,11 @@ class Component extends DCLogic {
       qrBar: { height: '100%', borderRadius: 3, background: qrLeft <= 30 ? '#e30a2e' : '#0d0d0d', width: (qrLeft / QR_SECONDS * 100) + '%', transition: 'width 1s linear, background .3s' },
       qrBoxStyle: { padding: 16, borderRadius: 24, background: '#fff', border: '1px solid rgba(13,13,13,.08)', opacity: qrExpired ? .25 : 1, filter: qrExpired ? 'blur(2px)' : 'none', transition: 'opacity .3s' },
       methods: METHODS.map(m => ({ label: m.label, desc: m.desc, pick: () => this.setState({ pay: m.id }),
-        logos: m.logos.map(k => ({ src: 'logos/' + k + '.svg', alt: LOGO_ALT[k] })),
-        ring: { width: 20, height: 20, borderRadius: '50%', boxSizing: 'border-box', flexShrink: 0, border: s.pay === m.id ? '6px solid #e30a2e' : '2px solid rgba(13,13,13,.2)' },
-        style: { all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px', borderRadius: 18, background: '#fff', border: '1px solid ' + (s.pay === m.id ? '#e30a2e' : 'rgba(13,13,13,.08)') } })),
+        logos: m.logos.map(k => ({ src: logoSrc(k), alt: LOGO_ALT[k] })),
+        ring: s.pay === m.id
+          ? { width: 22, height: 22, borderRadius: '50%', boxSizing: 'border-box', flexShrink: 0, border: '2px solid #e30a2e', background: 'radial-gradient(circle, #e30a2e 0 5px, transparent 5px)' }
+          : { width: 22, height: 22, borderRadius: '50%', boxSizing: 'border-box', flexShrink: 0, border: '2px solid #8c897e', background: '#fff' },
+        style: { all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 18, background: '#fff', border: '1px solid ' + (s.pay === m.id ? '#e30a2e' : 'rgba(13,13,13,.1)'), boxShadow: s.pay === m.id ? '0 0 0 4px rgba(227,10,46,.08)' : 'none', transition: 'border-color .2s, box-shadow .2s' } })),
       qr: s.step === 'qr' ? makeQr(200, s.qrSeed || 1) : null,
       doneTitle: s.mode === 'venue' ? 'Request sent' : 'Payment Successful', doneSub: s.mode === 'venue' ? 'Continue on WhatsApp · ' + s.code : rp((live && live.total) || total) + ' · ' + method.label + ' · ' + s.code, waUrl: this.waUrl(),
       doneDine: s.mode === 'dine', doneTrack: s.mode === 'take', doneVenue: s.mode === 'venue',
