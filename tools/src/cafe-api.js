@@ -85,6 +85,15 @@
   function arrived(code) { return rpc('cafe_customer_arrived', { p_code: code, p_token: tokenFor(code) }); }
   function rate(code, food, service, comment) { return rpc('cafe_rate_order', { p_code: code, p_token: tokenFor(code), p_food: food, p_service: service, p_comment: comment || '' }); }
   function slotAvailability(date) { return rpc('cafe_get_slot_availability', { p_date: date }); }
+  // Per-slot table availability for a day: [{ slot, sizes:[{ capacity, total, booked, left }] }].
+  function tableAvailabilityDay(date) { return rpc('cafe_get_table_availability_day', { p_date: date }); }
+  // Smallest table capacity (per the web config size map) that seats `pax`; null if none fits (merge off).
+  function capForPax(pax, cfg) {
+    var map = (cfg && cfg.table_size_map) || '2:2,4:4,10:10';
+    var caps = map.replace(/\s/g, '').split(',').map(function (p) { var a = p.split(':'); return { max: Number(a[0]), cap: Number(a[1]) }; })
+      .filter(function (t) { return t.max >= pax; }).map(function (t) { return t.cap; });
+    return caps.length ? Math.min.apply(null, caps) : null;
+  }
 
   // Realtime per order: channel cafe-order:<token>, event order_update. Returns an unsubscribe function.
   function watch(token, fn) {
@@ -169,7 +178,7 @@
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
     createOrder: createOrder, createVenue: createVenue, getOrder: getOrder, getMyOrders: getMyOrders,
-    findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, watch: watch,
+    findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, tableAvailabilityDay: tableAvailabilityDay, capForPax: capForPax, watch: watch,
     rp: rp, time: time, dateTime: dateTime, dayLabel: dayLabel, ymd: ymd, optionsText: optionsText,
     KIND: KIND, methodLabel: methodLabel, SESSION: SESSION, status: status, pillStyle: pillStyle, trackSteps: trackSteps, qrSvg: qrSvg
   };
