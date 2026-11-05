@@ -15,15 +15,17 @@ const DEALS = [
   { id: 'duo', tag: 'Bundle', title: 'Coffee + pastry', desc: 'Any coffee with any pastry', price: 45000, worth: 58000 },
   { id: 'squad', tag: 'Group', title: 'Squad of 4 drinks', desc: '4 drinks of your choice', price: 110000, worth: 136000 }
 ];
+const PANEL_STEPS = ['va', 'ewallet', 'card'];
+const PAYING_STEPS = ['qr', 'wait', 'va', 'ewallet', 'card'];
 const METHODS = [
   { id: 'qris', label: 'QRIS', desc: 'Scan with any bank or e-wallet', qr: true, logos: ['qris'] },
-  { id: 'ewallet', label: 'OVO / ShopeePay / LinkAja', desc: 'Continue in your e-wallet app · GoPay? Choose QRIS', logos: ['ovo', 'shopeepay'] },
+  { id: 'ewallet', label: 'E-wallet', desc: 'OVO, ShopeePay, GoPay, DANA, LinkAja', logos: ['ovo', 'shopeepay'] },
   { id: 'credit', label: 'Credit Card', desc: 'Visa, Mastercard, JCB', logos: ['visamc'] },
   { id: 'debit', label: 'Debit Card', desc: 'Visa / Mastercard debit', logos: ['visamc'] },
   { id: 'va', label: 'Virtual Account', desc: 'BCA, Mandiri, BNI, BRI, Permata, BSI', logos: ['bca', 'mandiri', 'bni', 'bri'] }
 ];
-// Every method is paid through Xendit (admin.20fit.id/api/cafe): QRIS shows a real Xendit QR here,
-// the others open Xendit's payment page in a new tab while this page waits for the confirmation.
+// Every method is paid through Xendit (admin.20fit.id/api/cafe) WITHOUT leaving this page: QRIS shows a real
+// Xendit QR, VA shows the account number, OVO pushes to the OVO app, cards are verified (3-D Secure) in-page.
 const LOGO_ALT = { qris: 'QRIS', gopay: 'GoPay', ovo: 'OVO', shopeepay: 'ShopeePay', visa: 'Visa', visamc: 'Visa, Mastercard', mastercard: 'Mastercard', jcb: 'JCB', gpn: 'GPN', bca: 'BCA', mandiri: 'Mandiri', bni: 'BNI', bri: 'BRI' };
 // Real brand marks where we have them (self-hosted in /logos, same files as the calorie app); the rest keep the lettermark SVGs.
 const LOGO_SRC = { qris: 'logos/qris.png', bca: 'logos/bca.png', bni: 'logos/bni.png', bri: 'logos/bri.png', mandiri: 'logos/mandiri.webp', visamc: 'logos/visa-mastercard.webp' };
@@ -38,7 +40,7 @@ const dot = (done, active) => ({ width: 30, height: 30, borderRadius: '50%', dis
 const pill = (bg, fg) => ({ padding: '6px 12px', borderRadius: 999, background: bg, color: fg, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 });
 
 class Component extends DCLogic {
-  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', email: '', phone: '', qrEnd: 0, qrStart: 0, qrStr: '', payUrl: '', payBusy: false, now: 0, qrSeed: 1, code: '', token: '', cfg: null, avail: {}, created: null, live: null, promo: '', promoInfo: null, promoBusy: false, busy: false, err: '', rateMsg: 'You can also rate later from Purchase History.' };
+  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', email: '', phone: '', qrEnd: 0, qrStart: 0, qrStr: '', payBusy: false, vaBank: 'BCA', ewChoice: 'qris', vaInfo: null, ovoSent: null, ovoPhone: null, cardKey: '', xReady: false, cardBusy: false, threeDs: '', cNum: '', cExp: '', cCvv: '', copied: false, now: 0, qrSeed: 1, code: '', token: '', cfg: null, avail: {}, created: null, live: null, promo: '', promoInfo: null, promoBusy: false, busy: false, err: '', rateMsg: 'You can also rate later from Purchase History.' };
   componentDidMount() {
     document.body.style.overflow = 'hidden';
     try { history.pushState({ order: 1 }, '', '#order'); } catch (e) {}
@@ -53,7 +55,7 @@ class Component extends DCLogic {
     else if (m === 'dine') Object.assign(next, { mode: 'dine', step: 'visit' });
     this.setState(next);
   }
-  componentWillUnmount() { (this._ts || []).forEach(clearTimeout); clearInterval(this._qi); clearInterval(this._wi); this.stopLive(); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
+  componentWillUnmount() { (this._ts || []).forEach(clearTimeout); clearInterval(this._qi); clearInterval(this._wi); clearInterval(this._xw); clearTimeout(this._3t); this.stopLive(); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
   later(fn, ms) { (this._ts = this._ts || []).push(setTimeout(fn, ms)); }
   dayText() { const d = new Date(); d.setDate(d.getDate() + (this.state.dayI || 0)); return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }); }
   menu() { return this.props.menu || []; }
@@ -113,28 +115,199 @@ class Component extends DCLogic {
     this.setState(s => ({ step: 'qr', qrStr: pay.qr_string, qrEnd: end, qrStart: Math.min(now, end - 60000), now, qrSeed: (s.qrSeed || 1) + 1, err: '' }));
     this._qi = setInterval(() => { if (this.state.step !== 'qr') { clearInterval(this._qi); return; } this.setState({ now: Date.now() }); if (Date.now() >= this.state.qrEnd) clearInterval(this._qi); }, 1000);
   }
-  // Hand the buyer to the payment: QR on this page, or Xendit's page in the tab opened on the click (win).
-  usePay(pay, win) {
-    if (pay && pay.kind === 'qr') { if (win) win.close(); this.startQr(pay); return; }
-    if (pay && pay.kind === 'redirect') {
-      let opened = false;
-      if (win) { try { win.location.href = pay.url; opened = true; } catch (e) {} }
-      if (!opened) { const w = window.open(pay.url, '_blank'); opened = !!w; }
-      this.setState({ payUrl: pay.url, err: opened ? '' : 'Your browser blocked the payment page. Tap "Open payment page".' });
-      this.startWait();
-      return;
-    }
-    if (win) win.close();
+  // Hand the buyer to the payment, always on this page (owner: no Xendit checkout redirect).
+  usePay(pay, amount) {
+    if (!pay) return;
+    if (pay.kind === 'card') { this.loadXendit(pay.public_key, () => this.payCard(amount)); return; }
+    if (pay.kind === 'qr') { this.startQr(pay); return; }
+    if (pay.kind === 'va') { this.setState({ step: 'va', vaInfo: pay, err: '' }); return; }
+    if (pay.kind === 'ovo') { this.setState({ step: 'ewallet', ovoSent: pay, ovoAt: Date.now(), err: '' }); return; }
+    if (pay.kind === 'choose') this.setState({ step: this.state.pay === 'va' ? 'va' : 'ewallet', err: '' });
   }
-  // New QR after expiry / reopen Xendit's page / retry after an error. Opens the tab inside the tap so it isn't blocked.
-  retryPay() {
+  // Start / reuse a payment for the order. opts: { channel: qris|ovo|va|card, bank, phone }
+  retryPay(opts) {
     const s = this.state; if (s.payBusy || !s.code) return;
-    const method = METHODS.find(m => m.id === s.pay), win = method.qr ? null : window.open('', '_blank');
     this.setState({ payBusy: true, err: '' });
-    API().pay(s.code, s.token).then(pay => { this.setState({ payBusy: false }); this.usePay(pay, win); })
-      .catch(e => { if (win) win.close(); this.setState({ payBusy: false, err: e.message || 'Could not start the payment' }); this.fetchLive(); });
+    API().pay(s.code, s.token, opts || { channel: METHODS.find(m => m.id === s.pay).qr ? 'qris' : undefined }).then(pay => { this.setState({ payBusy: false }); this.usePay(pay); })
+      .catch(e => { this.setState({ payBusy: false, err: e.message || 'Could not start the payment' }); this.fetchLive(); });
   }
-  openPay() { const u = this.state.payUrl; if (u) { const w = window.open(u, '_blank'); if (!w) location.href = u; } else this.retryPay(); }
+  // ---------- card: Xendit.js v1 tokenization + 3-D Secure inside this page (card number never reaches our server) ----------
+  // The in-page choice for the selected method (dropdown under it): sent with the order.
+  payOpts() {
+    const s = this.state;
+    if (s.pay === 'va') return { channel: 'va', bank: s.vaBank || 'BCA' };
+    if (s.pay === 'ewallet') return s.ewChoice === 'ovo' ? { channel: 'ovo', phone: s.ovoPhone != null ? s.ovoPhone : s.phone } : { channel: 'qris' };
+    if (s.pay === 'credit' || s.pay === 'debit') return { channel: 'card' };
+    return { channel: 'qris' };
+  }
+  dropOk() {
+    const s = this.state;
+    if (s.pay === 'ewallet' && s.ewChoice === 'ovo') return String(s.ovoPhone != null ? s.ovoPhone : s.phone).replace(/\D/g, '').length >= 9;
+    if (s.pay === 'credit' || s.pay === 'debit') return (s.cNum || '').replace(/\D/g, '').length >= 13 && (s.cExp || '').replace(/\D/g, '').length === 4 && (s.cCvv || '').length >= 3;
+    return true;
+  }
+  // One "Pay" button: creates the order with the choice, or (order already made, e.g. a declined card) pays again.
+  submitPay() {
+    const s = this.state; if (s.busy || s.payBusy || s.cardBusy) return;
+    if (!s.code) return this.createOrder();
+    if (s.pay === 'credit' || s.pay === 'debit') return this.payCard();
+    this.retryPay(this.payOpts());
+  }
+  loadXendit(key, then) {
+    const ready = () => { try { if (key) window.Xendit.setPublishableKey(key); this.setState({ xReady: true }); if (then) then(); } catch (e) { this.setState({ cardBusy: false, err: 'Card payment is not available right now. Please use QRIS.' }); } };
+    if (window.Xendit && window.Xendit.card) return ready();
+    if (document.getElementById('xendit-js')) { clearInterval(this._xw); this._xw = setInterval(() => { if (window.Xendit && window.Xendit.card) { clearInterval(this._xw); ready(); } }, 200); return; }
+    const sc = document.createElement('script'); sc.id = 'xendit-js'; sc.src = 'https://js.xendit.co/v1/xendit.min.js'; sc.async = true;
+    sc.onload = ready; sc.onerror = () => this.setState({ err: 'Could not load the card form. Check your connection or use QRIS.' });
+    document.head.appendChild(sc);
+  }
+  payCard(amt) {
+    const s = this.state, num = (s.cNum || '').replace(/\D/g, ''), exp = (s.cExp || '').replace(/\D/g, ''), cvv = (s.cCvv || '').replace(/\D/g, '');
+    if (s.cardBusy || !(window.Xendit && window.Xendit.card)) return;
+    if (num.length < 13 || exp.length !== 4 || cvv.length < 3) { this.setState({ err: 'Please complete your card details.' }); return; }
+    const attempt = (this._ca = (this._ca || 0) + 1), amount = Math.round(Number(amt || (s.created && s.created.total) || 0));
+    this.setState({ cardBusy: true, err: '', threeDs: '' });
+    const bd = { given_names: s.name.trim() || 'Customer', email: s.email.trim() || undefined, mobile_number: s.phone ? '+62' + s.phone.replace(/\D/g, '').replace(/^(62|0)/, '') : undefined };
+    window.Xendit.card.createToken({ amount, card_number: num, card_exp_month: exp.slice(0, 2), card_exp_year: '20' + exp.slice(2), card_cvn: cvv, is_multiple_use: false, should_authenticate: true, currency: 'IDR', billing_details: bd, customer: bd }, (error, token) => {
+      if (attempt !== this._ca) return;  // Xendit.js calls back twice with 3DS; ignore a cancelled attempt
+      if (error || !token || token.status === 'FAILED') {
+        clearTimeout(this._3t);
+        const code = String((error && (error.error_code || error.code)) || (token && token.failure_reason) || '');
+        this.setState({ cardBusy: false, threeDs: '', cCvv: code === 'INVALID_CVN' ? '' : s.cCvv, err: (error && error.message && !/^[A-Z_]+$/.test(error.message) ? error.message : '') || 'Your card could not be verified. Check the details or try another card.' });
+        return;
+      }
+      // First callback = the bank's OTP page (3-D Secure): show it here; the second callback brings the token.
+      if (!token.authentication_id && token.status === 'IN_REVIEW' && token.payer_authentication_url) {
+        this.setState({ threeDs: token.payer_authentication_url });
+        clearTimeout(this._3t);
+        this._3t = setTimeout(() => { if (attempt !== this._ca) return; this._ca++; this.setState({ cardBusy: false, threeDs: '', err: "We didn't get a verification result from your bank. Please try again." }); }, 240000);
+        return;
+      }
+      clearTimeout(this._3t);
+      this.setState({ threeDs: '' });
+      if (!token.id || !token.authentication_id) { this.setState({ cardBusy: false, err: 'Card verification did not finish. Please try again.' }); return; }
+      API().card(s.code, s.token, token.id, token.authentication_id)
+        .then(() => { this.setState({ cardBusy: false, cNum: '', cCvv: '' }); this.fetchLive(); })
+        .catch(e => this.setState({ cardBusy: false, cCvv: '', err: e.message || 'Card payment failed' }));
+    });
+  }
+  cancel3ds() { this._ca = (this._ca || 0) + 1; clearTimeout(this._3t); this.setState({ cardBusy: false, threeDs: '' }); }
+  copyVa(n) { try { navigator.clipboard.writeText(n); this.setState({ copied: true }); this.later(() => this.setState({ copied: false }), 2000); } catch (e) {} }
+  // ---------- dropdown under the selected payment method (bank / e-wallet / card form, 3-D Secure) ----------
+  dropFor(id) {
+    const h = React.createElement, s = this.state;
+    const wrap = ch => h('div', { style: { margin: '-4px 0 4px', padding: 14, borderRadius: '0 0 18px 18px', background: '#faf9f7', border: '1px solid rgba(227,10,46,.25)', borderTop: 'none', display: 'flex', flexDirection: 'column', gap: 10, animation: 'pFade .25s ease' } }, ch);
+    const small = { fontSize: 13, color: '#5a5a5a', lineHeight: 1.45 };
+    const chip = (on, label, onClick, logo) => h('button', { key: label, onClick, style: { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', minHeight: 46, padding: '8px 12px', borderRadius: 14, background: '#fff', border: on ? '2px solid #e30a2e' : '1px solid rgba(13,13,13,.12)', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14, textAlign: 'center' } }, logo ? h('img', { src: logo, alt: label, style: { maxHeight: 22, maxWidth: 80 } }) : label);
+    const input = (val, set, ph, extra) => h('input', Object.assign({ value: val || '', placeholder: ph, onChange: e => set(e.target.value), style: { boxSizing: 'border-box', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(13,13,13,.15)', fontSize: 16, outline: 'none', background: '#fff', fontFamily: "'JetBrains Mono',monospace" } }, extra || {}));
+    if (id === 'va') {
+      const banks = [['BCA', 'logos/bca.png'], ['MANDIRI', 'logos/mandiri.webp'], ['BNI', 'logos/bni.png'], ['BRI', 'logos/bri.png'], ['PERMATA'], ['BSI'], ['CIMB']];
+      return wrap([h('div', { key: 't', style: small }, 'Choose your bank · the virtual account number appears right here after you tap Pay'),
+        h('div', { key: 'g', style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(92px,1fr))', gap: 8 } }, banks.map(([b, logo]) => chip((s.vaBank || 'BCA') === b, b, () => this.setState({ vaBank: b }), logo)))]);
+    }
+    if (id === 'ewallet') {
+      const ovo = s.ewChoice === 'ovo', phone = s.ovoPhone != null ? s.ovoPhone : s.phone;
+      return wrap([h('div', { key: 'g', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+          chip(!ovo, 'ShopeePay · GoPay · DANA · LinkAja', () => this.setState({ ewChoice: 'qris' })),
+          chip(ovo, 'OVO', () => this.setState({ ewChoice: 'ovo' }), 'logos/ovo.svg')),
+        ovo ? h('div', { key: 'o', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, h('div', { style: small }, 'OVO number · we send the payment to your OVO app'), input(phone, v => this.setState({ ovoPhone: v }), '0812xxxxxxx', { type: 'tel', inputMode: 'numeric' }))
+          : h('div', { key: 'q', style: small }, 'A QRIS code appears on this page · scan it with your e-wallet app.')]);
+    }
+    if (id === 'credit' || id === 'debit') {
+      if (s.threeDs) {
+        return wrap([h('div', { key: 'h', style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, h('div', { style: { fontWeight: 700 } }, 'Verify with your bank'), h('button', { onClick: () => this.cancel3ds(), style: { all: 'unset', cursor: 'pointer', fontSize: 13, textDecoration: 'underline', color: '#5a5a5a' } }, 'Cancel')),
+          h('iframe', { key: 'f', src: s.threeDs, title: '3-D Secure verification', style: { width: '100%', height: 460, border: '1px solid rgba(13,13,13,.1)', borderRadius: 14, background: '#fff' } }),
+          h('div', { key: 'n', style: small }, 'Enter the OTP your bank sent you. Do not close this page.')]);
+      }
+      const fmtNum = v => v.replace(/\D/g, '').slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 ');
+      const fmtExp = v => { const d = v.replace(/\D/g, '').slice(0, 4); return d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; };
+      return wrap([input(s.cNum, v => this.setState({ cNum: fmtNum(v) }), 'Card number', { key: 'n', inputMode: 'numeric', autoComplete: 'cc-number' }),
+        h('div', { key: 'r', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
+          input(s.cExp, v => this.setState({ cExp: fmtExp(v) }), 'MM/YY', { inputMode: 'numeric', autoComplete: 'cc-exp' }),
+          input(s.cCvv, v => this.setState({ cCvv: v.replace(/\D/g, '').slice(0, 4) }), 'CVV', { inputMode: 'numeric', type: 'password', autoComplete: 'cc-csc' })),
+        h('div', { key: 's', style: small }, 'Secured by Xendit · your bank may ask for an OTP right here. Your card number goes straight to Xendit, never to us.')]);
+    }
+    return null;
+  }
+  // ---------- in-page panels (VA, e-wallet, card), drawn here so the design template only needs one slot ----------
+  panel(total) {
+    const h = React.createElement, s = this.state, A = API();
+    const box = { background: '#fff', borderRadius: 20, border: '1px solid rgba(13,13,13,.08)', padding: 18, display: 'flex', flexDirection: 'column', gap: 12 };
+    const mono = { fontFamily: "'JetBrains Mono',monospace" };
+    const small = { fontSize: 13, color: '#5a5a5a', lineHeight: 1.45 };
+    const btn = (label, onClick, opts) => h('button', { onClick, disabled: !!(opts && opts.disabled), style: { all: 'unset', boxSizing: 'border-box', cursor: opts && opts.disabled ? 'default' : 'pointer', textAlign: 'center', padding: '13px 18px', borderRadius: 999, background: opts && opts.ghost ? '#fff' : opts && opts.disabled ? '#c9c7c2' : '#e30a2e', color: opts && opts.ghost ? '#0d0d0d' : '#fff', border: opts && opts.ghost ? '1px solid rgba(13,13,13,.15)' : 'none', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 17, letterSpacing: '.04em', textTransform: 'uppercase', width: opts && opts.auto ? 'auto' : '100%' } }, label);
+    const input = (val, set, ph, extra) => h('input', Object.assign({ value: val || '', placeholder: ph, onChange: e => set(e.target.value), style: { boxSizing: 'border-box', width: '100%', padding: '13px 14px', borderRadius: 14, border: '1px solid rgba(13,13,13,.15)', fontSize: 16, outline: 'none', background: '#fff', ...mono } }, extra || {}));
+    const waiting = h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, ...small } }, h('span', { style: { width: 8, height: 8, borderRadius: '50%', background: '#e30a2e', animation: 'skPulse 1s ease-in-out infinite' } }), 'Waiting for your payment · this page updates automatically');
+    const amount = h('div', { style: { ...mono, fontSize: 22, color: '#e30a2e', textAlign: 'center' } }, rp(total));
+    const err = s.err ? h('div', { style: { padding: '10px 14px', borderRadius: 12, background: '#fdecef', color: '#b0001e', fontSize: 14 } }, s.err) : null;
+
+    if (s.step === 'va') {
+      const v = s.vaInfo;
+      if (!v) {
+        const banks = [['BCA', 'logos/bca.png'], ['MANDIRI', 'logos/mandiri.webp'], ['BNI', 'logos/bni.png'], ['BRI', 'logos/bri.png'], ['PERMATA'], ['BSI'], ['CIMB']];
+        return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } }, amount,
+          h('div', { style: { fontWeight: 700, fontSize: 16 } }, 'Choose your bank'),
+          h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: 10 } }, banks.map(([b, logo]) => h('button', { key: b, onClick: () => this.retryPay({ channel: 'va', bank: b }), disabled: s.payBusy,
+            style: { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', height: 64, borderRadius: 16, background: '#fff', border: '1px solid rgba(13,13,13,.12)', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 15, opacity: s.payBusy ? .5 : 1 } },
+            logo ? h('img', { src: logo, alt: b, style: { maxHeight: 26, maxWidth: 90 } }) : b))),
+          s.payBusy ? h('div', { style: small }, 'Creating your virtual account…') : null, err);
+      }
+      const grouped = String(v.va_number).replace(/(\d{4})(?=\d)/g, '$1 ');
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } },
+        h('div', { style: box },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, h('div', { style: { fontWeight: 700 } }, v.bank + ' Virtual Account'), h('div', { style: { ...mono, fontSize: 12, color: '#5a5a5a' } }, 'Pay before ' + A.time(v.expires_at))),
+          h('div', { style: { ...mono, fontSize: 24, letterSpacing: '.04em', wordBreak: 'break-all' } }, grouped),
+          btn(s.copied ? 'Copied ✓' : 'Copy number', () => this.copyVa(v.va_number), { ghost: true }),
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' } }, h('span', { style: small }, 'Amount (exact)'), h('span', { style: { ...mono, fontSize: 20, color: '#e30a2e' } }, rp(v.amount)))),
+        h('div', { style: small }, 'Open your ' + v.bank + ' mobile banking, internet banking or ATM → Transfer → Virtual Account → enter the number above → confirm ' + rp(v.amount) + '.'),
+        waiting, err,
+        h('button', { onClick: () => this.setState({ vaInfo: null, err: '' }), style: { all: 'unset', cursor: 'pointer', fontSize: 14, textDecoration: 'underline', color: '#5a5a5a', alignSelf: 'center' } }, 'Use another bank'));
+    }
+
+    if (s.step === 'ewallet') {
+      const sent = s.ovoSent, phone = s.ovoPhone != null ? s.ovoPhone : s.phone;
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } }, amount,
+        h('div', { style: box },
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } }, h('img', { src: 'logos/ovo.svg', alt: 'OVO', style: { height: 22 } }), h('span', { style: { fontWeight: 700 } }, 'OVO')),
+          sent
+            ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+                h('div', { style: { fontSize: 15 } }, 'We sent the payment to OVO ' + sent.phone + '. Open your OVO app and confirm ' + rp(sent.amount) + ' within 60 seconds.'),
+                waiting,
+                btn(s.payBusy ? 'Sending…' : 'Send again', () => this.retryPay({ channel: 'ovo', phone }), { ghost: true, disabled: s.payBusy }),
+                h('button', { onClick: () => this.setState({ ovoSent: null }), style: { all: 'unset', cursor: 'pointer', fontSize: 13, textDecoration: 'underline', color: '#5a5a5a' } }, 'Change OVO number'))
+            : h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+                h('div', { style: small }, 'Your OVO number (we send a payment notification to your OVO app)'),
+                input(phone, v => this.setState({ ovoPhone: v }), '0812xxxxxxx', { type: 'tel', inputMode: 'numeric' }),
+                btn(s.payBusy ? 'Sending…' : 'Pay with OVO', () => this.retryPay({ channel: 'ovo', phone }), { disabled: s.payBusy || String(phone || '').replace(/\D/g, '').length < 9 }))),
+        h('div', { style: box },
+          h('div', { style: { fontWeight: 700 } }, 'ShopeePay, GoPay, DANA, LinkAja, AstraPay'),
+          h('div', { style: small }, 'Pay by scanning a QRIS code with your e-wallet app.'),
+          btn(s.payBusy ? 'Generating…' : 'Show QR code', () => this.retryPay({ channel: 'qris' }), { ghost: true, disabled: s.payBusy })),
+        err);
+    }
+
+    if (s.step === 'card') {
+      const fmtNum = v => v.replace(/\D/g, '').slice(0, 19).replace(/(\d{4})(?=\d)/g, '$1 ');
+      const fmtExp = v => { const d = v.replace(/\D/g, '').slice(0, 4); return d.length > 2 ? d.slice(0, 2) + '/' + d.slice(2) : d; };
+      if (s.threeDs) {
+        return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
+          h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' } }, h('div', { style: { fontWeight: 700 } }, 'Verify with your bank'), h('button', { onClick: () => this.cancel3ds(), style: { all: 'unset', cursor: 'pointer', fontSize: 13, textDecoration: 'underline', color: '#5a5a5a' } }, 'Cancel')),
+          h('iframe', { src: s.threeDs, title: '3-D Secure verification', style: { width: '100%', height: 480, border: '1px solid rgba(13,13,13,.1)', borderRadius: 16, background: '#fff' } }),
+          h('div', { style: small }, 'Enter the OTP your bank sent you. Do not close this page.'));
+      }
+      return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } }, amount,
+        h('div', { style: box },
+          h('div', { style: small }, 'Card number'),
+          input(s.cNum, v => this.setState({ cNum: fmtNum(v) }), '1234 5678 9012 3456', { inputMode: 'numeric', autoComplete: 'cc-number' }),
+          h('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 } },
+            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } }, h('div', { style: small }, 'Expiry'), input(s.cExp, v => this.setState({ cExp: fmtExp(v) }), 'MM/YY', { inputMode: 'numeric', autoComplete: 'cc-exp' })),
+            h('div', { style: { display: 'flex', flexDirection: 'column', gap: 6 } }, h('div', { style: small }, 'CVV'), input(s.cCvv, v => this.setState({ cCvv: v.replace(/\D/g, '').slice(0, 4) }), '123', { inputMode: 'numeric', type: 'password', autoComplete: 'cc-csc' }))),
+          btn(s.cardBusy ? 'Processing…' : !s.xReady ? 'Loading…' : 'Pay ' + rp(total), () => this.payCard(), { disabled: s.cardBusy || !s.xReady })),
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, ...small } }, h('img', { src: 'logos/visa-mastercard.webp', alt: 'Visa, Mastercard', style: { height: 18 } }), 'Secured by Xendit · your card number goes straight to Xendit, never to us.'),
+        err);
+    }
+    return null;
+  }
   payload() {
     const s = this.state, type = s.mode === 'dine' ? 'dine_in' : s.fulfil === 'delivery' ? 'delivery' : 'pickup';
     const p = { order_type: type, customer_name: s.name.trim(), customer_phone: s.phone.replace(/[\s-]/g, ''), customer_email: s.email.trim(), notes: '', payment_method: s.pay,
@@ -147,23 +320,21 @@ class Component extends DCLogic {
   createOrder() {
     if (this.state.busy) return;
     const method = METHODS.find(m => m.id === this.state.pay);
-    // Xendit's page opens in a new tab: open it now, inside the tap, or the browser blocks it.
-    const win = method.qr ? null : window.open('', '_blank');
     this.setState({ busy: true, err: '' });
-    API().createOrder(this.payload()).then(res => {
+    API().createOrder(Object.assign(this.payload(), { pay_opts: this.payOpts() })).then(res => {
       this.setState({ busy: false, created: res, code: res.code, token: res.access_token });
       if (this.props.onPaid) this.props.onPaid(); // history picks up the new ref right away
       this.startLive();
-      if (res.pay) this.usePay(res.pay, win);
-      else { if (win) win.close(); this.setState({ err: res.pay_error || 'Could not start the payment' }); this.startWait(); }
-    }).catch(e => { if (win) win.close(); this.setState({ busy: false, err: e.message || 'Could not create your order' }); });
+      if (res.pay) this.usePay(res.pay, res.total);
+      else { this.setState({ err: res.pay_error || 'Could not start the payment' }); this.startWait(); }
+    }).catch(e => this.setState({ busy: false, err: e.message || 'Could not create your order' }));
   }
   startLive() {
     this.stopLive();
     const t = this.state.token; if (!t) return;
     this._unwatch = API().watch(t, () => this.fetchLive());
     this._lpAt = 0;
-    this._lp = setInterval(() => { const waiting = ['qr', 'wait'].includes(this.state.step); if (waiting || Date.now() - this._lpAt > 20000) this.fetchLive(); }, 4000);  // fast while waiting for the cafe
+    this._lp = setInterval(() => { const waiting = PAYING_STEPS.includes(this.state.step) && !this.state.threeDs; if (waiting || Date.now() - this._lpAt > 20000) this.fetchLive(); }, 4000);  // fast while waiting for the cafe
     this._vis = () => { if (document.visibilityState === 'visible') this.fetchLive(); }; document.addEventListener('visibilitychange', this._vis);
     this.fetchLive();
   }
@@ -181,11 +352,11 @@ class Component extends DCLogic {
   fetchLive() {
     const { code, token } = this.state; if (!code || !token) return;
     this._lpAt = Date.now();
-    const settle = this.state.mode !== 'venue' && ['qr', 'wait'].includes(this.state.step) ? API().payStatus(code, token).catch(() => null) : Promise.resolve();
+    const settle = this.state.mode !== 'venue' && PAYING_STEPS.includes(this.state.step) ? API().payStatus(code, token).catch(() => null) : Promise.resolve();
     settle.then(() => this.state.mode === 'venue' ? API().getMyOrders().then(l => l.find(o => o.code === code)) : API().getOrder(code, token)).then(o => {
       if (!o) return;
       const next = { live: o };
-      if (o.kind !== 'venue' && o.payment_status === 'paid' && ['qr', 'wait'].includes(this.state.step)) { next.step = 'done'; clearInterval(this._qi); }
+      if (o.kind !== 'venue' && o.payment_status === 'paid' && (PAYING_STEPS.includes(this.state.step) || this.state.step === 'pay')) { next.step = 'done'; clearInterval(this._qi); clearTimeout(this._3t); }
       this.setState(next);
     }).catch(() => {});
   }
@@ -227,7 +398,7 @@ class Component extends DCLogic {
     const cartSum = this.cartLines().reduce((a, i) => a + i.price * i.qty, 0);
     const vNameOk = okName(s.name), vPhoneOk = okPhone(s.phone), slotRem = this.remaining(s.slot), slotOk = !!s.slot && (slotRem === null || slotRem >= s.pax);
     const paid = !!live && live.payment_status === 'paid', st = A.status(live);
-    const titles = { mode: ['Order', 'How would you like it?'], visit: ['Dine-in', 'Reserve your table'], menu: [s.mode === 'dine' ? 'Dine-in' : 'Takeaway', s.mode === 'dine' ? 'Order ahead' : 'What would you like?'], confirm: ['Takeaway', 'Confirm order'], venue: ['Book venue', 'Event details'], pay: ['Payment', 'Confirm & pay'], qr: [method.label, 'Complete your payment'], wait: ['Payment', 'Waiting for confirmation'], done: ['Order', s.mode === 'venue' ? 'Request sent' : 'Confirmed'] };
+    const titles = { mode: ['Order', 'How would you like it?'], visit: ['Dine-in', 'Reserve your table'], menu: [s.mode === 'dine' ? 'Dine-in' : 'Takeaway', s.mode === 'dine' ? 'Order ahead' : 'What would you like?'], confirm: ['Takeaway', 'Confirm order'], venue: ['Book venue', 'Event details'], pay: ['Payment', 'Confirm & pay'], qr: [method.label, 'Complete your payment'], wait: ['Payment', 'Waiting for confirmation'], va: ['Virtual account', 'Transfer to pay'], ewallet: ['E-wallet', 'Pay with your e-wallet'], card: [s.pay === 'debit' ? 'Debit card' : 'Credit card', 'Pay by card'], done: ['Order', s.mode === 'venue' ? 'Request sent' : 'Confirmed'] };
     const nameOk = okName(s.name), emailOk = okEmail(s.email), phoneOk = okPhone(s.phone), detailsOk = nameOk && emailOk && phoneOk;
     const qrLeft = s.step === 'qr' ? Math.max(0, Math.ceil((s.qrEnd - (s.now || Date.now())) / 1000)) : QR_SECONDS;
     const qrSpan = Math.max(60, Math.round((s.qrEnd - s.qrStart) / 1000) || QR_SECONDS);
@@ -238,9 +409,9 @@ class Component extends DCLogic {
       menu: [cartN ? 'Continue · ' + cartN + ' item' + (cartN > 1 ? 's' : '') + ' · ' + rp(cartSum) : 'Add something to continue', () => this.setState({ step: s.mode === 'dine' ? 'pay' : 'confirm' }), !cartN],
       confirm: ['Confirm order', () => this.setState({ step: 'pay' }), s.fulfil === 'pickup' ? !s.name.trim() : !s.address.trim()],
       venue: [s.busy ? 'Sending…' : 'Continue on WhatsApp', () => this.sendWa(), !s.date || !vNameOk || !vPhoneOk || s.busy],
-      pay: [s.busy ? 'Creating your order…' : detailsOk ? 'Pay ' + rp(total) : 'Fill in your details to pay', () => this.createOrder(), !detailsOk || s.busy || cfg.ordering_open === false],
-      qr: qrExpired ? [s.payBusy ? 'Generating…' : 'Generate new QR', () => this.retryPay(), s.payBusy || payFailed] : ['I have paid', () => { clearInterval(this._qi); this.startWait(); this.fetchLive(); }, false],
-      wait: payFailed || !s.code ? null : [s.payBusy ? 'Opening…' : method.qr ? 'Show QR code again' : 'Open payment page', () => (method.qr ? this.retryPay() : this.openPay()), s.payBusy],
+      pay: [s.busy || s.payBusy || s.cardBusy ? (s.threeDs ? 'Waiting for your bank…' : 'Processing…') : detailsOk ? 'Pay ' + rp(total) : 'Fill in your details to pay', () => this.submitPay(), !detailsOk || s.busy || s.payBusy || s.cardBusy || !this.dropOk() || cfg.ordering_open === false],
+      qr: qrExpired ? [s.payBusy ? 'Generating…' : 'Generate new QR', () => this.retryPay({ channel: 'qris' }), s.payBusy || payFailed] : ['I have paid', () => { clearInterval(this._qi); this.startWait(); this.fetchLive(); }, false],
+      wait: payFailed || !s.code ? null : [s.payBusy ? 'Opening…' : 'Try paying again', () => this.retryPay(), s.payBusy],
       done: ['Done', () => this.finish(), false]
     };
     const cta = ctas[s.step];
@@ -256,11 +427,11 @@ class Component extends DCLogic {
       close: () => this.finish(), stop: e => e.stopPropagation(),
       tabsTop: [['Dine-in', 'dine', 'visit'], ['Takeaway', 'take', 'menu'], ['Book venue', 'venue', 'venue']].map(([label, mode, step]) => { const on = s.mode === mode; const locked = ['wait', 'done', 'qr'].includes(s.step) || !!s.created;
         return { label, pick: () => !locked && this.setState({ mode, step: mode === 'take' && Object.keys(s.cart).length ? 'confirm' : step }), style: { all: 'unset', cursor: locked ? 'default' : 'pointer', padding: '9px 16px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 16, letterSpacing: '.03em', textTransform: 'uppercase', background: on ? '#0d0d0d' : 'transparent', color: on ? '#fff' : '#3a3a3a', opacity: locked && !on ? .4 : 1 } }; }),
-      progress: (() => { const flow = s.mode === 'dine' ? ['visit', 'menu', 'pay', 'done'] : s.mode === 'take' ? ['menu', 'confirm', 'pay', 'done'] : s.mode === 'venue' ? ['venue', 'done'] : ['mode']; const stp = s.step === 'qr' || s.step === 'wait' ? 'pay' : s.step; const idx = flow.indexOf(stp);
+      progress: (() => { const flow = s.mode === 'dine' ? ['visit', 'menu', 'pay', 'done'] : s.mode === 'take' ? ['menu', 'confirm', 'pay', 'done'] : s.mode === 'venue' ? ['venue', 'done'] : ['mode']; const stp = PAYING_STEPS.includes(s.step) ? 'pay' : s.step; const idx = flow.indexOf(stp);
         return flow.map((_, i) => ({ flex: 1, height: 4, borderRadius: 2, background: i <= idx ? '#e30a2e' : 'rgba(13,13,13,.12)', transition: 'background .3s' })); })(),
-      canBack: !!this.prev(), back: () => this.setState({ step: this.prev() }),
+      canBack: !!this.prev() && !s.cardBusy, back: () => { if (s.step === 'pay' && s.code) this.stopLive(); this.setState(s.step === 'pay' && s.code ? { step: this.prev(), code: '', token: '', created: null, live: null, err: '' } : { step: this.prev() }); },
       kicker: titles[s.step][0], title: titles[s.step][1],
-      isMode: s.step === 'mode', isDeals: s.step === 'deals', isVisit: s.step === 'visit', isMenu: s.step === 'menu', isConfirm: s.step === 'confirm', isVenue: s.step === 'venue', isPay: s.step === 'pay', isQr: s.step === 'qr', isProc: s.step === 'wait', isDone: s.step === 'done',
+      isMode: s.step === 'mode', isDeals: s.step === 'deals', isVisit: s.step === 'visit', isMenu: s.step === 'menu', isConfirm: s.step === 'confirm', isVenue: s.step === 'venue', isPay: s.step === 'pay', isQr: s.step === 'qr', isPanel: PANEL_STEPS.includes(s.step), panel: PANEL_STEPS.includes(s.step) ? this.panel(total) : null, isProc: s.step === 'wait', isDone: s.step === 'done',
       modes: [
         { badge: 'DI', label: 'Dine-in', desc: 'Reserve a table and order ahead', pick: () => this.setState({ mode: 'dine', step: 'visit' }) },
         { badge: 'TA', label: 'Takeaway', desc: 'Order now, pick it up or get it delivered', pick: () => this.setState({ mode: 'take', step: Object.keys(s.cart).length ? 'confirm' : 'menu' }) },
@@ -299,7 +470,7 @@ class Component extends DCLogic {
       promoMsg: s.promoBusy ? 'Mengecek kode…' : (s.promoInfo ? (s.promoInfo.ok ? 'Promo ' + s.promoInfo.code + ' aktif · -' + s.promoInfo.percent + '%' : 'Kode promo tidak berlaku') : ''),
       promoMsgStyle: { fontSize: '12px', fontWeight: 600, color: s.promoInfo && s.promoInfo.ok ? '#1a7f3c' : '#e30a2e' },
       hasErr: !!errMsg, errMsg, vNameErr: s.name && !vNameOk ? 'Please enter your name' : '', vPhoneErr: s.phone && !vPhoneOk ? 'Please enter a valid WhatsApp number, e.g. 0812xxxxxxx' : '',
-      waitTitle: payFailed ? st.pill : 'Waiting for your payment', waitSub: payFailed ? 'Please start a new order or contact the cafe.' : (method.qr ? 'Checking with your bank. ' : 'Finish paying on the Xendit page that opened. ') + 'This page updates automatically. You can close it; your order stays in Purchase History · ' + s.code,
+      waitTitle: payFailed ? st.pill : 'Waiting for your payment', waitSub: payFailed ? 'Please start a new order or contact the cafe.' : 'Checking your payment. ' + 'This page updates automatically. You can close it; your order stays in Purchase History · ' + s.code,
       email: s.email, phone: s.phone,
       setEmail: e => this.setState({ email: e.target.value }), setPhone: e => this.setState({ phone: e.target.value }),
       nameErr: s.name && !nameOk ? 'Please enter your name' : '', emailErr: s.email && !emailOk ? 'Please enter a valid email, e.g. name@email.com' : '', phoneErr: s.phone && !phoneOk ? 'Please enter a valid phone number, e.g. 0812xxxxxxx' : '',
@@ -308,7 +479,8 @@ class Component extends DCLogic {
       qrBar: { height: '100%', borderRadius: 3, background: qrLeft <= 30 ? '#e30a2e' : '#0d0d0d', width: Math.min(100, qrLeft / qrSpan * 100) + '%', transition: 'width 1s linear, background .3s' },
       qrNote: 'Scan with any banking or e-wallet app (GoPay, OVO, DANA, ShopeePay, m-banking). This QR is valid for ' + Math.round(qrSpan / 60) + ' minutes.',
       qrBoxStyle: { padding: 16, borderRadius: 24, background: '#fff', border: '1px solid rgba(13,13,13,.08)', opacity: qrExpired ? .25 : 1, filter: qrExpired ? 'blur(2px)' : 'none', transition: 'opacity .3s' },
-      methods: METHODS.map(m => ({ label: m.label, desc: m.desc, pick: () => this.setState({ pay: m.id }),
+      methods: METHODS.map(m => ({ label: m.label, desc: m.desc, drop: s.pay === m.id ? this.dropFor(m.id) : null,
+        pick: () => { this.setState({ pay: m.id, err: '' }); if (m.id === 'credit' || m.id === 'debit') this.loadXendit(); },
         logos: m.logos.map(k => ({ src: logoSrc(k), alt: LOGO_ALT[k] })),
         ring: s.pay === m.id
           ? { width: 22, height: 22, borderRadius: '50%', boxSizing: 'border-box', flexShrink: 0, border: '2px solid #e30a2e', background: 'radial-gradient(circle, #e30a2e 0 5px, transparent 5px)' }
