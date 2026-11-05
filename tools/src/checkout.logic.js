@@ -28,7 +28,7 @@ const METHODS = [
 // Xendit QR, VA shows the account number, OVO pushes to the OVO app, cards are verified (3-D Secure) in-page.
 const LOGO_ALT = { qris: 'QRIS', gopay: 'GoPay', ovo: 'OVO', shopeepay: 'ShopeePay', visa: 'Visa', visamc: 'Visa, Mastercard', mastercard: 'Mastercard', jcb: 'JCB', gpn: 'GPN', bca: 'BCA', mandiri: 'Mandiri', bni: 'BNI', bri: 'BRI' };
 // Real brand marks where we have them (self-hosted in /logos, same files as the calorie app); the rest keep the lettermark SVGs.
-const LOGO_SRC = { qris: 'logos/qris.png', ovo: 'logos/ovo-v2.svg', shopeepay: 'logos/shopeepay-v2.svg', bca: 'logos/bca.png', bni: 'logos/bni.png', bri: 'logos/bri.png', mandiri: 'logos/mandiri.webp', visamc: 'logos/visa-mastercard.webp' };
+const LOGO_SRC = { qris: 'logos/qris.png', ovo: 'logos/ovo-v2.svg', shopeepay: 'logos/shopeepay-v3.svg', bca: 'logos/bca.png', bni: 'logos/bni.png', bri: 'logos/bri.png', mandiri: 'logos/mandiri.webp', visamc: 'logos/visa-mastercard.webp' };
 const logoSrc = k => LOGO_SRC[k] || ('logos/' + k + '.svg');
 const QR_SECONDS = 900; // fallback only; the real window is the Xendit QR's expires_at
 const okName = v => v.trim().length >= 2;
