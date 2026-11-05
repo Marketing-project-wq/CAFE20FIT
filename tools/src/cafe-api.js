@@ -80,7 +80,14 @@
     });
   }
   // Live Xendit payment for an unpaid order: the same QR / invoice while it is valid, else a new one.
-  function pay(code, token) { return payApi('/pay', { code: code, token: token || tokenFor(code) }).then(function (r) { return r.pay; }); }
+  // opts: { channel: 'qris' | 'ovo' | 'va' | 'card', bank: 'BCA'…, phone: '0812…' }. Every method stays on this page.
+  function pay(code, token, opts) {
+    var b = { code: code, token: token || tokenFor(code) };
+    Object.keys(opts || {}).forEach(function (k) { if (opts[k] != null) b[k] = opts[k]; });
+    return payApi('/pay', b).then(function (r) { return r.pay; });
+  }
+  // Card tokenized + 3-D Secure verified by Xendit.js in the page; only the token reaches the server.
+  function card(code, token, cardToken, authId) { return payApi('/card', { code: code, token: token || tokenFor(code), card_token: cardToken, authentication_id: authId }); }
   // Asks Xendit and settles the order when it is paid; then getOrder() shows the new status.
   function payStatus(code, token) { return payApi('/pay/status?code=' + encodeURIComponent(code) + '&token=' + encodeURIComponent(token || tokenFor(code) || '')); }
   function createVenue(p) {
@@ -188,7 +195,7 @@
     rpc: rpc, on: on, emit: emit,
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
-    createOrder: createOrder, pay: pay, payStatus: payStatus, createVenue: createVenue, getOrder: getOrder, getMyOrders: getMyOrders,
+    createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, getOrder: getOrder, getMyOrders: getMyOrders,
     findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, watch: watch,
     rp: rp, time: time, dateTime: dateTime, dayLabel: dayLabel, ymd: ymd, optionsText: optionsText,
     KIND: KIND, methodLabel: methodLabel, SESSION: SESSION, status: status, pillStyle: pillStyle, trackSteps: trackSteps, qrSvg: qrSvg
