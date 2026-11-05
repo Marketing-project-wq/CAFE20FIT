@@ -862,19 +862,7 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
         </button>
       </div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:18px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap"><span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#e30a2e">From the bar</span><a href="https://www.instagram.com/20fit.cafe/" target="_blank" rel="noopener" style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.1em;color:#e30a2e;text-decoration:none">@20FIT.CAFE ON INSTAGRAM ↗</a></div>
-      <div data-pol="1" class="fx-pol" style="display:flex;justify-content:center;gap:0;padding:12px 0 24px">
-        <sc-for list="{{ igPol }}" as="g" hint-placeholder-count="3">
-          <div style="flex:0 1 300px;margin:0 -10px;padding:12px 12px 40px;background:#fff;border-radius:6px;box-shadow:0 20px 50px rgba(13,13,13,.16);transition:transform .2s linear;will-change:transform">
-            <div style="position:relative;aspect-ratio:4/5;overflow:hidden;background:#e8e6e1">
-              <img src="{{ g.poster }}" alt="" aria-hidden="true" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover">
-              <iframe src="{{ g.embed }}" title="20FIT Cafe on Instagram" scrolling="no" loading="lazy" allow="encrypted-media" sc-camel-on-load="{{ g.loaded }}" style="{{ g.frameStyle }}"></iframe>
-            </div>
-          </div>
-        </sc-for>
-      </div>
-    </div>
+    
     <button class="fx-teaser2" sc-camel-on-click="{{ toOrderSec }}" style="all:unset;cursor:pointer;align-self:flex-end;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#5a5a5a" style-hover="color:#e30a2e">Next: {{ careTeaser }} ↓</button>
   </section>
 
@@ -950,7 +938,7 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
   <div style="display:flex;justify-content:flex-end;max-width:1240px;margin:0 auto;padding:0 24px 24px;box-sizing:border-box"><button class="fx-teaser2" sc-camel-on-click="{{ toFinale }}" style="all:unset;cursor:pointer;font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#5a5a5a" style-hover="color:#e30a2e">Next: {{ turnTeaser }} ↓</button></div>
   <section id="finale" aria-labelledby="fin-h" data-screen-label="See you at the bar" style="position:relative;z-index:1;overflow:hidden;background:#0d0d0d;color:#fff;padding:120px 24px 96px">
     <div aria-hidden="true" style="position:absolute;right:-10%;top:-20%;width:70vw;height:70vw;max-width:900px;max-height:900px;border-radius:50%;background:radial-gradient(closest-side,rgba(227,10,46,.38),rgba(227,10,46,0));pointer-events:none"></div>
-    <div class="fx-fin" style="position:relative;max-width:1240px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:48px;align-items:center">
+    <div class="fx-fin" style="position:relative;max-width:1240px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr);gap:48px;align-items:start">
       <div style="display:flex;flex-direction:column;gap:22px">
         <span style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:#e30a2e">CH 07 / 07 — See you</span>
         <h2 id="fin-h" style="margin:0;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:clamp(60px,9vw,150px);line-height:.84">See you at <span style="color:#e30a2e">the bar.</span></h2>
@@ -964,10 +952,6 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
           <button sc-camel-on-click="{{ toOrder }}" style="all:unset;cursor:pointer;padding:16px 28px;border-radius:999px;background:#e30a2e;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:20px;letter-spacing:.04em;box-shadow:0 18px 40px rgba(227,10,46,.35)" style-hover="background:#c70026">Order now ›</button>
           <button sc-camel-on-click="{{ pickVenue }}" style="all:unset;cursor:pointer;padding:16px 26px;border-radius:999px;border:1px solid rgba(255,255,255,.4);color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:20px;letter-spacing:.04em" style-hover="border-color:#fff">Book venue</button>
         </div>
-      </div>
-      <div style="position:relative;justify-self:center;width:min(100%,420px)">
-        <div aria-hidden="true" style="position:absolute;inset:8% 8% -4%;border-radius:50%;background:radial-gradient(closest-side,rgba(227,10,46,.55),rgba(227,10,46,0));filter:blur(10px)"></div>
-        <img class="fx-fin-img" src="{{ fin.src }}" alt="20FIT Signature Aren Latte" loading="lazy" width="420" height="525" style="position:relative;display:block;width:100%;aspect-ratio:4/5;object-fit:cover;border-radius:28px;box-shadow:0 40px 90px rgba(0,0,0,.55);animation:pBob 5s ease-in-out infinite">
       </div>
     </div>
     <div style="position:relative;max-width:1240px;margin:72px auto 0;padding-top:20px;border-top:1px solid rgba(255,255,255,.12);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#8a8a8a"><span>20FIT Cafe · Prepared with care</span><span>cafe.20fit.id</span></div>
