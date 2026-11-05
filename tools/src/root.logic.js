@@ -21,8 +21,9 @@ const optsPrice = (m, opts) => (m.addons || []).reduce((a, g) => a + (g.options 
 const optsLabel = (m, opts) => (m.addons || []).map(g => { const o = (g.options || []).find(x => opts.includes(x.id)); return o && !o.default ? o.label : null; }).filter(Boolean).join(' · ');
 const NEED_NAMES = [['Fresh', 'coconut hydrate'], ['Fueling', '20fit signature aren latte'], ['Light energy', 'tropical recovery']];
 const MENU_CACHE = '20fit-menu-cache-v1';
-// Shown under each Instagram slide until the embed has loaded (Instagram is slow; the box is never empty)
-const IG_POSTERS = [U('20Fit-Signature-Aren-1'), U('Protein-Brew'), U('Tropical-Recovery')];
+// Neutral grey placeholder shown under each Instagram slide only until its embed loads — never a product
+// photo, so the hero only ever shows real Instagram content (and the box is never empty while loading).
+const IG_PH = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGN4/uwxAAVoArHU0TkJAAAAAElFTkSuQmCC';
 const IG_DEFAULT = 'https://www.instagram.com/reel/DZMf2F3y_6X/';
 const IG_POSTS = ['p/DcTitnFEhQo', 'p/DeG5fVWyR1C', 'p/DY1wzVJSFAU'];
 const IG_CROP = { p: { left: '-2px', top: '-55px', width: 'calc(100% + 4px)', height: 'calc(100% + 55px + 480px)' }, reel: { left: '-21.1%', top: 'calc(-58px - 21.2%)', width: '142.2%', height: 'calc(160% + 58px + 480px)' } };
@@ -426,7 +427,7 @@ class Component extends DCLogic {
           see: () => { const cats = new Set(this.menuAll().map(x => x.cat)); this.setState({ full: true, hist: false, sel: null, tab: cats.has(pl.category) ? pl.category : 'All' }); },
           style: { display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 28, background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(26px) saturate(170%)', WebkitBackdropFilter: 'blur(26px) saturate(170%)', border: '1px solid rgba(255,255,255,.9)', boxShadow: needLabel === pl.need ? '0 0 0 2px #e30a2e, 0 24px 60px rgba(227,10,46,.16)' : 'inset 0 1px 0 #fff, 0 20px 50px rgba(13,13,13,.08)',
             opacity: on ? 1 : 0, transform: on ? 'none' : 'translateY(48px)', transition: 'opacity .7s ease ' + (i * 140) + 'ms, transform .8s cubic-bezier(.2,.8,.2,1) ' + (i * 140) + 'ms' } }; }),
-      igPol: IG_POSTS.map((id, k) => ({ embed: 'https://www.instagram.com/' + id + '/embed/', poster: this.src(IG_POSTERS[k % IG_POSTERS.length]),
+      igPol: IG_POSTS.map((id, k) => ({ embed: 'https://www.instagram.com/' + id + '/embed/', poster: IG_PH,
         loaded: () => !(this.state.polOk || {})[k] && this.setState(s => ({ polOk: { ...(s.polOk || {}), [k]: true } })),
         frameStyle: { position: 'absolute', border: 0, opacity: (this.state.polOk || {})[k] ? 1 : 0, transition: 'opacity .6s', pointerEvents: 'none', ...IG_CROP[id.split('/')[0]] } })),
       careVidRef: this.careVid, careVidSrc: (cfg.care || {}).video || '',
@@ -466,7 +467,7 @@ class Component extends DCLogic {
       soundLabel: this.state.sound ? '🔊 Mute' : '🔇 Sound on',
       toggleSound: e => { if (e && e.stopPropagation) e.stopPropagation(); const v = this.vid.current; if (!v) return; const on = !this.state.sound; v.muted = !on; if (on) v.play().catch(() => {}); this.setState({ sound: on, userMuted: !on }); },
       hasIg: !this.heroSrc() && !!igId(this.props.instagramUrl ?? IG_DEFAULT), igEmbed: igId(this.props.instagramUrl ?? IG_DEFAULT) ? 'https://www.instagram.com/' + igId(this.props.instagramUrl ?? IG_DEFAULT) + '/embed/' : '',
-      igPosts: IG_POSTS.map((id, k) => ({ embed: 'https://www.instagram.com/' + id + '/embed/', poster: this.src(IG_POSTERS[k % IG_POSTERS.length]), loaded: () => !(this.state.igOk || {})[k] && this.setState(s => ({ igOk: { ...(s.igOk || {}), [k]: true } })), style: { opacity: (this.state.igOk || {})[k] ? 1 : 0, transition: 'opacity .6s ease', position: 'absolute', border: 0, background: 'linear-gradient(90deg,#e7e6e3 0%,#f3f2f0 45%,#e7e6e3 90%) 0 0/220% 100%', animation: 'skMove 1.25s ease-in-out infinite', pointerEvents: 'none', ...IG_CROP[id.split('/')[0]] } })),
+      igPosts: IG_POSTS.map((id, k) => ({ embed: 'https://www.instagram.com/' + id + '/embed/', poster: IG_PH, loaded: () => !(this.state.igOk || {})[k] && this.setState(s => ({ igOk: { ...(s.igOk || {}), [k]: true } })), style: { opacity: (this.state.igOk || {})[k] ? 1 : 0, transition: 'opacity .6s ease', position: 'absolute', border: 0, background: 'linear-gradient(90deg,#e7e6e3 0%,#f3f2f0 45%,#e7e6e3 90%) 0 0/220% 100%', animation: 'skMove 1.25s ease-in-out infinite', pointerEvents: 'none', ...IG_CROP[id.split('/')[0]] } })),
       igTrack: { position: 'absolute', inset: 0, display: 'flex', transform: 'translateX(' + (-100 * (this.state.igI || 0)) + '%)', transition: 'transform .9s cubic-bezier(.7,0,.2,1)' },
       igDots: IG_POSTS.map((_, i) => ({ style: { position: 'relative', width: 28, height: 3, borderRadius: 2, overflow: 'hidden', background: 'rgba(255,255,255,.35)' }, fill: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#fff', width: i < (this.state.igI || 0) ? '100%' : i === (this.state.igI || 0) ? (this.state.igHold ? '0%' : '100%') : '0%', transition: i === (this.state.igI || 0) && !this.state.igHold ? 'width ' + IG_MS + 'ms linear' : 'none' } })),
       noMedia: !this.heroSrc() && !igId(this.props.instagramUrl ?? IG_DEFAULT),
