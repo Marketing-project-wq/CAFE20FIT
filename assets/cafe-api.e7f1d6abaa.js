@@ -112,6 +112,7 @@
   function arrived(code) { return rpc('cafe_customer_arrived', { p_code: code, p_token: tokenFor(code) }); }
   function rate(code, food, service, comment) { return rpc('cafe_rate_order', { p_code: code, p_token: tokenFor(code), p_food: food, p_service: service, p_comment: comment || '' }); }
   function slotAvailability(date) { return rpc('cafe_get_slot_availability', { p_date: date }); }
+  function checkPromo(code, amount) { return rpc('cafe_check_promo', { p_code: String(code || '').trim(), p_amount: Math.round(Number(amount) || 0) }); }
 
   // Realtime per order: channel cafe-order:<token>, event order_update. Returns an unsubscribe function.
   function watch(token, fn) {
@@ -196,7 +197,7 @@
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
     createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, getOrder: getOrder, getMyOrders: getMyOrders,
-    findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, watch: watch,
+    findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, watch: watch,
     rp: rp, time: time, dateTime: dateTime, dayLabel: dayLabel, ymd: ymd, optionsText: optionsText,
     KIND: KIND, methodLabel: methodLabel, SESSION: SESSION, status: status, pillStyle: pillStyle, trackSteps: trackSteps, qrSvg: qrSvg
   };
