@@ -10,7 +10,6 @@ window.StoryConfig = {
     { id: '01_hero', el: 'ch-hero', label: 'Hero' },
     { id: '02_made', el: 'process', label: 'Made by hand' },
     { id: '03_day', el: 'day', label: 'Your day' },
-    { id: '04_quiz', el: 'quiz', label: 'Find your fuel' },
     { id: '05_care', el: 'care', label: 'Made with care' },
     { id: '06_turn', el: 'order', label: 'Your turn' },
     { id: '07_see', el: 'finale', label: 'See you' }
