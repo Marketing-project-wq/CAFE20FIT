@@ -40,7 +40,7 @@ const dot = (done, active) => ({ width: 30, height: 30, borderRadius: '50%', dis
 const pill = (bg, fg) => ({ padding: '6px 12px', borderRadius: 999, background: bg, color: fg, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 });
 
 class Component extends DCLogic {
-  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', email: '', phone: '', qrEnd: 0, qrStart: 0, qrStr: '', payBusy: false, vaBank: 'BCA', ewChoice: 'qris', vaInfo: null, ovoSent: null, ovoPhone: null, cardKey: '', xReady: false, cardBusy: false, threeDs: '', cNum: '', cExp: '', cCvv: '', copied: false, now: 0, qrSeed: 1, code: '', token: '', cfg: null, avail: {}, created: null, live: null, promo: '', promoInfo: null, promoBusy: false, busy: false, err: '', rateMsg: 'You can also rate later from Purchase History.' };
+  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', email: '', phone: '', qrEnd: 0, qrStart: 0, qrStr: '', payBusy: false, vaBank: 'BCA', ewChoice: 'qris', vaInfo: null, ovoSent: null, ovoPhone: null, cardKey: '', xReady: false, cardBusy: false, threeDs: '', cNum: '', cExp: '', cCvv: '', copied: false, now: 0, qrSeed: 1, code: '', token: '', cfg: null, avail: {}, created: null, live: null, partySize: '', promo: '', promoInfo: null, promoBusy: false, busy: false, err: '', rateMsg: 'You can also rate later from Purchase History.' };
   componentDidMount() {
     document.body.style.overflow = 'hidden';
     try { history.pushState({ order: 1 }, '', '#order'); } catch (e) {}
@@ -49,10 +49,9 @@ class Component extends DCLogic {
     API().getConfig().then(cfg => { this.setState(s => ({ cfg, slot: s.slot || (cfg.slots || [])[0] || '' })); this.loadAvail(this.state.dayI); }).catch(e => this.setState({ err: e.message }));
     const m = this.props.startMode, sub = this.props.startSub, has = Object.keys(cart).length > 0;
     const next = { cart };
+    // Cafe is Grab & Go only now (order remotely, pay offline at the cafe). Everything routes to the grab flow; venue is separate.
     if (m === 'venue') Object.assign(next, { mode: 'venue', step: 'venue' });
-    else if (m === 'delivery') Object.assign(next, { mode: 'take', fulfil: 'delivery', step: has ? 'confirm' : 'menu' });
-    else if (m === 'take' || (m === 'dine' && sub === 'takeaway')) Object.assign(next, { mode: 'take', step: has ? 'confirm' : 'menu' });
-    else if (m === 'dine') Object.assign(next, { mode: 'dine', step: 'visit' });
+    else Object.assign(next, { mode: 'grab', step: has ? 'pay' : 'menu' });
     this.setState(next);
   }
   componentWillUnmount() { (this._ts || []).forEach(clearTimeout); clearInterval(this._qi); clearInterval(this._wi); clearInterval(this._xw); clearTimeout(this._3t); this.stopLive(); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
@@ -72,7 +71,7 @@ class Component extends DCLogic {
     if (s.created) { const c = s.created; [['Subtotal', c.subtotal], ['Service', c.service_charge], ['PB1 ' + (cfg.tax_percent != null ? cfg.tax_percent + '%' : ''), c.ppn], ['Delivery fee', c.delivery_fee]].forEach(([k, v]) => { if (k === 'Subtotal' || Number(v) > 0) lines.push({ label: k.trim(), value: rp(v) }); });
       if (Number(c.discount) > 0) lines.push({ label: 'Promo ' + (c.promo_code || ''), value: '-' + rp(c.discount) });
       return { lines, total: Number(c.total) || 0, estimate: false }; }
-    if (s.mode !== 'dine' && s.mode !== 'take') return { lines, total: 0, estimate: true };
+    if (s.mode !== 'dine' && s.mode !== 'take' && s.mode !== 'grab') return { lines, total: 0, estimate: true };
     this.cartLines().forEach(i => lines.push({ label: i.qty + '× ' + i.name + (i.optLabel ? ' (' + i.optLabel + ')' : ''), value: rp(i.base * i.qty) }));
     const sub = this.cartLines().reduce((a, i) => a + i.base * i.qty, 0);
     const svc = Math.round(sub * (Number(cfg.service_percent) || 0) / 100), tax = Math.round((sub + svc) * (Number(cfg.tax_percent) || 0) / 100);
@@ -87,7 +86,7 @@ class Component extends DCLogic {
   // Server (cafe_create_order / cafe_check_promo) is authoritative; this only previews the discount in the bill.
   grossNow() {
     const s = this.state, cfg = s.cfg || {};
-    if (s.mode !== 'dine' && s.mode !== 'take') return 0;
+    if (s.mode !== 'dine' && s.mode !== 'take' && s.mode !== 'grab') return 0;
     const sub = this.cartLines().reduce((a, i) => a + i.base * i.qty, 0);
     const svc = Math.round(sub * (Number(cfg.service_percent) || 0) / 100), tax = Math.round((sub + svc) * (Number(cfg.tax_percent) || 0) / 100);
     const del = s.mode === 'take' && s.fulfil === 'delivery' ? Number(cfg.delivery_fee) || 0 : 0;
@@ -309,25 +308,33 @@ class Component extends DCLogic {
     return null;
   }
   payload() {
-    const s = this.state, type = s.mode === 'dine' ? 'dine_in' : s.fulfil === 'delivery' ? 'delivery' : 'pickup';
-    const p = { order_type: type, customer_name: s.name.trim(), customer_phone: s.phone.replace(/[\s-]/g, ''), customer_email: s.email.trim(), notes: '', payment_method: s.pay,
+    const s = this.state, type = s.mode === 'grab' ? 'grab' : s.fulfil === 'delivery' ? 'delivery' : 'pickup';
+    const p = { order_type: type, customer_name: s.name.trim(), customer_phone: s.phone.replace(/[\s-]/g, ''), customer_email: s.email.trim(), notes: '',
       items: this.cartLines().map(l => ({ menu_id: l.id, qty: l.qty, addon_option_ids: l.opts, note: '' })) };
+    if (type !== 'grab') p.payment_method = s.pay;             // Grab & Go is paid offline — no online method
     if (type === 'delivery') { p.delivery_address = s.address.trim(); p.driver_note = s.note.trim(); }
-    if (type === 'dine_in') { p.reservation_date = API().ymd(s.dayI); p.reservation_slot = s.slot; p.pax = s.pax; }
+    if (type === 'grab' && Number(s.partySize) > 1) p.pax = Number(s.partySize);  // party size only drives the group-minimum rule
     if ((s.promo || '').trim()) p.promo = s.promo.trim();
     return p;
   }
   createOrder() {
     if (this.state.busy) return;
-    const method = METHODS.find(m => m.id === this.state.pay);
+    const grab = this.state.mode === 'grab';
     this.setState({ busy: true, err: '' });
-    API().createOrder(Object.assign(this.payload(), { pay_opts: this.payOpts() })).then(res => {
-      this.setState({ busy: false, created: res, code: res.code, token: res.access_token });
+    API().createOrder(grab ? this.payload() : Object.assign(this.payload(), { pay_opts: this.payOpts() })).then(res => {
+      this.setState({ busy: false, created: res, code: res.code, token: res.access_token, step: grab ? 'done' : this.state.step });
       if (this.props.onPaid) this.props.onPaid(); // history picks up the new ref right away
       this.startLive();
+      if (grab) return;  // Grab & Go: no online payment — the live status page takes over
       if (res.pay) this.usePay(res.pay, res.total);
       else { this.setState({ err: res.pay_error || 'Could not start the payment' }); this.startWait(); }
     }).catch(e => this.setState({ busy: false, err: e.message || 'Could not create your order' }));
+  }
+  // Grab & Go: the customer can cancel only while still awaiting barista confirmation.
+  cancelOrder() {
+    const s = this.state; if (!s.code || s.busy) return;
+    this.setState({ busy: true, err: '' });
+    API().cancelMyOrder(s.code, s.token).then(o => this.setState({ busy: false, live: o })).catch(e => this.setState({ busy: false, err: e.message || 'Tidak bisa membatalkan order' }));
   }
   startLive() {
     this.stopLive();
@@ -388,17 +395,18 @@ class Component extends DCLogic {
     if (!this._popped && location.hash === '#order') { try { history.back(); } catch (e) {} }
     this.props.onClose && this.props.onClose();
   }
-  prev() { const s = this.state; return { visit: 'mode', menu: s.mode === 'dine' ? 'visit' : 'mode', confirm: 'menu', venue: 'mode', pay: s.mode === 'dine' ? 'menu' : 'confirm', }[s.step]; }
+  prev() { const s = this.state; return { visit: 'mode', menu: 'mode', confirm: 'menu', venue: 'mode', pay: s.mode === 'grab' ? 'menu' : 'confirm', }[s.step]; }
   setQty(key, id, d) { this.setState(s => ({ [key]: { ...s[key], [id]: Math.max(0, (s[key][id] || 0) + d) } })); }
 
   renderVals() {
     const s = this.state, { lines, total, estimate } = this.bill(), cfg = s.cfg || {}, live = s.live, A = API();
     const method = METHODS.find(m => m.id === s.pay);
+    const g = s.mode === 'grab';  // Grab & Go: order remotely, pay offline at the cafe
     const cartN = this.cartLines().reduce((a, i) => a + i.qty, 0);
     const cartSum = this.cartLines().reduce((a, i) => a + i.price * i.qty, 0);
     const vNameOk = okName(s.name), vPhoneOk = okPhone(s.phone), slotRem = this.remaining(s.slot), slotOk = !!s.slot && (slotRem === null || slotRem >= s.pax);
     const paid = !!live && live.payment_status === 'paid', st = A.status(live);
-    const titles = { mode: ['Order', 'How would you like it?'], visit: ['Dine-in', 'Reserve your table'], menu: [s.mode === 'dine' ? 'Dine-in' : 'Takeaway', s.mode === 'dine' ? 'Order ahead' : 'What would you like?'], confirm: ['Takeaway', 'Confirm order'], venue: ['Book venue', 'Event details'], pay: ['Payment', 'Confirm & pay'], qr: [method.label, 'Complete your payment'], wait: ['Payment', 'Waiting for confirmation'], va: ['Virtual account', 'Transfer to pay'], ewallet: ['E-wallet', 'Pay with your e-wallet'], card: [s.pay === 'debit' ? 'Debit card' : 'Credit card', 'Pay by card'], done: ['Order', s.mode === 'venue' ? 'Request sent' : 'Confirmed'] };
+    const titles = { mode: ['Order', 'How would you like it?'], visit: ['Dine-in', 'Reserve your table'], menu: [g ? 'Grab & Go' : (s.mode === 'dine' ? 'Dine-in' : 'Takeaway'), g ? 'Pilih pesananmu' : (s.mode === 'dine' ? 'Order ahead' : 'What would you like?')], confirm: ['Takeaway', 'Confirm order'], venue: ['Book venue', 'Event details'], pay: [g ? 'Grab & Go' : 'Payment', g ? 'Data & kirim order' : 'Confirm & pay'], qr: [method.label, 'Complete your payment'], wait: ['Payment', 'Waiting for confirmation'], va: ['Virtual account', 'Transfer to pay'], ewallet: ['E-wallet', 'Pay with your e-wallet'], card: [s.pay === 'debit' ? 'Debit card' : 'Credit card', 'Pay by card'], done: [g ? 'Grab & Go' : 'Order', g ? 'Status order' : (s.mode === 'venue' ? 'Request sent' : 'Confirmed')] };
     const nameOk = okName(s.name), emailOk = okEmail(s.email), phoneOk = okPhone(s.phone), detailsOk = nameOk && emailOk && phoneOk;
     const qrLeft = s.step === 'qr' ? Math.max(0, Math.ceil((s.qrEnd - (s.now || Date.now())) / 1000)) : QR_SECONDS;
     const qrSpan = Math.max(60, Math.round((s.qrEnd - s.qrStart) / 1000) || QR_SECONDS);
@@ -406,10 +414,12 @@ class Component extends DCLogic {
     const qrExpired = s.step === 'qr' && qrLeft === 0;
     const ctas = {
       visit: [slotOk ? 'Continue to menu' : 'Pick an available time', () => this.setState({ step: 'menu' }), !slotOk],
-      menu: [cartN ? 'Continue · ' + cartN + ' item' + (cartN > 1 ? 's' : '') + ' · ' + rp(cartSum) : 'Add something to continue', () => this.setState({ step: s.mode === 'dine' ? 'pay' : 'confirm' }), !cartN],
+      menu: [cartN ? 'Lanjut · ' + cartN + ' item · ' + rp(cartSum) : 'Tambah dulu pesananmu', () => this.setState({ step: g || s.mode === 'dine' ? 'pay' : 'confirm' }), !cartN],
       confirm: ['Confirm order', () => this.setState({ step: 'pay' }), s.fulfil === 'pickup' ? !s.name.trim() : !s.address.trim()],
       venue: [s.busy ? 'Sending…' : 'Continue on WhatsApp', () => this.sendWa(), !s.date || !vNameOk || !vPhoneOk || s.busy],
-      pay: [s.busy || s.payBusy || s.cardBusy ? (s.threeDs ? 'Waiting for your bank…' : 'Processing…') : detailsOk ? 'Pay ' + rp(total) : 'Fill in your details to pay', () => this.submitPay(), !detailsOk || s.busy || s.payBusy || s.cardBusy || !this.dropOk() || cfg.ordering_open === false],
+      pay: g
+        ? [s.busy ? 'Mengirim…' : detailsOk ? 'Kirim Order' : 'Lengkapi datamu dulu', () => this.createOrder(), !detailsOk || s.busy || cfg.ordering_open === false]
+        : [s.busy || s.payBusy || s.cardBusy ? (s.threeDs ? 'Waiting for your bank…' : 'Processing…') : detailsOk ? 'Pay ' + rp(total) : 'Fill in your details to pay', () => this.submitPay(), !detailsOk || s.busy || s.payBusy || s.cardBusy || !this.dropOk() || cfg.ordering_open === false],
       qr: qrExpired ? [s.payBusy ? 'Generating…' : 'Generate new QR', () => this.retryPay({ channel: 'qris' }), s.payBusy || payFailed] : ['I have paid', () => { clearInterval(this._qi); this.startWait(); this.fetchLive(); }, false],
       wait: payFailed || !s.code ? null : [s.payBusy ? 'Opening…' : 'Try paying again', () => this.retryPay(), s.payBusy],
       done: ['Done', () => this.finish(), false]
@@ -425,16 +435,21 @@ class Component extends DCLogic {
     const errMsg = s.err || (cfg.ordering_open === false && s.mode !== 'venue' ? 'Online ordering is currently closed' : '');
     return {
       close: () => this.finish(), stop: e => e.stopPropagation(),
-      tabsTop: [['Dine-in', 'dine', 'visit'], ['Takeaway', 'take', 'menu'], ['Book venue', 'venue', 'venue']].map(([label, mode, step]) => { const on = s.mode === mode; const locked = ['wait', 'done', 'qr'].includes(s.step) || !!s.created;
-        return { label, pick: () => !locked && this.setState({ mode, step: mode === 'take' && Object.keys(s.cart).length ? 'confirm' : step }), style: { all: 'unset', cursor: locked ? 'default' : 'pointer', padding: '9px 16px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 16, letterSpacing: '.03em', textTransform: 'uppercase', background: on ? '#0d0d0d' : 'transparent', color: on ? '#fff' : '#3a3a3a', opacity: locked && !on ? .4 : 1 } }; }),
-      progress: (() => { const flow = s.mode === 'dine' ? ['visit', 'menu', 'pay', 'done'] : s.mode === 'take' ? ['menu', 'confirm', 'pay', 'done'] : s.mode === 'venue' ? ['venue', 'done'] : ['mode']; const stp = PAYING_STEPS.includes(s.step) ? 'pay' : s.step; const idx = flow.indexOf(stp);
+      tabsTop: [['Grab & Go', 'grab', 'menu'], ['Book venue', 'venue', 'venue']].map(([label, mode, step]) => { const on = s.mode === mode; const locked = ['wait', 'done', 'qr'].includes(s.step) || !!s.created;
+        return { label, pick: () => !locked && this.setState({ mode, step: mode === 'grab' && Object.keys(s.cart).length ? 'pay' : step }), style: { all: 'unset', cursor: locked ? 'default' : 'pointer', padding: '9px 16px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 16, letterSpacing: '.03em', textTransform: 'uppercase', background: on ? '#0d0d0d' : 'transparent', color: on ? '#fff' : '#3a3a3a', opacity: locked && !on ? .4 : 1 } }; }),
+      progress: (() => { const flow = s.mode === 'grab' ? ['menu', 'pay', 'done'] : s.mode === 'dine' ? ['visit', 'menu', 'pay', 'done'] : s.mode === 'take' ? ['menu', 'confirm', 'pay', 'done'] : s.mode === 'venue' ? ['venue', 'done'] : ['mode']; const stp = PAYING_STEPS.includes(s.step) ? 'pay' : s.step; const idx = flow.indexOf(stp);
         return flow.map((_, i) => ({ flex: 1, height: 4, borderRadius: 2, background: i <= idx ? '#e30a2e' : 'rgba(13,13,13,.12)', transition: 'background .3s' })); })(),
       canBack: !!this.prev() && !s.cardBusy, back: () => { if (s.step === 'pay' && s.code) this.stopLive(); this.setState(s.step === 'pay' && s.code ? { step: this.prev(), code: '', token: '', created: null, live: null, err: '' } : { step: this.prev() }); },
       kicker: titles[s.step][0], title: titles[s.step][1],
       isMode: s.step === 'mode', isDeals: s.step === 'deals', isVisit: s.step === 'visit', isMenu: s.step === 'menu', isConfirm: s.step === 'confirm', isVenue: s.step === 'venue', isPay: s.step === 'pay', isQr: s.step === 'qr', isPanel: PANEL_STEPS.includes(s.step), panel: PANEL_STEPS.includes(s.step) ? this.panel(total) : null, isProc: s.step === 'wait', isDone: s.step === 'done',
+      isGrab: g, showPay: !g,  // showPay gates the online payment-method section in the pay step
+      partySize: s.partySize, setParty: e => this.setState({ partySize: (e.target.value || '').replace(/[^\d]/g, '') }),
+      grabHint: 'Bayar langsung di kasir cafe saat ambil pesanan. Barista akan konfirmasi ordermu dulu.',
+      doneGrab: g, grabPill: st.pill, grabSub: st.sub, grabPillStyle: A.pillStyle(st),
+      grabCode: s.code, grabWaiting: g && live && live.status === 'pending_confirmation',
+      canCancel: g && live && live.status === 'pending_confirmation', cancelOrder: () => this.cancelOrder(),
       modes: [
-        { badge: 'DI', label: 'Dine-in', desc: 'Reserve a table and order ahead', pick: () => this.setState({ mode: 'dine', step: 'visit' }) },
-        { badge: 'TA', label: 'Takeaway', desc: 'Order now, pick it up or get it delivered', pick: () => this.setState({ mode: 'take', step: Object.keys(s.cart).length ? 'confirm' : 'menu' }) },
+        { badge: 'GO', label: 'Grab & Go', desc: 'Pesan sekarang, bayar di kasir saat ambil pesanan', pick: () => this.setState({ mode: 'grab', step: Object.keys(s.cart).length ? 'pay' : 'menu' }) },
         { badge: 'EV', label: 'Book venue', desc: 'Reserve the cafe for your event', pick: () => this.setState({ mode: 'venue', step: 'venue' }) }
       ],
       deals: DEALS.map(d => { const q = s.deals[d.id] || 0; return { ...d, qty: q, priceFmt: rp(d.price), worthFmt: rp(d.worth), pick: () => this.setQty('deals', d.id, q ? 0 : 1), inc: () => this.setQty('deals', d.id, 1), dec: () => this.setQty('deals', d.id, -1),
@@ -487,8 +502,8 @@ class Component extends DCLogic {
           : { width: 22, height: 22, borderRadius: '50%', boxSizing: 'border-box', flexShrink: 0, border: '2px solid #8c897e', background: '#fff' },
         style: { all: 'unset', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, padding: '14px 16px', borderRadius: 18, background: '#fff', border: '1px solid ' + (s.pay === m.id ? '#e30a2e' : 'rgba(13,13,13,.1)'), boxShadow: s.pay === m.id ? '0 0 0 4px rgba(227,10,46,.08)' : 'none', transition: 'border-color .2s, box-shadow .2s' } })),
       qr: s.step === 'qr' && s.qrStr ? React.createElement('div', { style: { width: 220, height: 220 }, role: 'img', 'aria-label': 'QRIS code for ' + s.code, dangerouslySetInnerHTML: { __html: A.qrSvg(s.qrStr, 220) } }) : null,
-      doneTitle: s.mode === 'venue' ? 'Request sent' : 'Payment Successful', doneSub: s.mode === 'venue' ? 'Continue on WhatsApp · ' + s.code : rp((live && live.total) || total) + ' · ' + method.label + ' · ' + s.code, waUrl: this.waUrl(),
-      doneDine: s.mode === 'dine', doneTrack: s.mode === 'take', doneVenue: s.mode === 'venue',
+      doneTitle: g ? 'Order terkirim' : s.mode === 'venue' ? 'Request sent' : 'Payment Successful', doneSub: g ? ('Kode order: ' + s.code + ' · ' + rp((live && live.total) || total)) : s.mode === 'venue' ? 'Continue on WhatsApp · ' + s.code : rp((live && live.total) || total) + ' · ' + method.label + ' · ' + s.code, waUrl: this.waUrl(),
+      doneDine: !g && s.mode === 'dine', doneTrack: !g && s.mode === 'take', doneVenue: !g && s.mode === 'venue',
       voucherTitle: 'Table for ' + ((live && live.pax) || s.pax),
       dineItems: ((live && live.items) || []).map(i => i.qty + '× ' + i.name).join(', '),
       visitLabel: (live ? A.dayLabel(live.reservation_date) + ' at ' + (live.reservation_slot || '') : this.dayText() + ' at ' + s.slot) + ' · Table held 15 min',
