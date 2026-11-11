@@ -113,6 +113,7 @@
   function rate(code, food, service, comment) { return rpc('cafe_rate_order', { p_code: code, p_token: tokenFor(code), p_food: food, p_service: service, p_comment: comment || '' }); }
   function slotAvailability(date) { return rpc('cafe_get_slot_availability', { p_date: date }); }
   function checkPromo(code, amount) { return rpc('cafe_check_promo', { p_code: String(code || '').trim(), p_amount: Math.round(Number(amount) || 0) }); }
+  function cancelMyOrder(code, token) { return rpc('cafe_cancel_my_order', { p_code: code, p_token: token || tokenFor(code) }); }
 
   // Realtime per order: channel cafe-order:<token>, event order_update. Returns an unsubscribe function.
   function watch(token, fn) {
@@ -132,7 +133,7 @@
   // ---------- status (one source for Done screen + Purchase History) ----------
   var METHOD = { qris: 'QRIS', ewallet: 'GoPay / OVO / ShopeePay', credit: 'Credit card', debit: 'Debit card', va: 'Virtual account', cash: 'Cash' };
   function methodLabel(m) { return METHOD[m] || (m ? cap(m) : ''); }
-  var KIND = { dine_in: 'Dine-in', pickup: 'Pickup', delivery: 'Delivery', venue: 'Venue' };
+  var KIND = { grab: 'Grab & Go', dine_in: 'Dine-in', pickup: 'Pickup', delivery: 'Delivery', venue: 'Venue' };
   var SESSION = { morning: 'Morning 08–12', afternoon: 'Afternoon 13–17', evening: 'Evening 18–22' };
   function cap(s) { s = String(s || '').replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); }
   // tone: dark | green | red | grey | amber
@@ -143,6 +144,17 @@
       return { pill: vp, sub: cap(o.event_type) + ' · ' + o.guests + ' guests · ' + dayLabel(o.event_date) + ' ' + (SESSION[o.session] || cap(o.session)), tone: o.status === 'confirmed' ? 'green' : o.status === 'cancelled' ? 'grey' : 'dark' };
     }
     var t = o.type, s = o.status;
+    // Grab & Go lifecycle (status-driven): pending_confirmation -> accepted -> paid -> completed (+ rejected/cancelled/expired)
+    if (t === 'grab' || ['pending_confirmation', 'accepted', 'rejected', 'cancelled_by_user', 'cancelled_by_admin', 'expired'].indexOf(s) >= 0) {
+      if (s === 'pending_confirmation') return { pill: 'Menunggu Konfirmasi', sub: 'Menunggu barista menerima ordermu…', tone: 'amber' };
+      if (s === 'accepted') return { pill: 'Order Diterima', sub: 'Silakan datang ke cafe dan bayar di kasir saat ambil pesanan.', tone: 'green' };
+      if (s === 'paid') return { pill: 'Sudah Dibayar', sub: 'Pembayaran diterima · tinggal ambil pesananmu di cafe.', tone: 'green' };
+      if (s === 'completed') return { pill: 'Selesai', sub: 'Pesanan sudah diambil. Terima kasih!', tone: 'dark' };
+      if (s === 'rejected') return { pill: 'Order Ditolak', sub: o.cancel_reason || 'Order ditolak barista.', tone: 'grey' };
+      if (s === 'cancelled_by_user') return { pill: 'Dibatalkan', sub: 'Kamu membatalkan order ini.', tone: 'grey' };
+      if (s === 'cancelled_by_admin') return { pill: 'Dibatalkan', sub: o.cancel_reason || 'Order dibatalkan cafe.', tone: 'grey' };
+      if (s === 'expired') return { pill: 'Kedaluwarsa', sub: o.cancel_reason || 'Order kedaluwarsa.', tone: 'grey' };
+    }
     if (s === 'pending_payment') {
       if (o.payment_status === 'expired' || o.payment_status === 'failed') return { pill: o.payment_status === 'expired' ? 'Payment expired' : 'Payment failed', sub: 'This order was not paid', tone: 'grey' };
       return { pill: 'Waiting payment', sub: 'Not paid yet · it updates automatically once your payment goes through', tone: 'amber' };
@@ -197,7 +209,7 @@
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
     createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, getOrder: getOrder, getMyOrders: getMyOrders,
-    findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, watch: watch,
+    findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, cancelMyOrder: cancelMyOrder, watch: watch,
     rp: rp, time: time, dateTime: dateTime, dayLabel: dayLabel, ymd: ymd, optionsText: optionsText,
     KIND: KIND, methodLabel: methodLabel, SESSION: SESSION, status: status, pillStyle: pillStyle, trackSteps: trackSteps, qrSvg: qrSvg
   };
