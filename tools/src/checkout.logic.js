@@ -317,7 +317,6 @@ class Component extends DCLogic {
     if (type !== 'grab') p.payment_method = s.pay;             // online methods for pickup/delivery
     else if (s.grabPay) p.payment_method = s.grabPay;          // Grab & Go: planned OFFLINE method (code from master data)
     if (type === 'delivery') { p.delivery_address = s.address.trim(); p.driver_note = s.note.trim(); }
-    if (type === 'grab' && Number(s.partySize) > 1) p.pax = Number(s.partySize);  // party size only drives the group-minimum rule
     if ((s.promo || '').trim()) p.voucher = s.promo.trim();
     return p;
   }
@@ -447,10 +446,9 @@ class Component extends DCLogic {
       kicker: titles[s.step][0], title: titles[s.step][1],
       isMode: s.step === 'mode', isDeals: s.step === 'deals', isVisit: s.step === 'visit', isMenu: s.step === 'menu', isConfirm: s.step === 'confirm', isVenue: s.step === 'venue', isPay: s.step === 'pay', isQr: s.step === 'qr', isPanel: PANEL_STEPS.includes(s.step), panel: PANEL_STEPS.includes(s.step) ? this.panel(total) : null, isProc: s.step === 'wait', isDone: s.step === 'done',
       isGrab: g, showPay: !g,  // showPay gates the online payment-method section in the pay step
-      partySize: s.partySize, setParty: e => this.setState({ partySize: (e.target.value || '').replace(/[^\d]/g, '') }),
       grabHint: 'Bayar langsung di kasir cafe saat ambil pesanan. Barista akan konfirmasi ordermu dulu.',
       doneGrab: g, grabPill: st.pill, grabSub: st.sub, grabPillStyle: A.pillStyle(st),
-      grabCode: s.code, grabWaiting: g && live && live.status === 'pending_confirmation',
+      grabCode: s.code, grabWaiting: g && (!live || live.status === 'pending_confirmation'),
       canCancel: g && live && live.status === 'pending_confirmation', cancelOrder: () => this.cancelOrder(),
       modes: [
         { badge: 'GO', label: 'Grab & Go', desc: 'Pesan sekarang, bayar di kasir saat ambil pesanan', pick: () => this.setState({ mode: 'grab', step: Object.keys(s.cart).length ? 'pay' : 'menu' }) },

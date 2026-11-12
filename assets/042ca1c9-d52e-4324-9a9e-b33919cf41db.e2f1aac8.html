@@ -227,7 +227,6 @@
           </label>
         </div>
         <sc-if value="{{ isGrab }}" hint-placeholder-val="{{ true }}">
-        <label style="display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600">Untuk berapa orang? <span style="font-weight:400;color:#8a8a8a">(opsional)</span><input value="{{ partySize }}" onChange="{{ setParty }}" inputmode="numeric" placeholder="1" style="font:inherit;font-weight:400;font-size:15px;padding:14px;border-radius:16px;border:1px solid rgba(13,13,13,.12);background:#fff;outline-color:#e30a2e;max-width:140px;margin-top:4px"></label>
         <div style="padding:12px 14px;border-radius:14px;background:#fdf1e7;border:1px solid #f3d9c2;font-size:13px;line-height:1.5;color:#9a5a2a">{{ grabHint }}</div><div style="font-size:13px;font-weight:600;margin-top:2px">Rencana metode bayar (bayar di kasir)</div><div style="display:flex;flex-wrap:wrap;gap:8px"><sc-for list="{{ grabPayOpts }}" as="m"><button onClick="{{ m.pick }}" style="{{ m.style }}">{{ m.label }}</button></sc-for></div>
       </sc-if>
       <sc-if value="{{ showPay }}" hint-placeholder-val="{{ true }}">
@@ -296,7 +295,7 @@
         </div>
 
         <sc-if value="{{ doneGrab }}" hint-placeholder-val="{{ true }}">
-        <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0 8px">
+        <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0 8px"><sc-if value="{{ grabWaiting }}" hint-placeholder-val="{{ true }}"><div style="display:flex;justify-content:center;padding:2px 0 0"><style>@keyframes g2fwRing{0%{transform:scale(.55);opacity:.5}100%{transform:scale(1.25);opacity:0}}@keyframes g2fwBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}@keyframes g2fwSteam{0%{opacity:0;transform:translateY(5px)}45%{opacity:.85}100%{opacity:0;transform:translateY(-7px)}}@keyframes g2fwDot{0%,100%{transform:translateY(0);opacity:.35}50%{transform:translateY(-5px);opacity:1}}.g2fw-ring{transform-box:fill-box;transform-origin:center;animation:g2fwRing 2s ease-out infinite}.g2fw-barista{transform-box:fill-box;transform-origin:center;animation:g2fwBob 2.6s ease-in-out infinite}.g2fw-steam{transform-box:fill-box;transform-origin:center;animation:g2fwSteam 1.9s ease-in-out infinite}.g2fw-s2{animation-delay:.6s}.g2fw-dot{transform-box:fill-box;transform-origin:center;animation:g2fwDot 1.2s ease-in-out infinite}.g2fw-d2{animation-delay:.18s}.g2fw-d3{animation-delay:.36s}</style><svg viewBox="0 0 200 162" width="188" height="152" role="img" aria-label="Menunggu barista menerima order"><circle class="g2fw-ring" cx="100" cy="70" r="42" fill="none" stroke="#e30a2e" stroke-width="2"/><g class="g2fw-barista"><rect x="84" y="70" width="32" height="42" rx="13" fill="#e30a2e"/><circle cx="100" cy="54" r="15" fill="#f4cda4"/><path d="M85 52a15 15 0 0 1 30 0z" fill="#0d0d0d"/><rect x="86" y="48" width="28" height="7" rx="3" fill="#0d0d0d"/></g><rect x="26" y="112" width="148" height="6" rx="3" fill="#e30a2e"/><rect x="26" y="118" width="148" height="28" rx="7" fill="#0d0d0d"/><rect x="120" y="98" width="18" height="16" rx="2" fill="#fff" stroke="#0d0d0d" stroke-width="2"/><path d="M138 101h4a3 3 0 0 1 0 8h-4" fill="none" stroke="#0d0d0d" stroke-width="2"/><path class="g2fw-steam" d="M126 96c-3-4 3-7 0-11" fill="none" stroke="#c9b9a6" stroke-width="2" stroke-linecap="round"/><path class="g2fw-steam g2fw-s2" d="M133 96c-3-4 3-7 0-11" fill="none" stroke="#c9b9a6" stroke-width="2" stroke-linecap="round"/><circle class="g2fw-dot" cx="92" cy="156" r="3.5" fill="#e30a2e"/><circle class="g2fw-dot g2fw-d2" cx="100" cy="156" r="3.5" fill="#e30a2e"/><circle class="g2fw-dot g2fw-d3" cx="108" cy="156" r="3.5" fill="#e30a2e"/></svg></div></sc-if>
           <div style="display:flex;justify-content:center"><span style="{{ grabPillStyle }}">{{ grabPill }}</span></div>
           <div style="text-align:center;font-size:15px;color:#3a3a3a;line-height:1.5">{{ grabSub }}</div>
           <div style="padding:14px 16px;border-radius:16px;background:#f7f6f3;border:1px solid rgba(13,13,13,.08);text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a8a">Kode order</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:28px;letter-spacing:.04em">{{ grabCode }}</div></div>
@@ -730,7 +729,6 @@ class Component extends DCLogic {
     if (type !== 'grab') p.payment_method = s.pay;             // online methods for pickup/delivery
     else if (s.grabPay) p.payment_method = s.grabPay;          // Grab & Go: planned OFFLINE method (code from master data)
     if (type === 'delivery') { p.delivery_address = s.address.trim(); p.driver_note = s.note.trim(); }
-    if (type === 'grab' && Number(s.partySize) > 1) p.pax = Number(s.partySize);  // party size only drives the group-minimum rule
     if ((s.promo || '').trim()) p.voucher = s.promo.trim();
     return p;
   }
@@ -860,10 +858,9 @@ class Component extends DCLogic {
       kicker: titles[s.step][0], title: titles[s.step][1],
       isMode: s.step === 'mode', isDeals: s.step === 'deals', isVisit: s.step === 'visit', isMenu: s.step === 'menu', isConfirm: s.step === 'confirm', isVenue: s.step === 'venue', isPay: s.step === 'pay', isQr: s.step === 'qr', isPanel: PANEL_STEPS.includes(s.step), panel: PANEL_STEPS.includes(s.step) ? this.panel(total) : null, isProc: s.step === 'wait', isDone: s.step === 'done',
       isGrab: g, showPay: !g,  // showPay gates the online payment-method section in the pay step
-      partySize: s.partySize, setParty: e => this.setState({ partySize: (e.target.value || '').replace(/[^\d]/g, '') }),
       grabHint: 'Bayar langsung di kasir cafe saat ambil pesanan. Barista akan konfirmasi ordermu dulu.',
       doneGrab: g, grabPill: st.pill, grabSub: st.sub, grabPillStyle: A.pillStyle(st),
-      grabCode: s.code, grabWaiting: g && live && live.status === 'pending_confirmation',
+      grabCode: s.code, grabWaiting: g && (!live || live.status === 'pending_confirmation'),
       canCancel: g && live && live.status === 'pending_confirmation', cancelOrder: () => this.cancelOrder(),
       modes: [
         { badge: 'GO', label: 'Grab & Go', desc: 'Pesan sekarang, bayar di kasir saat ambil pesanan', pick: () => this.setState({ mode: 'grab', step: Object.keys(s.cart).length ? 'pay' : 'menu' }) },
