@@ -72,7 +72,7 @@ window.StoryConfig = {
 
   // CH 05 — Made with care
   care: {
-    headline: 'All of our drinks and pastry are prepared with care to help fuel your day,',
+    headline: 'Every drink and pastry is made by hand to fuel your day,',
     headlineRed: 'or even your workout.',
     pillars: [
       { need: 'Fresh', line: 'Fruit, coconut and cold drinks for a clean, light lift.', photo: 'Coconut Hydrate', category: 'Juice' },
