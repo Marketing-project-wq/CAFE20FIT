@@ -40,7 +40,7 @@ const dot = (done, active) => ({ width: 30, height: 30, borderRadius: '50%', dis
 const pill = (bg, fg) => ({ padding: '6px 12px', borderRadius: 999, background: bg, color: fg, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 });
 
 class Component extends DCLogic {
-  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', email: '', phone: '', qrEnd: 0, qrStart: 0, qrStr: '', payBusy: false, vaBank: 'BCA', ewChoice: 'qris', vaInfo: null, ovoSent: null, ovoPhone: null, cardKey: '', xReady: false, cardBusy: false, threeDs: '', cNum: '', cExp: '', cCvv: '', copied: false, now: 0, qrSeed: 1, code: '', token: '', cfg: null, avail: {}, created: null, live: null, partySize: '', grabPay: '', promo: '', promoInfo: null, promoBusy: false, busy: false, err: '', rateMsg: 'You can also rate later from Purchase History.' };
+  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, vStart: '', vEnd: '', vServe: '', pay: 'qris', email: '', phone: '', qrEnd: 0, qrStart: 0, qrStr: '', payBusy: false, vaBank: 'BCA', ewChoice: 'qris', vaInfo: null, ovoSent: null, ovoPhone: null, cardKey: '', xReady: false, cardBusy: false, threeDs: '', cNum: '', cExp: '', cCvv: '', copied: false, now: 0, qrSeed: 1, code: '', token: '', cfg: null, avail: {}, created: null, live: null, partySize: '', grabPay: '', promo: '', promoInfo: null, promoBusy: false, busy: false, err: '', rateMsg: 'You can also rate later from Purchase History.' };
   componentDidMount() {
     document.body.style.overflow = 'hidden';
     try { history.pushState({ order: 1 }, '', '#order'); } catch (e) {}
@@ -370,13 +370,28 @@ class Component extends DCLogic {
       this.setState(next);
     }).catch(() => {});
   }
-  waText() { const s = this.state; return ['Hi 20FIT Cafe, I would like to book the venue.', '', 'Name: ' + s.name.trim(), 'Date: ' + (s.date || '-'), 'Session: ' + s.session, 'Event: ' + s.event, 'Guests: ' + s.guests + ' people', 'Package: ' + (s.refresh ? 'With refreshments & pastries' : 'Venue only'), '', 'Ref: ' + (s.code || '')].join('\n'); }
+  venueSub() { return this.cartLines().reduce((a, i) => a + i.base * i.qty, 0); }
+  waText() {
+    const s = this.state, lines = ['Hi 20FIT Cafe, I would like to book the venue.', '', 'Name: ' + s.name.trim(), 'Date: ' + (s.date || '-'),
+      'Time: ' + (s.vStart || '-') + ' – ' + (s.vEnd || '-'), 'Event: ' + s.event, 'Guests: ' + s.guests + ' people',
+      'Package: ' + (s.refresh ? 'With refreshments' : 'Venue only')];
+    if (s.refresh) {
+      lines.push('Serving time: ' + (s.vServe || '-'));
+      const cl = this.cartLines();
+      if (cl.length) { lines.push('', 'Refreshment:'); cl.forEach(i => lines.push('- ' + i.qty + '× ' + i.name + ' (' + rp(i.base * i.qty) + ')')); lines.push('Subtotal: ' + rp(this.venueSub())); }
+    }
+    lines.push('', 'Ref: ' + (s.code || ''));
+    return lines.join('\n');
+  }
   waUrl() { const n = String((this.state.cfg && this.state.cfg.wa_number) || this.props.waNumber || '').replace(/\D/g, ''); return 'https://wa.me/' + n + '?text=' + encodeURIComponent(this.waText()); }
   sendWa() {
     if (this.state.busy) return;
     const s = this.state, w = window.open('', '_blank'); // open now (user gesture), point it at WhatsApp once we have the code
     this.setState({ busy: true, err: '' });
-    API().createVenue({ event_date: s.date, session: SESSION_ID[s.session] || 'afternoon', event_type: s.event.toLowerCase(), guests: s.guests, package: s.refresh ? 'with_refreshments' : 'venue_only', customer_name: s.name.trim(), customer_phone: s.phone.replace(/[\s-]/g, '') })
+    API().createVenue({ event_date: s.date, event_type: s.event.toLowerCase(), guests: s.guests, package: s.refresh ? 'with_refreshments' : 'venue_only',
+      start_time: s.vStart, end_time: s.vEnd, serve_time: s.refresh ? s.vServe : null,
+      items: s.refresh ? this.cartLines().map(l => ({ menu_id: l.id, qty: l.qty, addon_option_ids: l.opts })) : [],
+      customer_name: s.name.trim(), customer_phone: s.phone.replace(/[\s-]/g, '') })
       .then(res => {
         this.setState({ busy: false, code: res.code, token: res.access_token, created: { est_price: res.est_price }, step: 'done' }, () => {
           if (w) w.location.href = this.waUrl(); else window.open(this.waUrl(), '_blank', 'noopener');
@@ -419,7 +434,7 @@ class Component extends DCLogic {
       visit: [slotOk ? 'Continue to menu' : 'Pick an available time', () => this.setState({ step: 'menu' }), !slotOk],
       menu: [cartN ? 'Lanjut · ' + cartN + ' item · ' + rp(cartSum) : 'Tambah dulu pesananmu', () => this.setState({ step: g || s.mode === 'dine' ? 'pay' : 'confirm' }), !cartN],
       confirm: ['Confirm order', () => this.setState({ step: 'pay' }), s.fulfil === 'pickup' ? !s.name.trim() : !s.address.trim()],
-      venue: [s.busy ? 'Sending…' : 'Continue on WhatsApp', () => this.sendWa(), !s.date || !vNameOk || !vPhoneOk || s.busy],
+      venue: [s.busy ? 'Sending…' : 'Continue on WhatsApp', () => this.sendWa(), !s.date || !vNameOk || !vPhoneOk || !s.vStart || !s.vEnd || s.busy || (s.refresh && (!s.vServe || this.cartLines().reduce((a, i) => a + i.qty, 0) < (Number((s.cfg || {}).venue_refresh_min) || 0)))],
       pay: g
         ? [s.busy ? 'Mengirim…' : detailsOk ? 'Kirim Order' : 'Lengkapi datamu dulu', () => this.createOrder(), !detailsOk || s.busy || cfg.ordering_open === false]
         : [s.busy || s.payBusy || s.cardBusy ? (s.threeDs ? 'Waiting for your bank…' : 'Processing…') : detailsOk ? 'Pay ' + rp(total) : 'Fill in your details to pay', () => this.submitPay(), !detailsOk || s.busy || s.payBusy || s.cardBusy || !this.dropOk() || cfg.ordering_open === false],
@@ -476,6 +491,13 @@ class Component extends DCLogic {
       guests: s.guests, guestDown: () => this.setState({ guests: Math.max(10, s.guests - 5) }), guestUp: () => this.setState({ guests: Math.min(60, s.guests + 5) }),
       date: s.date, setDate: e => this.setState({ date: e.target.value }),
       sessions: SESSIONS.map(t => ({ label: t, pick: () => this.setState({ session: t }), style: chip(s.session === t) })),
+      vStart: s.vStart, vEnd: s.vEnd, vServe: s.vServe,
+      setVStart: e => this.setState({ vStart: e.target.value }), setVEnd: e => this.setState({ vEnd: e.target.value }), setVServe: e => this.setState({ vServe: e.target.value }),
+      venueOpen: cfg.venue_hours_start || '08:00', venueClose: cfg.venue_hours_end || '22:00',
+      venueWithRefresh: s.refresh, venueSubFmt: rp(this.venueSub()), venueCount: this.cartLines().reduce((a, i) => a + i.qty, 0), venueMin: Number(cfg.venue_refresh_min) || 0,
+      venueMenu: this.menu().map(m => ({ name: m.name, priceFmt: rp(m.price), qty: this.qtyOf(m.id), avail: m.available !== false,
+        inc: () => this.incItem(m), dec: () => this.decItem(m),
+        rowStyle: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, padding: '10px 0', borderBottom: '1px solid rgba(13,13,13,.06)', opacity: m.available !== false ? 1 : .45 } })),
       events: EVENTS.map(t => ({ label: t, pick: () => this.setState({ event: t }), style: chip(s.event === t) })),
       refreshOpts: [[true, 'With refreshments', 'Drinks + pastries, ' + rp(cfg.venue_refresh_price || 0) + ' / person'], [false, 'Venue only', 'Order at the bar during the event']].map(([v, label, desc]) => ({ label, desc, pick: () => this.setState({ refresh: v }), style: card(s.refresh === v) })),
       waitElapsed: (() => { const t = Math.max(0, Math.floor(((s.now || Date.now()) - (this._w0 || Date.now())) / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); })(),
