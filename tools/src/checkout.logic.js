@@ -40,13 +40,13 @@ const dot = (done, active) => ({ width: 30, height: 30, borderRadius: '50%', dis
 const pill = (bg, fg) => ({ padding: '6px 12px', borderRadius: 999, background: bg, color: fg, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0 });
 
 class Component extends DCLogic {
-  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', email: '', phone: '', qrEnd: 0, qrStart: 0, qrStr: '', payBusy: false, vaBank: 'BCA', ewChoice: 'qris', vaInfo: null, ovoSent: null, ovoPhone: null, cardKey: '', xReady: false, cardBusy: false, threeDs: '', cNum: '', cExp: '', cCvv: '', copied: false, now: 0, qrSeed: 1, code: '', token: '', cfg: null, avail: {}, created: null, live: null, partySize: '', promo: '', promoInfo: null, promoBusy: false, busy: false, err: '', rateMsg: 'You can also rate later from Purchase History.' };
+  state = { step: 'mode', mode: null, cart: {}, cat: 'All', fulfil: 'pickup', name: '', address: '', note: '', deals: {}, pax: 2, dayI: 0, slot: '', date: '', session: SESSIONS[1], event: 'Birthday', guests: 20, refresh: true, pay: 'qris', email: '', phone: '', qrEnd: 0, qrStart: 0, qrStr: '', payBusy: false, vaBank: 'BCA', ewChoice: 'qris', vaInfo: null, ovoSent: null, ovoPhone: null, cardKey: '', xReady: false, cardBusy: false, threeDs: '', cNum: '', cExp: '', cCvv: '', copied: false, now: 0, qrSeed: 1, code: '', token: '', cfg: null, avail: {}, created: null, live: null, partySize: '', grabPay: '', promo: '', promoInfo: null, promoBusy: false, busy: false, err: '', rateMsg: 'You can also rate later from Purchase History.' };
   componentDidMount() {
     document.body.style.overflow = 'hidden';
     try { history.pushState({ order: 1 }, '', '#order'); } catch (e) {}
     this._pop = () => { if (this._closing) return; this._popped = true; this.finish(); }; window.addEventListener('popstate', this._pop);
     const cart = {}; (this.props.items || []).forEach(i => { cart[i.key || lineKey(i.id, i.opts)] = { id: i.id, opts: i.opts || [], qty: i.qty }; });
-    API().getConfig().then(cfg => { this.setState(s => ({ cfg, slot: s.slot || (cfg.slots || [])[0] || '' })); this.loadAvail(this.state.dayI); }).catch(e => this.setState({ err: e.message }));
+    API().getConfig().then(cfg => { this.setState(s => ({ cfg, slot: s.slot || (cfg.slots || [])[0] || '', grabPay: s.grabPay || ((cfg.payment_methods || [])[0] || {}).code || '' })); this.loadAvail(this.state.dayI); }).catch(e => this.setState({ err: e.message }));
     const m = this.props.startMode, sub = this.props.startSub, has = Object.keys(cart).length > 0;
     const next = { cart };
     // Cafe is Grab & Go only now (order remotely, pay offline at the cafe). Everything routes to the grab flow; venue is separate.
@@ -80,10 +80,10 @@ class Component extends DCLogic {
     if (cfg.tax_percent != null) lines.push({ label: 'PB1 ' + cfg.tax_percent + '%', value: rp(tax) });
     if (del) lines.push({ label: 'Delivery fee', value: rp(del) });
     const gross = sub + svc + tax + del, disc = this.promoDiscount(gross);
-    if (disc > 0) lines.push({ label: 'Promo ' + (s.promoInfo.code || '') + ' (-' + s.promoInfo.percent + '%)', value: '-' + rp(disc) });
-    return { lines, total: gross - disc, estimate: true };
+    if (disc > 0) lines.push({ label: 'Voucher ' + (s.promoInfo.code || ''), value: '-' + rp(disc) });
+    return { lines, total: Math.max(0, gross - disc), estimate: true };
   }
-  // Server (cafe_create_order / cafe_check_promo) is authoritative; this only previews the discount in the bill.
+  // Server (cafe_create_order / cafe_check_voucher) is authoritative; this only previews the discount in the bill.
   grossNow() {
     const s = this.state, cfg = s.cfg || {};
     if (s.mode !== 'dine' && s.mode !== 'take' && s.mode !== 'grab') return 0;
@@ -92,20 +92,23 @@ class Component extends DCLogic {
     const del = s.mode === 'take' && s.fulfil === 'delivery' ? Number(cfg.delivery_fee) || 0 : 0;
     return sub + svc + tax + del;
   }
-  promoDiscount(gross) {
+  // Discount is computed + returned by the server (cafe_check_voucher); we just show it.
+  promoDiscount() {
     const pi = this.state.promoInfo; if (!pi || !pi.ok) return 0;
-    let d = Math.round(gross * (Number(pi.percent) || 0) / 100);
-    if (gross - d < PROMO_MIN) d = Math.max(0, gross - PROMO_MIN);
-    return d;
+    return Math.max(0, Number(pi.discount) || 0);
   }
   applyPromo() {
-    const code = (this.state.promo || '').trim();
+    const s = this.state, code = (s.promo || '').trim();
     if (!code) { this.setState({ promoInfo: null }); return; }
-    if (this.state.promoBusy) return;
+    if (s.promoBusy) return;
+    const items = this.cartLines().map(l => ({ menu_id: l.id, qty: l.qty, addon_option_ids: l.opts }));
+    const method = s.mode === 'grab' ? s.grabPay : null;
     this.setState({ promoBusy: true });
-    API().checkPromo(code, this.grossNow())
-      .then(r => this.setState({ promoBusy: false, promoInfo: r && r.ok ? { ok: true, code: r.code, percent: r.percent } : { ok: false } }))
-      .catch(() => this.setState({ promoBusy: false, promoInfo: { ok: false } }));
+    API().checkVoucher(code, items, method, s.phone, s.email)
+      .then(r => this.setState({ promoBusy: false, promoInfo: r && r.ok
+        ? { ok: true, code: r.code, discount: Number(r.discount) || 0, name: r.name || null }
+        : { ok: false, message: (r && r.message) || 'Kode voucher tidak berlaku' } }))
+      .catch(e => this.setState({ promoBusy: false, promoInfo: { ok: false, message: (e && e.message) || 'Kode voucher tidak berlaku' } }));
   }
   // Real Xendit QRIS: counts down to the QR's own expiry; afterwards "Generate new QR" asks for a new one.
   startQr(pay) {
@@ -311,10 +314,11 @@ class Component extends DCLogic {
     const s = this.state, type = s.mode === 'grab' ? 'grab' : s.fulfil === 'delivery' ? 'delivery' : 'pickup';
     const p = { order_type: type, customer_name: s.name.trim(), customer_phone: s.phone.replace(/[\s-]/g, ''), customer_email: s.email.trim(), notes: '',
       items: this.cartLines().map(l => ({ menu_id: l.id, qty: l.qty, addon_option_ids: l.opts, note: '' })) };
-    if (type !== 'grab') p.payment_method = s.pay;             // Grab & Go is paid offline — no online method
+    if (type !== 'grab') p.payment_method = s.pay;             // online methods for pickup/delivery
+    else if (s.grabPay) p.payment_method = s.grabPay;          // Grab & Go: planned OFFLINE method (code from master data)
     if (type === 'delivery') { p.delivery_address = s.address.trim(); p.driver_note = s.note.trim(); }
     if (type === 'grab' && Number(s.partySize) > 1) p.pax = Number(s.partySize);  // party size only drives the group-minimum rule
-    if ((s.promo || '').trim()) p.promo = s.promo.trim();
+    if ((s.promo || '').trim()) p.voucher = s.promo.trim();
     return p;
   }
   createOrder() {
@@ -482,8 +486,11 @@ class Component extends DCLogic {
       lines, totalFmt: rp(total), totalLabel: estimate ? 'Estimated total' : 'Total', payLabel: method.label, code: s.code,
       promo: s.promo, setPromo: e => this.setState({ promo: (e.target.value || '').toUpperCase().replace(/\s/g, ''), promoInfo: null }),
       applyPromo: () => this.applyPromo(),
-      promoMsg: s.promoBusy ? 'Mengecek kode…' : (s.promoInfo ? (s.promoInfo.ok ? 'Promo ' + s.promoInfo.code + ' aktif · -' + s.promoInfo.percent + '%' : 'Kode promo tidak berlaku') : ''),
+      promoMsg: s.promoBusy ? 'Mengecek kode…' : (s.promoInfo ? (s.promoInfo.ok ? 'Voucher ' + s.promoInfo.code + ' aktif · potongan ' + rp(Number(s.promoInfo.discount) || 0) : (s.promoInfo.message || 'Kode voucher tidak berlaku')) : ''),
       promoMsgStyle: { fontSize: '12px', fontWeight: 600, color: s.promoInfo && s.promoInfo.ok ? '#1a7f3c' : '#e30a2e' },
+      grabPayOpts: ((cfg.payment_methods) || []).map(m => ({ label: m.label, code: m.code, pick: () => { this.setState({ grabPay: m.code }); if ((s.promo || '').trim() && s.promoInfo) this.applyPromo(); },
+        style: { all: 'unset', cursor: 'pointer', fontWeight: 700, fontSize: '13px', padding: '10px 14px', borderRadius: 12, background: s.grabPay === m.code ? '#fdecec' : '#fff', color: s.grabPay === m.code ? '#e30a2e' : '#0d0d0d', border: '1px solid ' + (s.grabPay === m.code ? '#e30a2e' : 'rgba(13,13,13,.12)') } })),
+      grabPayShow: s.mode === 'grab',
       hasErr: !!errMsg, errMsg, vNameErr: s.name && !vNameOk ? 'Please enter your name' : '', vPhoneErr: s.phone && !vPhoneOk ? 'Please enter a valid WhatsApp number, e.g. 0812xxxxxxx' : '',
       waitTitle: payFailed ? st.pill : 'Waiting for your payment', waitSub: payFailed ? 'Please start a new order or contact the cafe.' : 'Checking your payment. ' + 'This page updates automatically. You can close it; your order stays in Purchase History · ' + s.code,
       email: s.email, phone: s.phone,
