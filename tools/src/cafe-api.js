@@ -113,6 +113,9 @@
   function rate(code, food, service, comment) { return rpc('cafe_rate_order', { p_code: code, p_token: tokenFor(code), p_food: food, p_service: service, p_comment: comment || '' }); }
   function slotAvailability(date) { return rpc('cafe_get_slot_availability', { p_date: date }); }
   function checkPromo(code, amount) { return rpc('cafe_check_promo', { p_code: String(code || '').trim(), p_amount: Math.round(Number(amount) || 0) }); }
+  function checkVoucher(code, items, method, phone, email) {
+    return rpc('cafe_check_voucher', { p_code: String(code || '').trim(), p_items: items || [], p_method: method || null, p_phone: phone || null, p_email: email || null });
+  }
   function cancelMyOrder(code, token) { return rpc('cafe_cancel_my_order', { p_code: code, p_token: token || tokenFor(code) }); }
 
   // Realtime per order: channel cafe-order:<token>, event order_update. Returns an unsubscribe function.
@@ -209,7 +212,7 @@
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
     createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, getOrder: getOrder, getMyOrders: getMyOrders,
-    findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, cancelMyOrder: cancelMyOrder, watch: watch,
+    findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, checkVoucher: checkVoucher, cancelMyOrder: cancelMyOrder, watch: watch,
     rp: rp, time: time, dateTime: dateTime, dayLabel: dayLabel, ymd: ymd, optionsText: optionsText,
     KIND: KIND, methodLabel: methodLabel, SESSION: SESSION, status: status, pillStyle: pillStyle, trackSteps: trackSteps, qrSvg: qrSvg
   };
