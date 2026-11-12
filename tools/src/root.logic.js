@@ -45,7 +45,7 @@ const isCut = src => /^data:|\.png($|\?)/i.test(src);
 class Component extends DCLogic {
   vid = React.createRef();
   state = { igI: 0, igHold: true, hy: 0, hx: 0, hyM: 0, hon: false, need: 1, heroIn: false, sound: false, tab: 'All', sel: null, cart: {}, checkout: false, full: false, hist: false,
-    menu: null, menuErr: '', refs: [], hList: null, hErr: '', hLoading: false, hOpen: {}, hFlash: {}, hDot: false, rates: {}, findCode: '', findPhone: '', findMsg: '', findBusy: false, toast: null, pick: {} };
+    menu: null, menuErr: '', refs: [], hList: null, hErr: '', hLoading: false, hOpen: {}, hFlash: {}, hDot: false, rates: {}, findCode: '', findPhone: '', findMsg: '', findBusy: false, toast: null, pick: {}, vAdd: {}, vAddBusy: {} };
   rail = React.createRef();
   careVid = React.createRef();
   day = React.createRef(); dayStage = React.createRef(); dayTrack = React.createRef(); dayHand = React.createRef(); dayMin = React.createRef(); dayTime = React.createRef(); dayTime2 = React.createRef(); progBar = React.createRef();
@@ -220,6 +220,22 @@ class Component extends DCLogic {
     if (r.food && r.service) API().rate(o.code, r.food, r.service, r.comment).then(() => this.setState(s => ({ rates: { ...s.rates, [o.code]: { ...r, saved: true } } }))).catch(e => this.setState(s => ({ rates: { ...s.rates, [o.code]: { ...r, err: e.message } } })));
   }
   imAtCafe(o) { API().arrived(o.code).then(() => this.refreshHist(false)).catch(e => this.showToast(e.message)); }
+  vAddInc(code, id) { this.setState(s => { const c = { ...(s.vAdd[code] || {}) }; c[id] = (c[id] || 0) + 1; return { vAdd: { ...s.vAdd, [code]: c } }; }); }
+  vAddDec(code, id) { this.setState(s => { const c = { ...(s.vAdd[code] || {}) }; c[id] = Math.max(0, (c[id] || 0) - 1); return { vAdd: { ...s.vAdd, [code]: c } }; }); }
+  vAddSubmit(o) {
+    const cart = this.state.vAdd[o.code] || {};
+    const items = Object.keys(cart).filter(id => cart[id] > 0).map(id => ({ menu_id: id, qty: cart[id] }));
+    if (!items.length || this.state.vAddBusy[o.code]) return;
+    this.setState(s => ({ vAddBusy: { ...s.vAddBusy, [o.code]: true } }));
+    const w = window.open('', '_blank'); // open now (user gesture) → point at WhatsApp after
+    API().addVenueRefreshment(o.code, null, items).then(res => {
+      this.setState(s => ({ vAdd: { ...s.vAdd, [o.code]: {} }, vAddBusy: { ...s.vAddBusy, [o.code]: false } }));
+      this.refreshHist(false);
+      this.showToast('Tambahan terkirim · menunggu konfirmasi barista');
+      const wa = 'https://wa.me/' + String(this.props.waNumber || '6285284200036').replace(/\D/g, '') + '?text=' + encodeURIComponent('Hi 20FIT Cafe, I added refreshment to venue booking ' + o.code + ' (ref ' + ((res && res.addendum_code) || '') + '). Please confirm availability.');
+      if (w) w.location.href = wa; else window.open(wa, '_blank', 'noopener');
+    }).catch(e => { if (w) w.close(); this.setState(s => ({ vAddBusy: { ...s.vAddBusy, [o.code]: false } })); this.showToast((e && e.message) || 'Gagal menambah refreshment'); });
+  }
   findOrder() {
     this.setState({ findBusy: true, findMsg: '' });
     API().findOrder(this.state.findCode, this.state.findPhone).then(res => {
@@ -342,6 +358,8 @@ class Component extends DCLogic {
     const paid = !venue && o.payment_status === 'paid';
     const stars = key => [1, 2, 3, 4, 5].map(n => ({ pick: () => this.rateOrder(o, key, n), style: { all: 'unset', cursor: 'pointer', fontSize: 20, lineHeight: 1, color: n <= (r[key] || 0) ? '#e30a2e' : 'rgba(13,13,13,.18)' } }));
     const flash = this.state.hFlash[o.code] && Date.now() - this.state.hFlash[o.code] < 2000;
+    const addCart = this.state.vAdd[o.code] || {}, addCount = Object.values(addCart).reduce((a, n) => a + n, 0), addBusy = !!this.state.vAddBusy[o.code];
+    const addSub = Object.keys(addCart).reduce((a, id) => { const mm = this.byId(id); return a + (mm ? mm.price : 0) * (addCart[id] || 0); }, 0);
     const price = venue ? [] : [['Subtotal', o.subtotal], ['Service', o.service_charge], ['PB1', o.ppn], ['Delivery', o.delivery_fee]].filter(([k, v]) => k === 'Subtotal' || Number(v) > 0).map(([k, v]) => ({ k, v: rp(v) }));
     return {
       code: o.code, kind: venue ? 'Venue' : A.KIND[o.type], dateFmt: A.dateTime(o.created_at), pill: st.pill, pillStyle: A.pillStyle(st), sub: st.sub, hasSub: !!st.sub,
@@ -369,9 +387,13 @@ class Component extends DCLogic {
       venueNote: venue ? (o.can_add ? 'Mau tambah refreshment? Chat kami di WhatsApp — tambahan dikonfirmasi barista dulu.' : o.status === 'new' ? 'The cafe will contact you on WhatsApp to confirm your booking.' : o.status === 'confirmed' ? 'Your venue booking is confirmed. See you there!' : '') : '',
       venueWa: venue && o.is_open !== false,
       venueWaLabel: venue && o.can_add ? 'Tambah refreshment via WhatsApp' : 'Chat WhatsApp',
-      venueWaUrl: venue ? 'https://wa.me/' + String(this.props.waNumber ?? '6285284200036').replace(/\D/g, '') + '?text=' + encodeURIComponent(o.can_add
-        ? 'Hi 20FIT Cafe, I would like to ADD refreshment to my venue booking ' + o.code + ' (' + A.dayLabel(o.event_date) + '). Items: '
-        : 'Hi 20FIT Cafe, about my venue booking ' + o.code + ' (' + A.dayLabel(o.event_date) + ', ' + (o.guests || 0) + ' guests).') : '',
+      venueWaUrl: venue ? 'https://wa.me/' + String(this.props.waNumber ?? '6285284200036').replace(/\D/g, '') + '?text=' + encodeURIComponent('Hi 20FIT Cafe, about my venue booking ' + o.code + ' (' + A.dayLabel(o.event_date) + ', ' + (o.guests || 0) + ' guests).') : '',
+      canAddRefresh: venue && !!o.can_add,
+      addMenu: (venue && o.can_add) ? this.menuAll().filter(m => m.available !== false).map(m => ({ name: m.name, priceFmt: rp(m.price), qty: addCart[m.id] || 0, inc: () => this.vAddInc(o.code, m.id), dec: () => this.vAddDec(o.code, m.id), rowStyle: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(13,13,13,.06)' } })) : [],
+      addSubFmt: rp(addSub),
+      addSubmit: () => this.vAddSubmit(o),
+      addBtnLabel: addBusy ? 'Mengirim…' : addCount > 0 ? 'Kirim tambahan · ' + rp(addSub) : 'Pilih item dulu',
+      addBtnStyle: { all: 'unset', boxSizing: 'border-box', width: '100%', cursor: (addCount > 0 && !addBusy) ? 'pointer' : 'not-allowed', textAlign: 'center', padding: 11, borderRadius: 999, background: (addCount > 0 && !addBusy) ? '#0d0d0d' : '#c9c7c2', color: '#fff', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: '.04em', textTransform: 'uppercase' },
       price, hasPrice: price.length > 0,
       timeline: (o.timeline || []).map(t => ({ text: A.status({ ...o, status: t.to }).pill + ' · ' + A.time(t.at) + (t.by ? ' · ' + t.by : '') })), hasTimeline: !!(o.timeline && o.timeline.length),
       showQr: !venue && o.type === 'dine_in' && o.status === 'booked', qr: !venue && o.type === 'dine_in' && o.status === 'booked' && open ? React.createElement('div', { style: { width: 140, height: 140 }, dangerouslySetInnerHTML: { __html: A.qrSvg(o.code, 140) } }) : null,
