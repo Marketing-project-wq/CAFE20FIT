@@ -345,21 +345,33 @@ class Component extends DCLogic {
     const price = venue ? [] : [['Subtotal', o.subtotal], ['Service', o.service_charge], ['PB1', o.ppn], ['Delivery', o.delivery_fee]].filter(([k, v]) => k === 'Subtotal' || Number(v) > 0).map(([k, v]) => ({ k, v: rp(v) }));
     return {
       code: o.code, kind: venue ? 'Venue' : A.KIND[o.type], dateFmt: A.dateTime(o.created_at), pill: st.pill, pillStyle: A.pillStyle(st), sub: st.sub, hasSub: !!st.sub,
-      summary: venue ? (o.package === 'with_refreshments' ? 'With refreshments' : 'Venue only') + ' · est. ' + rp(o.est_price) : (o.items || []).map(i => i.qty + '× ' + i.name).join(', ') || 'No menu items',
-      method: venue ? 'WhatsApp' : A.methodLabel(o.payment_method), totalFmt: venue ? '' : rp(o.total),
+      summary: venue ? (o.package === 'with_refreshments' ? 'With refreshments' : 'Venue only') + (Number(o.total) > 0 ? ' · ' + rp(o.total) : ' · est. ' + rp(o.est_price)) : (o.items || []).map(i => i.qty + '× ' + i.name).join(', ') || 'No menu items',
+      method: venue ? (o.payment_status === 'paid' ? 'Paid' : 'Pay at cafe') : A.methodLabel(o.payment_method), totalFmt: venue ? (Number(o.total) > 0 ? rp(o.total) : '') : rp(o.total),
       cardStyle: { display: 'flex', flexDirection: 'column', gap: 12, padding: 20, borderRadius: 24, background: active ? '#fff' : 'rgba(255,255,255,.75)', border: active ? '2px solid #0d0d0d' : '1px solid rgba(255,255,255,.95)', boxShadow: active ? '0 16px 40px rgba(13,13,13,.10)' : 'inset 0 1px 0 #fff, 0 10px 30px rgba(13,13,13,.05)', animation: flash ? 'cafeFlash 1s ease 1' : 'none' },
       toggle: () => this.setState(s => ({ hOpen: { ...s.hOpen, [o.code]: !s.hOpen[o.code] } })), isOpen: open, moreLabel: open ? 'Hide details' : 'Details',
       // Venue requests: show the request itself (it has no menu items, prices or payment timeline)
-      lines: venue ? [
-        ['Event', String(o.event_type || '-').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())],
-        ['Date', A.dayLabel(o.event_date)],
-        ['Session', A.SESSION[String(o.session || '').toLowerCase()] || o.session || '-'],
-        ['Guests', (o.guests || 0) + ' people'],
-        ['Package', o.package === 'with_refreshments' ? 'With refreshments' : 'Venue only'],
-        ['Estimated price', rp(o.est_price)]
-      ].map(([label, value]) => ({ label, opts: '', value })) : (o.items || []).map(i => ({ label: i.qty + '× ' + i.name, opts: A.optionsText(i.options), value: rp(i.subtotal) })),
-      venueNote: venue ? (o.status === 'new' ? 'The cafe will contact you on WhatsApp to confirm your booking.' : o.status === 'confirmed' ? 'Your venue booking is confirmed. See you there!' : '') : '',
-      venueWa: venue && o.is_open !== false, venueWaUrl: venue ? 'https://wa.me/' + String(this.props.waNumber ?? '6285284200036').replace(/\D/g, '') + '?text=' + encodeURIComponent('Hi 20FIT Cafe, about my venue booking ' + o.code + ' (' + A.dayLabel(o.event_date) + ', ' + (o.guests || 0) + ' guests).') : '',
+      lines: venue ? (function () {
+        var hm = t => (t ? String(t).slice(0, 5) : '-');
+        var addSt = s => ({ pending_confirmation: 'menunggu', accepted: 'diterima', rejected: 'ditolak', cancelled_by_user: 'dibatalkan' })[s] || s;
+        var L = [
+          ['Event', String(o.event_type || '-').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())],
+          ['Date', A.dayLabel(o.event_date)],
+          ['Time', hm(o.start_time) + '–' + hm(o.end_time)],
+          ['Guests', (o.guests || 0) + ' people'],
+          ['Package', o.package === 'with_refreshments' ? 'With refreshments' : 'Venue only']
+        ];
+        if (o.serve_time) L.push(['Serving time', hm(o.serve_time)]);
+        (o.items || []).forEach(i => L.push([i.qty + '× ' + i.name, rp(i.subtotal)]));
+        (o.addendums || []).forEach(a => L.push(['+ ' + a.code + ' (' + addSt(a.status) + ')', rp(a.subtotal)]));
+        L.push([Number(o.total) > 0 ? 'Total' : 'Estimated price', rp(Number(o.total) > 0 ? o.total : o.est_price)]);
+        return L.map(([label, value]) => ({ label, opts: '', value }));
+      })() : (o.items || []).map(i => ({ label: i.qty + '× ' + i.name, opts: A.optionsText(i.options), value: rp(i.subtotal) })),
+      venueNote: venue ? (o.can_add ? 'Mau tambah refreshment? Chat kami di WhatsApp — tambahan dikonfirmasi barista dulu.' : o.status === 'new' ? 'The cafe will contact you on WhatsApp to confirm your booking.' : o.status === 'confirmed' ? 'Your venue booking is confirmed. See you there!' : '') : '',
+      venueWa: venue && o.is_open !== false,
+      venueWaLabel: venue && o.can_add ? 'Tambah refreshment via WhatsApp' : 'Chat WhatsApp',
+      venueWaUrl: venue ? 'https://wa.me/' + String(this.props.waNumber ?? '6285284200036').replace(/\D/g, '') + '?text=' + encodeURIComponent(o.can_add
+        ? 'Hi 20FIT Cafe, I would like to ADD refreshment to my venue booking ' + o.code + ' (' + A.dayLabel(o.event_date) + '). Items: '
+        : 'Hi 20FIT Cafe, about my venue booking ' + o.code + ' (' + A.dayLabel(o.event_date) + ', ' + (o.guests || 0) + ' guests).') : '',
       price, hasPrice: price.length > 0,
       timeline: (o.timeline || []).map(t => ({ text: A.status({ ...o, status: t.to }).pill + ' · ' + A.time(t.at) + (t.by ? ' · ' + t.by : '') })), hasTimeline: !!(o.timeline && o.timeline.length),
       showQr: !venue && o.type === 'dine_in' && o.status === 'booked', qr: !venue && o.type === 'dine_in' && o.status === 'booked' && open ? React.createElement('div', { style: { width: 140, height: 140 }, dangerouslySetInnerHTML: { __html: A.qrSvg(o.code, 140) } }) : null,

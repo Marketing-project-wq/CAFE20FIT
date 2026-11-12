@@ -90,6 +90,9 @@
   function card(code, token, cardToken, authId) { return payApi('/card', { code: code, token: token || tokenFor(code), card_token: cardToken, authentication_id: authId }); }
   // Asks Xendit and settles the order when it is paid; then getOrder() shows the new status.
   function payStatus(code, token) { return payApi('/pay/status?code=' + encodeURIComponent(code) + '&token=' + encodeURIComponent(token || tokenFor(code) || '')); }
+  function addVenueRefreshment(code, token, items) {
+    return rpc('cafe_venue_add_refreshment', { p: { code: code, token: token || tokenFor(code), items: items || [] } });
+  }
   function createVenue(p) {
     return rpc('cafe_create_venue_booking', { p: p }).then(function (res) {
       addRef({ code: res.code, token: res.access_token, kind: 'venue' });
@@ -211,7 +214,7 @@
     rpc: rpc, on: on, emit: emit,
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
-    createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, getOrder: getOrder, getMyOrders: getMyOrders,
+    createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, addVenueRefreshment: addVenueRefreshment, getOrder: getOrder, getMyOrders: getMyOrders,
     findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, checkVoucher: checkVoucher, cancelMyOrder: cancelMyOrder, watch: watch,
     rp: rp, time: time, dateTime: dateTime, dayLabel: dayLabel, ymd: ymd, optionsText: optionsText,
     KIND: KIND, methodLabel: methodLabel, SESSION: SESSION, status: status, pillStyle: pillStyle, trackSteps: trackSteps, qrSvg: qrSvg
