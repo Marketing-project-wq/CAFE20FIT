@@ -40,6 +40,8 @@ const hexToRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const mixRgb = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
 // Story layout: horizontal pinned day on wide screens; vertical list on phones or with reduced motion
 const storyFlat = () => !!(window.matchMedia && window.matchMedia('(max-width: 767px), (prefers-reduced-motion: reduce)').matches);
+// Phone width only: the day section falls back to a vertical scroll list here; wider screens auto-advance the carousel.
+const dayMobile = () => !!(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
 const isCut = src => /^data:|\.png($|\?)/i.test(src);
 
 class Component extends DCLogic {
@@ -76,22 +78,28 @@ class Component extends DCLogic {
       const r = pol.getBoundingClientRect(), pr = reduceMotionNow() ? 1 : clamp01((innerHeight - r.top) / (innerHeight * 0.85));
       [...pol.children].forEach((c, i) => { const d = i - 1; c.style.transform = 'translateX(' + (d * (1 - pr) * 38) + '%) rotate(' + (d * (4 + 10 * (1 - pr))) + 'deg) translateY(' + (Math.abs(d) * 14 * pr) + 'px)'; });
     }
-    // CH 03
+    // CH 03 — on phones this is a vertical list driven by scroll (active = the stop nearest the screen's middle);
+    // on wider screens it is a self-running carousel (see dayAutoTick), so scrolling is no longer needed to advance it.
     const el = this.day.current, stage = this.dayStage.current, track = this.dayTrack.current; if (!el || !stage || !track || !n) return;
-    let pos;
-    if (!storyFlat()) {
-      const r = el.getBoundingClientRect(), total = Math.max(1, el.offsetHeight - innerHeight), p = clamp01(-r.top / total / 0.9);   // the last 10% holds the evening stop
-      pos = p * (n - 1);
+    if (dayMobile()) {
+      let best = 0, bd = 1e9;
+      track.querySelectorAll('[data-stop]').forEach((c, i) => { const r = c.getBoundingClientRect(), d = Math.abs(r.top + r.height / 2 - innerHeight / 2); if (d < bd) { bd = d; best = i; } });
+      track.style.transform = '';
+      this.applyDay(best, true);
+    }
+  }
+  // Apply one point on the day timeline (pos is a float across the stops). flat = vertical phone layout: skip the
+  // horizontal track slide and only move the clock / sky / active stop.
+  applyDay(pos, flat) {
+    const cfg = SC(), stops = cfg.stops, n = stops.length; const stage = this.dayStage.current, track = this.dayTrack.current;
+    if (!stage || !track || !n) return;
+    if (!flat) {
       // card i lands exactly where card 0 starts (left padding) when the day reaches stop i
       const cards = track.querySelectorAll('[data-stop]'), ci = Math.min(n - 2, Math.floor(pos)), cf = pos - ci;
       const x0 = cards[0] ? cards[0].offsetLeft : 0, xa = cards[Math.max(0, ci)] ? cards[Math.max(0, ci)].offsetLeft : 0, xb = cards[ci + 1] ? cards[ci + 1].offsetLeft : xa;
-      const mv = cf < 0.3 ? 0 : cf > 0.7 ? 1 : (1 - Math.cos((cf - 0.3) / 0.4 * Math.PI)) / 2;   // each card dwells at its stop, moves in between
+      const mv = cf < 0.3 ? 0 : cf > 0.7 ? 1 : (1 - Math.cos((cf - 0.3) / 0.4 * Math.PI)) / 2;
       track.style.transform = 'translate3d(' + (-(xa + (xb - xa) * mv - x0)) + 'px,0,0)';
-      track.style.setProperty('--dp', p.toFixed(4));
-    } else {   // vertical: the stop closest to the middle of the screen
-      let best = 0, bd = 1e9;
-      track.querySelectorAll('[data-stop]').forEach((c, i) => { const r = c.getBoundingClientRect(), d = Math.abs(r.top + r.height / 2 - innerHeight / 2); if (d < bd) { bd = d; best = i; } });
-      pos = best; track.style.transform = '';
+      track.style.setProperty('--dp', (n > 1 ? pos / (n - 1) : 0).toFixed(4));
     }
     const i = Math.min(n - 2, Math.floor(pos)), f = pos - i, a = stops[Math.max(0, i)], b = stops[Math.min(n - 1, i + 1)] || a;
     const hour = a.hour + (b.hour - a.hour) * (n > 1 ? f : 0);
@@ -107,6 +115,31 @@ class Component extends DCLogic {
     const dark = (c[0] * 0.3 + c[1] * 0.59 + c[2] * 0.11) < 110;
     if (stage.dataset.dark !== String(dark)) stage.dataset.dark = String(dark);
     const di = Math.round(pos); if (di !== this.state.dayI) this.setState({ dayI: di });
+  }
+  // The day carousel runs itself on wider screens: each stop dwells, then eases to the next, and the loop snaps back
+  // to the start after the evening stop. It pauses while an overlay is open, the tab is hidden, or the pointer hovers
+  // the section (so people can read), and it leaves the phone layout (scroll-driven vertical list) untouched.
+  dayAutoTick(now) {
+    const dt = now - (this._dayPrev || now); this._dayPrev = now;
+    const el = this.day.current; if (!el) return;
+    if (dayMobile()) { this._dayAcc = 0; this._dayMode = 'hold'; this._dayFrom = 0; return; }
+    const r = el.getBoundingClientRect(), inView = r.top < innerHeight * 0.85 && r.bottom > innerHeight * 0.15;
+    if (!inView || this._dayPaused || this.overlayOpen() || document.visibilityState !== 'visible') return;
+    const n = SC().stops.length; if (n < 2) { this.applyDay(0, false); return; }
+    const DWELL = 3000, SLIDE = reduceMotionNow() ? 1 : 950;
+    this._dayAcc = (this._dayAcc || 0) + dt;
+    if (this._dayMode === 'move') {
+      const t = clamp01(this._dayAcc / SLIDE), e = (1 - Math.cos(t * Math.PI)) / 2;
+      this.applyDay((this._dayFrom || 0) + e, false);
+      if (this._dayAcc >= SLIDE) { this._dayFrom = this._dayTo; this._dayMode = 'hold'; this._dayAcc = 0; }
+    } else {
+      this.applyDay(this._dayFrom || 0, false);
+      if (this._dayAcc >= DWELL) {
+        this._dayAcc = 0;
+        if ((this._dayFrom || 0) >= n - 1) { this._dayFrom = 0; this.applyDay(0, false); }   // loop: snap back to the morning
+        else { this._dayTo = (this._dayFrom || 0) + 1; this._dayMode = 'move'; }
+      }
+    }
   }
   // '+ Add' from the story: same cart as the menu, with the product thumbnail flying to the cart bar
   storyAdd(m, chapter, e) {
@@ -308,6 +341,10 @@ class Component extends DCLogic {
     this._sraf = 0; this._story = () => { if (this._sraf) return; this._sraf = requestAnimationFrame(() => { this._sraf = 0; this.storyTick(); }); };
     window.addEventListener('scroll', this._story, { passive: true }); window.addEventListener('resize', this._story);
     setTimeout(() => { this._chs = SC().chapters.filter(c => document.getElementById(c.el)); this.storyTick(); }, 600);
+    // CH 03 day carousel auto-advance (wider screens) — pauses while the pointer is over the section
+    this._dayFrom = 0; this._dayTo = 0; this._dayAcc = 0; this._dayMode = 'hold'; this._dayPrev = 0; this._dayPaused = false;
+    setTimeout(() => { const de = this.day.current; if (de) { de.addEventListener('pointerenter', () => { this._dayPaused = true; }); de.addEventListener('pointerleave', () => { this._dayPaused = false; }); } }, 600);
+    this._dayTimer = setInterval(() => { try { this.dayAutoTick(performance.now()); } catch (e) {} }, 33);
     this._key = e => { if (!this.state.sel) return; if (e.key === 'Escape') this.setState({ sel: null }); if (e.key === 'ArrowRight') this.step(1); if (e.key === 'ArrowLeft') this.step(-1); };
     window.addEventListener('keydown', this._key);
     const loop = () => {
@@ -449,15 +486,11 @@ class Component extends DCLogic {
       // CH 05 — Made with care
       careWords: (() => { const C = cfg.care || { headline: '', headlineRed: '' }; return String(C.headline).split(' ').map(w => ({ w, style: { opacity: 0.15, color: 'inherit', transition: 'opacity .25s linear' } }))
         .concat(String(C.headlineRed).split(' ').map(w => ({ w, style: { opacity: 0.15, color: '#e30a2e', transition: 'opacity .25s linear' } }))); })(),
-      pillars: ((cfg.care || {}).pillars || []).map((pl, i) => { const m = this.byName(String(pl.photo).toLowerCase()), on = !!this.state.careIn;
-        return { need: pl.need, line: pl.line, src: this.src((m ? m.imgs : photosFor({ name: String(pl.photo).toLowerCase() }))[0]), pick: needLabel === pl.need,
-          see: () => { const cats = new Set(this.menuAll().map(x => x.cat)); this.setState({ full: true, hist: false, sel: null, tab: cats.has(pl.category) ? pl.category : 'All' }); },
-          style: { display: 'flex', flexDirection: 'column', gap: 12, padding: 16, borderRadius: 28, background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(26px) saturate(170%)', WebkitBackdropFilter: 'blur(26px) saturate(170%)', border: '1px solid rgba(255,255,255,.9)', boxShadow: needLabel === pl.need ? '0 0 0 2px #e30a2e, 0 24px 60px rgba(227,10,46,.16)' : 'inset 0 1px 0 #fff, 0 20px 50px rgba(13,13,13,.08)',
-            opacity: on ? 1 : 0, transform: on ? 'none' : 'translateY(48px)', transition: 'opacity .7s ease ' + (i * 140) + 'ms, transform .8s cubic-bezier(.2,.8,.2,1) ' + (i * 140) + 'ms' } }; }),
+      pillars: [],   // drink pillar cards removed — the care section now focuses on the autoplay video
       igPol: IG_POSTS.map((id, k) => ({ embed: 'https://www.instagram.com/' + id + '/embed/', poster: IG_PH,
         loaded: () => !(this.state.polOk || {})[k] && this.setState(s => ({ polOk: { ...(s.polOk || {}), [k]: true } })),
         frameStyle: { position: 'absolute', border: 0, opacity: (this.state.polOk || {})[k] ? 1 : 0, transition: 'opacity .6s', pointerEvents: 'none', ...IG_CROP[id.split('/')[0]] } })),
-      careVidRef: this.careVid, careVidSrc: '',
+      careVidRef: this.careVid, careVidSrc: (cfg.care || {}).video || '',
       cSoundLabel: this.state.cSound ? '🔊 Mute' : '🔇 Sound on',
       cToggle: e => { if (e && e.stopPropagation) e.stopPropagation(); const v = this.careVid.current; if (!v) return; const on = !this.state.cSound; v.muted = !on; if (on && this.cVidLive()) v.play().catch(() => {}); this.setState({ cSound: on, cUserMuted: !on }); },
       showMusic: false,
