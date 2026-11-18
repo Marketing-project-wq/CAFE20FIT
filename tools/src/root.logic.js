@@ -558,10 +558,7 @@ class Component extends DCLogic {
       showFull: this.state.full, openFull: () => this.setState({ full: true, hist: false }), closeFull: () => this.setState({ full: false }),
       showHist: this.state.hist, closeHist: () => this.setState({ hist: false }),
       sub: this.state.sub || 'table',
-      orderModes: [['Dine-in', 'dine'], ['Takeaway', 'take']].map(([label, mode]) => {
-        const on = this.state.mode === mode;
-        return { label, pick: () => this.setState({ mode }), style: { all: 'unset', cursor: 'pointer', padding: '9px 16px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 16, letterSpacing: '.03em', textTransform: 'uppercase', background: on ? '#e30a2e' : 'transparent', color: on ? '#fff' : '#3a3a3a' } };
-      }),
+      orderModes: [],   // cafe is Grab & Go + Book Venue only — no dine-in / takeaway service toggle
       hLoading: this.state.hLoading && !H.length, hError: !!this.state.hErr && !H.length, retryHist: () => this.refreshHist(true),
       noOrders: !this.state.hLoading && !this.state.hErr && this.state.hList !== null && H.length === 0,
       hasActive: H.some(o => o.is_open), hasPast: H.some(o => !o.is_open),
@@ -581,9 +578,8 @@ class Component extends DCLogic {
         style: { all: 'unset', cursor: 'pointer', padding: '9px 18px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '.03em', textTransform: 'uppercase',
           background: t === tab ? '#e30a2e' : 'transparent', color: t === tab ? '#fff' : '#3a3a3a', transition: 'background .2s' } })),
       mode: this.state.mode || null,
-      modeLabel: ({ dine: 'Dine-in · ', take: 'Takeaway · ' })[this.state.mode] || '',
-      pickDine: () => this.setState({ mode: 'dine', checkout: true, sel: null, full: false }),
-      pickTake: () => this.setState({ mode: 'take', checkout: true, sel: null, full: false }),
+      modeLabel: '',   // Grab & Go has no sub-mode label
+      pickGrab: () => this.setState({ mode: 'grab', checkout: true, sel: null, full: false }),
       pickVenue: () => this.setState({ mode: 'venue', checkout: true, sel: null, full: false }),
       railRef: this.rail, scrollPrev: () => this.scrollRail(-1), scrollNext: () => this.scrollRail(1),
       hasCart: !this.state.checkout && Object.keys(this.state.cart).length > 0,
