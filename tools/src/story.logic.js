@@ -76,17 +76,12 @@ class Component extends DCLogic {
     renderer.domElement.style.opacity = '0'; renderer.domElement.style.transition = 'opacity .7s ease';
     el.appendChild(renderer.domElement);
     const cvs = renderer.domElement; cvs.style.touchAction = 'pan-y'; cvs.style.cursor = 'grab';
-    // Drag spins the cup; hovering the cup (mouse) or tapping it (touch) pours the next drink.
+    // Drag spins the cup only. Changing the drink is done with the ‹ › buttons, scroll/trackpad, arrow keys
+    // (or a short tap on the cup, touch only) — never by hovering or swipe-dragging, so rotating never swaps the drink.
     const onCup = e => this._hitCup ? this._hitCup(e.clientX, e.clientY) : false;
     cvs.addEventListener('pointerdown', e => { this.drag = { x: e.clientX, x0: e.clientX, y0: e.clientY, t0: performance.now(), id: e.pointerId }; this.spinV = 0; cvs.style.cursor = 'grabbing'; try { cvs.setPointerCapture(e.pointerId); } catch (err) {} });
     cvs.addEventListener('pointermove', e => {
-      if (!this.drag) {
-        if (e.pointerType !== 'mouse') return;
-        const over = onCup(e);
-        if (over && !this.hoverCup) this.swapDrink(1);
-        this.hoverCup = over;
-        return;
-      }
+      if (!this.drag) return;                       // hovering the cup no longer changes the drink
       if (e.pointerId !== this.drag.id) return;
       const dx = e.clientX - this.drag.x; this.drag.x = e.clientX; const v = dx * 0.011; this.spin += v; this.spinV = v;
     });
@@ -104,9 +99,8 @@ class Component extends DCLogic {
       const d = this.drag; this.drag = null; cvs.style.cursor = 'grab';
       if (!d || !e || e.type !== 'pointerup') return;
       const dx = e.clientX - d.x0, dy = e.clientY - d.y0;
-      // touch: a deliberate horizontal swipe on the last step changes the drink (swipe left = next, right = prev)
-      if (e.pointerType !== 'mouse' && this.full && Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.3) { this.swapDrink(dx < 0 ? 1 : -1); return; }
-      // touch: a short tap on the cup -> next drink
+      // touch: a horizontal drag spins the cup (handled on pointermove) — it must NOT change the drink.
+      // touch: a short tap on the cup -> next drink (a tap is distinct from a drag/rotate)
       if (e.pointerType !== 'mouse' && Math.hypot(dx, dy) < 10 && performance.now() - d.t0 < 400 && onCup(e)) this.swapDrink(1);
     };
     cvs.addEventListener('pointerup', endDrag); cvs.addEventListener('pointercancel', endDrag);
@@ -648,7 +642,7 @@ class Component extends DCLogic {
       noGL: !!this.state.noGL,
       fbStyle: (() => { const BD = window.StoryBackdrops; if (!BD) return {}; const key = BD.steps[Math.min(4, step)], P = (BD.locations[key] || {}).paint || { sky: ['#333', '#111'] }, mob = window.innerWidth < 768 ? '-mobile' : '';
         return { position: 'absolute', inset: 0, backgroundImage: 'url("' + BD.dir + key + '-far' + mob + '.webp"), linear-gradient(180deg,' + P.sky.join(',') + ')', backgroundSize: 'cover', backgroundPosition: 'center', transition: 'background-image .3s' }; })(),
-      spinHint: this.canHover ? 'Scroll or use ‹ › to change drink' : 'Swipe or tap to change drink', locLabel: this.state.locLabel || '', hasLoc: !!this.state.locLabel,
+      spinHint: this.canHover ? 'Scroll or use ‹ › to change drink' : 'Tap or use ‹ › to change drink', locLabel: this.state.locLabel || '', hasLoc: !!this.state.locLabel,
       prevDrink: () => this.swapDrink(-1), nextDrink: () => this.swapDrink(1)
     };
   }
