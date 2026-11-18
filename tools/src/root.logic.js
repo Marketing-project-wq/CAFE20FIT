@@ -81,12 +81,18 @@ class Component extends DCLogic {
     // CH 03 — on phones this is a vertical list driven by scroll (active = the stop nearest the screen's middle);
     // on wider screens it is a self-running carousel (see dayAutoTick), so scrolling is no longer needed to advance it.
     const el = this.day.current, stage = this.dayStage.current, track = this.dayTrack.current; if (!el || !stage || !track || !n) return;
-    if (dayMobile()) {
-      let best = 0, bd = 1e9;
-      track.querySelectorAll('[data-stop]').forEach((c, i) => { const r = c.getBoundingClientRect(), d = Math.abs(r.top + r.height / 2 - innerHeight / 2); if (d < bd) { bd = d; best = i; } });
-      track.style.transform = '';
-      this.applyDay(best, true);
-    }
+    if (dayMobile()) { this.dayMobileActive(); }
+  }
+  // Phone day carousel: native horizontal scroll drives position; the active stop is the card nearest the track's
+  // horizontal centre. Keeps the clock / sky / chip / active index in sync with the swipe.
+  dayMobileActive() {
+    const track = this.dayTrack.current; if (!track) return;
+    const cards = track.querySelectorAll('[data-stop]'); if (!cards.length) return;
+    track.style.transform = '';               // native horizontal scroll positions the row on phones
+    const cx = track.scrollLeft + track.clientWidth / 2;
+    let best = 0, bd = 1e9;
+    cards.forEach((c, i) => { const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - cx); if (d < bd) { bd = d; best = i; } });
+    this.applyDay(best, true);
   }
   // Apply one point on the day timeline (pos is a float across the stops). flat = vertical phone layout: skip the
   // horizontal track slide and only move the clock / sky / active stop.
@@ -344,6 +350,8 @@ class Component extends DCLogic {
     // CH 03 day carousel auto-advance (wider screens) — pauses while the pointer is over the section
     this._dayFrom = 0; this._dayTo = 0; this._dayAcc = 0; this._dayMode = 'hold'; this._dayPrev = 0; this._dayPaused = false;
     setTimeout(() => { const de = this.day.current; if (de) { de.addEventListener('pointerenter', () => { this._dayPaused = true; }); de.addEventListener('pointerleave', () => { this._dayPaused = false; }); } }, 600);
+    // phones: the day timeline is a horizontal swipe carousel — keep the clock / sky / active stop in sync with its scroll
+    setTimeout(() => { const dt = this.dayTrack.current; if (dt) { this._dayScroll = () => { if (!dayMobile() || this._dayScrollRaf) return; this._dayScrollRaf = requestAnimationFrame(() => { this._dayScrollRaf = 0; this.dayMobileActive(); }); }; dt.addEventListener('scroll', this._dayScroll, { passive: true }); } }, 600);
     this._dayTimer = setInterval(() => { try { this.dayAutoTick(performance.now()); } catch (e) {} }, 33);
     this._key = e => { if (!this.state.sel) return; if (e.key === 'Escape') this.setState({ sel: null }); if (e.key === 'ArrowRight') this.step(1); if (e.key === 'ArrowLeft') this.step(-1); };
     window.addEventListener('keydown', this._key);
