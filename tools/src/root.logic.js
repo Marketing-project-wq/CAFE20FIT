@@ -94,6 +94,12 @@ class Component extends DCLogic {
     cards.forEach((c, i) => { const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - cx); if (d < bd) { bd = d; best = i; } });
     this.applyDay(best, true);
   }
+  // Tap a position dot (phones): scroll the carousel so that stop snaps into view.
+  scrollDayTo(i) {
+    const track = this.dayTrack.current; if (!track) return;
+    const c = track.querySelectorAll('[data-stop]')[i]; if (!c) return;
+    track.scrollTo({ left: Math.max(0, c.offsetLeft - 16), behavior: 'smooth' });
+  }
   // Apply one point on the day timeline (pos is a float across the stops). flat = vertical phone layout: skip the
   // horizontal track slide and only move the clock / sky / active stop.
   applyDay(pos, flat) {
@@ -476,6 +482,10 @@ class Component extends DCLogic {
       }),
       dayCartText: cartN ? cartN + ' in your cup · ' + rp(cartSum) : 'Your cup is empty',
       dayCartOn: cartN > 0, openCart: () => cartN && this.setState(s => ({ checkout: true, sel: null, full: false, mode: s.mode === 'venue' ? null : s.mode })),
+      // CH 03 position dots — shown on phones (where the desktop clock is hidden); active follows the swipe carousel.
+      dayDots: (cfg.stops || []).map((st, i) => { const on = i === (this.state.dayI || 0);
+        return { label: 'Go to ' + (st.time || ('stop ' + (i + 1))), go: () => this.scrollDayTo(i),
+          style: { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', width: on ? 22 : 8, height: 8, borderRadius: 999, background: on ? '#e30a2e' : 'rgba(140,140,140,.55)', transition: 'width .3s, background .3s' } }; }),
       // CH 04 — Find your fuel
       quizQ: (() => { const Q = cfg.quiz, i = this.state.qi || 0; if (!Q || i >= Q.questions.length) return null; return Q.questions[i]; })() ? 1 : 0,
       quizIsQ: !!(cfg.quiz && (this.state.qi || 0) < cfg.quiz.questions.length), quizIsResult: !!(cfg.quiz && (this.state.qi || 0) >= cfg.quiz.questions.length),
@@ -558,10 +568,6 @@ class Component extends DCLogic {
       showFull: this.state.full, openFull: () => this.setState({ full: true, hist: false }), closeFull: () => this.setState({ full: false }),
       showHist: this.state.hist, closeHist: () => this.setState({ hist: false }),
       sub: this.state.sub || 'table',
-      orderModes: [['Dine-in', 'dine'], ['Takeaway', 'take']].map(([label, mode]) => {
-        const on = this.state.mode === mode;
-        return { label, pick: () => this.setState({ mode }), style: { all: 'unset', cursor: 'pointer', padding: '9px 16px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 16, letterSpacing: '.03em', textTransform: 'uppercase', background: on ? '#e30a2e' : 'transparent', color: on ? '#fff' : '#3a3a3a' } };
-      }),
       hLoading: this.state.hLoading && !H.length, hError: !!this.state.hErr && !H.length, retryHist: () => this.refreshHist(true),
       noOrders: !this.state.hLoading && !this.state.hErr && this.state.hList !== null && H.length === 0,
       hasActive: H.some(o => o.is_open), hasPast: H.some(o => !o.is_open),
@@ -582,8 +588,8 @@ class Component extends DCLogic {
           background: t === tab ? '#e30a2e' : 'transparent', color: t === tab ? '#fff' : '#3a3a3a', transition: 'background .2s' } })),
       mode: this.state.mode || null,
       modeLabel: ({ dine: 'Dine-in · ', take: 'Takeaway · ' })[this.state.mode] || '',
-      pickDine: () => this.setState({ mode: 'dine', checkout: true, sel: null, full: false }),
-      pickTake: () => this.setState({ mode: 'take', checkout: true, sel: null, full: false }),
+      // Cafe is Grab & Go + Book Venue only. "Order" always opens the Grab & Go flow (checkout maps it to mode 'grab').
+      pickGrab: () => this.setState({ mode: 'grab', checkout: true, sel: null, full: false }),
       pickVenue: () => this.setState({ mode: 'venue', checkout: true, sel: null, full: false }),
       railRef: this.rail, scrollPrev: () => this.scrollRail(-1), scrollNext: () => this.scrollRail(1),
       hasCart: !this.state.checkout && Object.keys(this.state.cart).length > 0,

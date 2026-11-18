@@ -166,6 +166,8 @@
       return { pill: 'Waiting payment', sub: 'Not paid yet · it updates automatically once your payment goes through', tone: 'amber' };
     }
     if (s === 'cancelled') return { pill: 'Cancelled', sub: [o.cancel_reason, o.payment_status === 'refunded' ? 'Refunded' : ''].filter(Boolean).join(' · '), tone: 'grey' };
+    // DEPRECATED: Dine-in (table reservation) is retired — no new dine_in orders are created. Kept so existing/old
+    // dine_in orders still render correctly in Purchase History. Do not add new dine_in UI.
     if (t === 'dine_in') {
       if (s === 'booked') return { pill: 'Booked', sub: 'Table for ' + o.pax + ' · ' + dayLabel(o.reservation_date) + ' ' + (o.reservation_slot || '') + ' · Check in at the barista counter with your QR / booking code', tone: 'dark' };
       if (s === 'checked_in') return { pill: 'Checked in', sub: 'Checked in at ' + time(o.checked_in_at) + (o.checked_in_by ? ' by ' + o.checked_in_by : ''), tone: 'green' };
