@@ -760,6 +760,9 @@ class Component extends DCLogic {
     this._lpAt = 0;
     this._lp = setInterval(() => { const waiting = PAYING_STEPS.includes(this.state.step) && !this.state.threeDs; if (waiting || Date.now() - this._lpAt > 20000) this.fetchLive(); }, 4000);  // fast while waiting for the cafe
     this._vis = () => { if (document.visibilityState === 'visible') this.fetchLive(); }; document.addEventListener('visibilitychange', this._vis);
+    // 1s tick so the Grab & Go "sisa waktu konfirmasi" countdown stays live while the order waits for the barista
+    clearInterval(this._nowTick);
+    this._nowTick = setInterval(() => { const lv = this.state.live; if (lv && lv.type === 'grab' && lv.status === 'pending_confirmation') this.setState({ now: Date.now() }); }, 1000);
     this.fetchLive();
   }
   // 'Waiting for the cafe' screen: a running timer, and after 45s a WhatsApp nudge to the cafe with the order code
@@ -772,7 +775,7 @@ class Component extends DCLogic {
     const amt = s.live && s.live.total != null ? ' (' + rp(s.live.total) + ')' : '';
     return 'https://wa.me/' + n + '?text=' + encodeURIComponent('Hi 20FIT Cafe, I have paid for order ' + s.code + amt + '. Could you please confirm my payment? Thank you!');
   }
-  stopLive() { this._unwatch && this._unwatch(); this._unwatch = null; clearInterval(this._lp); if (this._vis) document.removeEventListener('visibilitychange', this._vis); }
+  stopLive() { this._unwatch && this._unwatch(); this._unwatch = null; clearInterval(this._lp); clearInterval(this._nowTick); if (this._vis) document.removeEventListener('visibilitychange', this._vis); }
   fetchLive() {
     const { code, token } = this.state; if (!code || !token) return;
     this._lpAt = Date.now();
@@ -838,6 +841,11 @@ class Component extends DCLogic {
     const cartSum = this.cartLines().reduce((a, i) => a + i.price * i.qty, 0);
     const vNameOk = okName(s.name), vPhoneOk = okPhone(s.phone), slotRem = this.remaining(s.slot), slotOk = !!s.slot && (slotRem === null || slotRem >= s.pax);
     const paid = !!live && live.payment_status === 'paid', st = A.status(live);
+    // Grab & Go cancel window: the barista must confirm within grab_confirm_timeout_min of the order being placed;
+    // until then the customer may still cancel. Remaining time comes from config (not hardcoded) + the order's created_at.
+    const grabPending = g && live && live.status === 'pending_confirmation' && live.created_at;
+    const grabLeftSec = grabPending ? Math.max(0, Math.floor((Date.parse(live.created_at) + (Number(cfg.grab_confirm_timeout_min) || 15) * 60000 - (s.now || Date.now())) / 1000)) : 0;
+    const grabLeft = grabPending ? Math.floor(grabLeftSec / 60) + ':' + String(grabLeftSec % 60).padStart(2, '0') : '';
     const titles = { mode: ['Order', 'How would you like it?'], visit: ['Dine-in', 'Reserve your table'], menu: [g ? 'Grab & Go' : (s.mode === 'dine' ? 'Dine-in' : 'Takeaway'), g ? 'Pilih pesananmu' : (s.mode === 'dine' ? 'Order ahead' : 'What would you like?')], confirm: ['Takeaway', 'Confirm order'], venue: ['Book venue', 'Event details'], pay: [g ? 'Grab & Go' : 'Payment', g ? 'Data & kirim order' : 'Confirm & pay'], qr: [method.label, 'Complete your payment'], wait: ['Payment', 'Waiting for confirmation'], va: ['Virtual account', 'Transfer to pay'], ewallet: ['E-wallet', 'Pay with your e-wallet'], card: [s.pay === 'debit' ? 'Debit card' : 'Credit card', 'Pay by card'], done: [g ? 'Grab & Go' : 'Order', g ? 'Status order' : (s.mode === 'venue' ? 'Request sent' : 'Confirmed')] };
     const nameOk = okName(s.name), emailOk = okEmail(s.email), phoneOk = okPhone(s.phone), detailsOk = nameOk && emailOk && phoneOk;
     const qrLeft = s.step === 'qr' ? Math.max(0, Math.ceil((s.qrEnd - (s.now || Date.now())) / 1000)) : QR_SECONDS;
@@ -876,9 +884,9 @@ class Component extends DCLogic {
       isMode: s.step === 'mode', isDeals: s.step === 'deals', isVisit: s.step === 'visit', isMenu: s.step === 'menu', isConfirm: s.step === 'confirm', isVenue: s.step === 'venue', isPay: s.step === 'pay', isQr: s.step === 'qr', isPanel: PANEL_STEPS.includes(s.step), panel: PANEL_STEPS.includes(s.step) ? this.panel(total) : null, isProc: s.step === 'wait', isDone: s.step === 'done',
       isGrab: g, showPay: !g,  // showPay gates the online payment-method section in the pay step
       grabHint: 'Bayar langsung di kasir cafe saat ambil pesanan. Barista akan konfirmasi ordermu dulu.',
-      doneGrab: g, grabPill: st.pill, grabSub: st.sub, grabPillStyle: A.pillStyle(st),
+      doneGrab: g, grabPill: st.pill, grabSub: st.sub + (grabLeft ? ' · Sisa waktu konfirmasi ' + grabLeft : ''), grabPillStyle: A.pillStyle(st),
       grabCode: s.code, grabWaiting: g && (!live || live.status === 'pending_confirmation'),
-      canCancel: g && live && live.status === 'pending_confirmation', cancelOrder: () => this.cancelOrder(),
+      canCancel: g && live && live.status === 'pending_confirmation', cancelLeft: grabLeft, cancelOrder: () => this.cancelOrder(),
       modes: [
         { badge: 'GO', label: 'Grab & Go', desc: 'Pesan sekarang, bayar di kasir saat ambil pesanan', pick: () => this.setState({ mode: 'grab', step: Object.keys(s.cart).length ? 'pay' : 'menu' }) },
         { badge: 'EV', label: 'Book venue', desc: 'Reserve the cafe for your event', pick: () => this.setState({ mode: 'venue', step: 'venue' }) }

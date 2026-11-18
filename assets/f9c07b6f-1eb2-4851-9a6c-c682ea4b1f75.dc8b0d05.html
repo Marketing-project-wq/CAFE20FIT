@@ -132,6 +132,7 @@ class Component extends DCLogic {
     this.dead = true; cancelAnimationFrame(this._raf);
     window.removeEventListener('scroll', this._scroll); window.removeEventListener('mousemove', this._mouse);
     if (this._key) window.removeEventListener('keydown', this._key);
+    if (this._stage && this._wheel) this._stage.removeEventListener('wheel', this._wheel);
     if (this._ro) this._ro.disconnect(); if (this._io3d) this._io3d.disconnect();
     if (this.renderer) { this.renderer.dispose(); this.renderer.domElement.remove(); }
   }
@@ -188,22 +189,38 @@ class Component extends DCLogic {
       if (e.pointerType !== 'mouse' && Math.hypot(dx, dy) < 10 && performance.now() - d.t0 < 400 && onCup(e)) this.swapDrink(1);
     };
     cvs.addEventListener('pointerup', endDrag); cvs.addEventListener('pointercancel', endDrag);
-    // Scroll / trackpad / keyboard also cycle drinks on the last step — same wrap-around as the ‹ › buttons.
-    // Page scroll is never trapped: a vertical wheel only changes the drink while the cursor is over the cup
-    // (move off the cup to scroll on); a horizontal trackpad swipe always changes the drink.
+    // Scroll / trackpad / touch / keyboard also cycle drinks on the final "Fuel" step — same wrap-around (loop) as
+    // the ‹ › buttons. The whole carousel area (the cup + the drink-info pill + its ‹ › buttons) captures the gesture;
+    // scrolling anywhere else over the section lets the page scroll on, so the page is never locked.
+    const stage = (el && el.parentElement) || cvs;   // .fx-studio: the full visible stage (canvas + info pill + buttons)
+    this._stage = stage;
+    this._overCarousel = (x, y, target) => {
+      if (target && target.closest && target.closest('.fx-spin, .fx-spin-in')) return true;   // the drink-info pill + its buttons
+      const cs = this._cupScreen; if (!cs) return false;                                       // a generous zone around the cup
+      return Math.hypot(x - cs.x, y - cs.y) <= cs.r;
+    };
     this._wheel = e => {
-      if (!this.full) return;
+      if (!this.full || !this.onScreen) return;
       const ax = Math.abs(e.deltaX), ay = Math.abs(e.deltaY), horizontal = ax > ay + 2;
-      if (!horizontal && !this.hoverCup) return;          // off the cup: let the page scroll normally
-      e.preventDefault();                                  // keep the cup in view while the user interacts with it
+      // horizontal trackpad swipe always cycles; a vertical wheel cycles only over the carousel area (else the page scrolls on)
+      if (!horizontal && !this._overCarousel(e.clientX, e.clientY, e.target)) return;
+      e.preventDefault();
       if (this.swap) return;                               // a drain/refill is already animating
       const delta = horizontal ? e.deltaX : e.deltaY;
-      if (Math.abs(delta) < 4) return;
+      this._wheelAcc = (this._wheelAcc || 0) + delta;
+      if (Math.abs(this._wheelAcc) < 24) return;           // threshold: ignore tiny trackpad jitter
       const now = performance.now();
-      if (this._lastWheel && now - this._lastWheel < 420) return;   // throttle: one drink per deliberate gesture
-      this._lastWheel = now; this.swapDrink(delta > 0 ? 1 : -1);
+      if (this._lastWheel && now - this._lastWheel < 480) { this._wheelAcc = 0; return; }  // throttle: one drink per deliberate gesture
+      const dir = this._wheelAcc > 0 ? 1 : -1; this._wheelAcc = 0; this._lastWheel = now;
+      this.swapDrink(dir);                                 // wrap-around (loop) handled in swapDrink/frame, same as the buttons
     };
-    cvs.addEventListener('wheel', this._wheel, { passive: false });
+    stage.addEventListener('wheel', this._wheel, { passive: false });
+    // Drink-position dots (synced to state.drink; shown with the switcher on the final step). Appended into the
+    // mount node (like the canvas) so the design framework's re-renders don't remove them.
+    const dots = document.createElement('div');
+    Object.assign(dots.style, { position: 'absolute', left: '50%', bottom: '58px', transform: 'translateX(-50%)', display: 'flex', gap: '7px', zIndex: 4, pointerEvents: 'none', opacity: '0', transition: 'opacity .4s ease' });
+    for (let i = 0; i < DRINKS.length; i++) { const dd = document.createElement('span'); dd.setAttribute('aria-hidden', 'true'); Object.assign(dd.style, { width: '7px', height: '7px', borderRadius: '50%', background: 'rgba(255,255,255,.32)', transition: 'background .3s, transform .3s' }); dots.appendChild(dd); }
+    el.appendChild(dots); this._dots = dots; this._dotsShown = false; this._dotsActive = -1;
     this._key = e => {
       if (!this.full || !this.onScreen) return;            // only while the drink step is on screen
       if (e.key === 'ArrowRight') { e.preventDefault(); this.swapDrink(1); }
@@ -681,6 +698,13 @@ class Component extends DCLogic {
       camera.lookAt(ox, tgtY + tw + oy, 0);
       backdropTick(time, rad * rk * rw, az + 0.45 - p * 0.07, camY);
       renderer.render(scene, camera);
+      // generous on-screen zone around the cup, for capturing the scroll/wheel carousel gesture
+      if (this.full) { const v = new THREE.Vector3(0, 1.3, 0).applyMatrix4(cup.matrixWorld).project(camera); const rect = cvs.getBoundingClientRect();
+        this._cupScreen = { x: rect.left + (v.x * 0.5 + 0.5) * rect.width, y: rect.top + (-v.y * 0.5 + 0.5) * rect.height, r: Math.max(150, Math.min(rect.width, rect.height) * 0.34) }; }
+      if (this._dots) {   // keep the dots in sync with the current drink + whether the switcher is showing
+        const show = !!this.full; if (show !== this._dotsShown) { this._dotsShown = show; this._dots.style.opacity = show ? '1' : '0'; }
+        const di = this.state.drink || 0; if (di !== this._dotsActive) { this._dotsActive = di;
+          for (let i = 0; i < this._dots.children.length; i++) { const on = i === di, c = this._dots.children[i]; c.style.background = on ? '#e30a2e' : 'rgba(255,255,255,.32)'; c.style.transform = on ? 'scale(1.35)' : 'scale(1)'; } } }
       this._raf = requestAnimationFrame(frame);
     };
     frame();
@@ -703,7 +727,7 @@ class Component extends DCLogic {
       noGL: !!this.state.noGL,
       fbStyle: (() => { const BD = window.StoryBackdrops; if (!BD) return {}; const key = BD.steps[Math.min(4, step)], P = (BD.locations[key] || {}).paint || { sky: ['#333', '#111'] }, mob = window.innerWidth < 768 ? '-mobile' : '';
         return { position: 'absolute', inset: 0, backgroundImage: 'url("' + BD.dir + key + '-far' + mob + '.webp"), linear-gradient(180deg,' + P.sky.join(',') + ')', backgroundSize: 'cover', backgroundPosition: 'center', transition: 'background-image .3s' }; })(),
-      spinHint: this.canHover ? 'Hover the cup to change drink' : 'Tap the cup to change drink', locLabel: this.state.locLabel || '', hasLoc: !!this.state.locLabel,
+      spinHint: this.canHover ? 'Scroll or use ‹ › to change drink' : 'Swipe or tap to change drink', locLabel: this.state.locLabel || '', hasLoc: !!this.state.locLabel,
       prevDrink: () => this.swapDrink(-1), nextDrink: () => this.swapDrink(1)
     };
   }
