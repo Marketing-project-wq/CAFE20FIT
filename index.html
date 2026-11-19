@@ -640,7 +640,7 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
         <button sc-camel-on-click="{{ n.go }}" style="all:unset;cursor:pointer;color:#3a3a3a;position:relative" style-hover="color:#e30a2e"><span class="fx-nl">{{ n.label }}</span><span class="fx-ns">{{ n.short }}</span><sc-if value="{{ n.dot }}" hint-placeholder-val="{{ false }}"><span aria-label="Updated" style="position:absolute;top:-2px;right:-9px;width:8px;height:8px;border-radius:50%;background:#e30a2e"></span></sc-if></button>
       </sc-for>
     </nav>
-    <button class="fx-cta" sc-camel-on-click="{{ toMenu }}" style="all:unset;cursor:pointer;white-space:nowrap;padding:11px 22px;border-radius:999px;background:#e30a2e;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:17px;letter-spacing:.04em;text-transform:uppercase;box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 6px 18px rgba(227,10,46,.35)" style-hover="background:#c70026">View Menu</button>
+    <button class="fx-cta" sc-camel-on-click="{{ toMenu }}" style="all:unset;cursor:pointer;white-space:nowrap;padding:11px 22px;border-radius:999px;background:#e30a2e;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:17px;letter-spacing:.04em;text-transform:uppercase;box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 6px 18px rgba(227,10,46,.35)" style-hover="background:#c70026">View Menu</button><div class="fx-prog" aria-hidden="true" style="display:none;position:absolute;left:22px;right:22px;bottom:-3px;height:3px;z-index:1;border-radius:3px;background:rgba(13,13,13,.1);overflow:hidden"><div ref="{{ progRef }}" style="height:100%;background:#e30a2e;transform-origin:left;transform:scaleX(0)"></div></div><div class="fx-prog-l" aria-hidden="true" style="display:none;position:absolute;right:24px;bottom:-18px;z-index:1;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#5a5a5a">{{ chapterLabel }}</div>
   </header>
 
   <section id="ch-hero" aria-label="20FIT Cafe" class="fx-hero" data-screen-label="Video hero" sc-camel-on-mouse-move="{{ heroMove }}" sc-camel-on-mouse-leave="{{ heroLeave }}" style="position:relative;z-index:1;margin-top:-80px;min-height:100vh;overflow:hidden;background:#f4f4f2;color:#0d0d0d;box-sizing:border-box;padding:128px 24px 96px;display:flex;align-items:center">
@@ -1043,8 +1043,8 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
         </button>
       </sc-for>
     </nav>
-    <div class="fx-prog" aria-hidden="true" style="display:none;position:fixed;left:28px;right:28px;top:66px;height:3px;z-index:41;border-radius:3px;background:rgba(13,13,13,.08);overflow:hidden"><div ref="{{ progRef }}" style="height:100%;background:#e30a2e;transform-origin:left;transform:scaleX(0)"></div></div>
-    <div class="fx-prog-l" aria-hidden="true" style="display:none;position:fixed;right:28px;top:74px;z-index:41;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:#5a5a5a">{{ chapterLabel }}</div>
+    
+    
   </sc-if>
   <sc-if value="{{ hasCart }}" hint-placeholder-val="{{ false }}">
     <button data-cartbar="1" sc-camel-on-click="{{ openCheckout }}" style="all:unset;cursor:pointer;position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:70;display:flex;align-items:center;gap:16px;padding:10px 10px 10px 22px;border-radius:999px;background:rgba(13,13,13,.88);backdrop-filter:blur(20px);color:#fff;box-shadow:0 16px 40px rgba(13,13,13,.3);white-space:nowrap" style-hover="background:#0d0d0d">
