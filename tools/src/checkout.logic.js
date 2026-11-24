@@ -495,6 +495,9 @@ class Component extends DCLogic {
         : 'Bayar sekarang (QRIS, e-wallet, kartu, atau VA). Ordermu langsung diterima kalau stok tersedia, lalu ambil di cafe.',
       grabConfirm: !!s.confirmUntil, grabConfirmLeft: String(confirmLeft),
       grabConfirmGo: () => this.confirmGo(), grabConfirmCancel: () => this.confirmCancel(),
+      // Grab & Go paid online: tracker + how to claim (no WhatsApp in this flow).
+      grabTrack: g && !gOff && !!live && live.payment_status === 'paid' && tr.steps.length > 0,
+      claimName: (live && live.customer_name) || s.name, claimCode: s.code,
       doneGrab: g, grabPill: st.pill, grabSub: st.sub + (grabLeft ? ' · Sisa waktu konfirmasi ' + grabLeft : ''), grabPillStyle: A.pillStyle(st),
       grabCode: s.code, grabWaiting: gOff && (!live || live.status === 'pending_confirmation'),
       canCancel: gOff && live && live.status === 'pending_confirmation', cancelLeft: grabLeft, cancelOrder: () => this.cancelOrder(),
@@ -534,7 +537,7 @@ class Component extends DCLogic {
       events: EVENTS.map(t => ({ label: t, pick: () => this.setState({ event: t }), style: chip(s.event === t) })),
       refreshOpts: [[true, 'With refreshments', 'Drinks + pastries, ' + rp(cfg.venue_refresh_price || 0) + ' / person'], [false, 'Venue only', 'Order at the bar during the event']].map(([v, label, desc]) => ({ label, desc, pick: () => this.setState({ refresh: v }), style: card(s.refresh === v) })),
       waitElapsed: (() => { const t = Math.max(0, Math.floor(((s.now || Date.now()) - (this._w0 || Date.now())) / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); })(),
-      waitNudge: s.step === 'wait' && !(live && (live.payment_status === 'expired' || live.payment_status === 'failed')) && (s.now || 0) - (this._w0 || Date.now()) >= 45000,
+      waitNudge: !g && s.step === 'wait' && !(live && (live.payment_status === 'expired' || live.payment_status === 'failed')) && (s.now || 0) - (this._w0 || Date.now()) >= 45000,
       openNudge: () => window.open(this.nudgeUrl(), '_blank', 'noopener'),
       lines, totalFmt: rp(total), totalLabel: estimate ? 'Estimated total' : 'Total', payLabel: method.label, code: s.code,
       promo: s.promo, setPromo: e => this.setState({ promo: (e.target.value || '').toUpperCase().replace(/\s/g, ''), promoInfo: null }),

@@ -152,7 +152,8 @@
     }
     var t = o.type, s = o.status;
     // Grab & Go lifecycle (status-driven): pending_confirmation -> accepted -> paid -> completed (+ rejected/cancelled/expired)
-    if (t === 'grab' || ['pending_confirmation', 'accepted', 'rejected', 'cancelled_by_user', 'cancelled_by_admin', 'expired'].indexOf(s) >= 0) {
+    // Old flow only (type grab). Grab & Go paid online is type 'pickup' (see below).
+    if (t === 'grab') {
       if (s === 'pending_confirmation') return { pill: 'Menunggu Konfirmasi', sub: 'Menunggu barista menerima ordermu…', tone: 'amber' };
       if (s === 'accepted') return { pill: 'Order Diterima', sub: 'Silakan datang ke cafe dan bayar di kasir saat ambil pesanan.', tone: 'green' };
       if (s === 'paid') return { pill: 'Sudah Dibayar', sub: 'Pembayaran diterima · tinggal ambil pesananmu di cafe.', tone: 'green' };
@@ -175,11 +176,14 @@
       if (s === 'completed') return { pill: 'Completed', sub: '', tone: 'dark' };
       if (s === 'no_show') return { pill: 'No-show', sub: '', tone: 'grey' };
     }
+    // Grab & Go paid online (spec grab-v2): paid → barista accepts (no reject) → made → ready → collected.
     if (t === 'pickup') {
-      if (s === 'received') return { pill: 'Order received', sub: 'The cafe received your order', tone: 'dark' };
-      if (s === 'preparing') return { pill: 'Preparing', sub: 'Barista is preparing your order', tone: 'dark' };
-      if (s === 'ready') return { pill: 'Ready for pickup', sub: 'Pick up at the counter · Order for ' + o.customer_name, tone: 'red', pulse: true };
-      if (s === 'completed') return { pill: 'Completed', sub: '', tone: 'dark' };
+      if (s === 'received') return { pill: 'Pembayaran Berhasil', sub: 'Menunggu barista menerima ordermu…', tone: 'amber' };
+      if (s === 'accepted') return { pill: 'Diterima Barista', sub: 'Order kamu sudah diterima dan sedang disiapkan', tone: 'green' };
+      if (s === 'preparing') return { pill: 'Sedang Dibuat', sub: 'Barista sedang membuat pesananmu', tone: 'green' };
+      if (s === 'ready') return { pill: 'Siap Diambil', sub: 'Ambil di bar · sebutkan nama, nomor HP, atau email kamu ke barista', tone: 'red', pulse: true };
+      if (s === 'completed') return { pill: 'Sudah Diambil', sub: 'Terima kasih!', tone: 'dark' };
+      if (s === 'cancelled') return { pill: 'Dibatalkan', sub: [o.cancel_reason, 'Refund diproses cafe'].filter(Boolean).join(' · '), tone: 'grey' };
     }
     if (t === 'delivery') {
       var drv = o.driver_name ? [o.driver_name, o.driver_vehicle, o.driver_plate].filter(Boolean).join(' · ') : '';
@@ -200,7 +204,7 @@
   function trackSteps(o) {
     var steps = o.type === 'delivery'
       ? [['received', 'Order confirmed', 'The cafe received your order'], ['preparing', 'Barista is preparing', 'Your drinks are made fresh'], ['driver_picked_up', 'Driver picked up', 'Sealed and on the bike'], ['on_the_way', 'On the way', 'Heading to your address'], ['completed', 'Delivered', 'Enjoy, and fuel up']]
-      : [['received', 'Order received', 'The cafe received your order'], ['preparing', 'Barista is preparing', 'Your drinks are made fresh'], ['ready', 'Ready for pickup', 'Come to the pickup counter'], ['completed', 'Picked up', 'Enjoy, and fuel up']];
+      : [['received', 'Pembayaran Berhasil', 'Pembayaran kamu sudah diterima'], ['accepted', 'Diterima Barista', 'Order kamu sudah diterima dan sedang disiapkan'], ['preparing', 'Sedang Dibuat', 'Dibuat fresh oleh barista'], ['ready', 'Siap Diambil', 'Ambil di bar dengan menyebutkan nama, nomor HP, atau email'], ['completed', 'Sudah Diambil', 'Selamat menikmati!']];
     var idx = steps.findIndex(function (s) { return s[0] === o.status; });
     return { steps: steps, idx: idx };
   }
