@@ -374,6 +374,12 @@ class Component extends DCLogic {
   ctlVid() { const v = this.vid.current; if (!v) return; v.muted = !this.state.sound; if (this.vidLive()) { if (v.paused) v.play().catch(() => { if (!v.muted) { v.muted = true; this.setState({ sound: false }); v.play().catch(() => {}); } }); } else if (!v.paused) v.pause(); }
   componentDidUpdate() { this.syncVid(); const ov = this.overlayOpen(); if (ov !== this._ov) { this._ov = ov; this.ctlCareVid(); } }
   componentDidMount() {
+    // A product photo that fails to load (e.g. a POS upload that no longer exists) shows the neutral
+    // 20FIT CAFE placeholder instead of a broken-image icon. Capture phase: image errors do not bubble.
+    if (!window.__cafeImgFallback) {
+      window.__cafeImgFallback = true;
+      document.addEventListener('error', e => { const t = e.target; if (t && t.tagName === 'IMG' && !t.dataset.fb && /^https?:/.test(t.currentSrc || t.src || '')) { t.dataset.fb = '1'; t.src = NO_PHOTO; } }, true);
+    }
     this.loadMenu();
     // WhatsApp number for CH 07 comes from the POS web config (same source as checkout)
     setTimeout(() => { const A = API(); A && A.getConfig && A.getConfig().then(c => { if (c && c.wa_number) this.setState({ waCfg: String(c.wa_number) }); }).catch(() => {}); }, 1500);
