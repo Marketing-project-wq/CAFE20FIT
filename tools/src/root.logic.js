@@ -12,7 +12,12 @@ const PHOTOS = {
   'chia pudding|smoothies bowl': [U('DSC3733'), U('DSC3737-1')]
 };
 const NO_PHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#e8e6e1"/><text x="200" y="262" text-anchor="middle" font-family="Arial" font-size="28" fill="#9a978f">20FIT CAFE</text></svg>');
-const photosFor = it => { const n = String(it.name || '').toLowerCase(), c = String(it.category || '').toLowerCase(); return PHOTOS[n + '|' + c] || PHOTOS[n] || (it.image_url ? [it.image_url] : [NO_PHOTO]); };
+// Name key that ignores word order, punctuation and "iced"/"ice": the menu names now come from the POS
+// ("Ice Long Black"), the story copy and design photos may use another spelling ("Long Black Iced").
+const nameKey = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean).map(w => (w === 'iced' ? 'ice' : w)).sort().join(' ');
+const PHOTO_KEYS = Object.keys(PHOTOS).reduce((m, k) => { const [n, c] = k.split('|'); m[nameKey(n) + (c ? '|' + c : '')] = PHOTOS[k]; return m; }, {});
+const photosFor = it => { const n = String(it.name || '').toLowerCase(), c = String(it.category || '').toLowerCase(), k = nameKey(n);
+  return PHOTOS[n + '|' + c] || PHOTOS[n] || PHOTO_KEYS[k + '|' + c] || PHOTO_KEYS[k] || (it.image_url ? [it.image_url] : [NO_PHOTO]); };
 // Server menu item -> view model used by this page and the checkout
 const toItem = it => ({ id: it.id, name: it.name, cat: it.category, price: Number(it.price_display) || 0, base: Number(it.price) || 0, description: it.description || '', available: it.available !== false, addons: it.addons || [], imgs: photosFor(it) });
 const defaultOpts = m => (m.addons || []).map(g => { const d = (g.options || []).find(o => o.default) || null; return d ? d.id : null; }).filter(Boolean);
@@ -200,7 +205,7 @@ class Component extends DCLogic {
   quizResult(qa) {
     const Q = SC().quiz, ok = x => x && x.available;
     const rule = (Q.rules || []).find(r => Object.keys(r.when || {}).every(k => qa[k] === r.when[k]));
-    let items = rule ? rule.items.map(n => this.byName(String(n).toLowerCase())).filter(ok) : [];
+    let items = rule ? this.pickItems(rule.items) : [];
     if (!items.length) items = this.menuAll().filter(m => ok(m) && m.cat === Q.fallbackCategory).slice(0, 3);
     if (!items.length) items = this.menuAll().filter(ok).slice(0, 3);
     return { items: items.slice(0, 3), reason: rule && items.length ? rule.reason : Q.fallbackReason, need: rule ? rule.need : null };
@@ -216,7 +221,14 @@ class Component extends DCLogic {
   }
   menuAll() { return this.state.menu || []; }
   byId(id) { return this.menuAll().find(x => x.id === id); }
-  byName(n) { return this.menuAll().find(x => x.name.toLowerCase() === n) || null; }
+  byName(n) { const all = this.menuAll(), k = nameKey(n); return all.find(x => x.name.toLowerCase() === n) || all.find(x => nameKey(x.name) === k) || null; }
+  // Story picks by name, topped up from the same category (live POS menu) when a pick is missing or sold out.
+  pickItems(names, n = 3) {
+    const ok = x => x && x.available, got = (names || []).map(nm => this.byName(String(nm).toLowerCase())).filter(ok);
+    const cats = got.map(x => x.cat);
+    for (const m of this.menuAll()) { if (got.length >= n) break; if (ok(m) && cats.includes(m.cat) && !got.includes(m)) got.push(m); }
+    return got.slice(0, n);
+  }
   price(m) { return m ? m.price : 0; }
   // cart: { [lineKey]: { id, opts, qty } }
   add(id, opts) {
@@ -472,7 +484,7 @@ class Component extends DCLogic {
       dayStart: (cfg.stops[0] || {}).time || '06:00',
       dayStops: cfg.stops.map((st, i) => {
         const on = storyFlat() || i === (this.state.dayI || 0), pick = st.need === needLabel;
-        const items = (st.items || []).map(nm => this.byName(String(nm).toLowerCase())).filter(x => x && x.available).map((x, k) => ({
+        const items = this.pickItems(st.items).map((x, k) => ({
           name: x.name, priceFmt: rp(x.price), src: this.src(x.imgs[0]), open: () => this.setState({ sel: x.id, tab: 'All' }),
           add: e => this.storyAdd(x, '03_day', e), addLabel: this.qtyOf(x.id) ? 'In cart · ' + this.qtyOf(x.id) : '+ Add',
           tileStyle: { position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, opacity: on ? 1 : 0.35, transform: on ? 'translateY(0)' : 'translateY(24px)', transition: 'opacity .6s ease ' + (120 + k * 90) + 'ms, transform .7s cubic-bezier(.2,.8,.2,1) ' + (120 + k * 90) + 'ms' },
