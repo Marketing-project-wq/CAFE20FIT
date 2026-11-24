@@ -139,7 +139,8 @@
   // ---------- status (one source for Done screen + Purchase History) ----------
   var METHOD = { qris: 'QRIS', ewallet: 'GoPay / OVO / ShopeePay', credit: 'Credit card', debit: 'Debit card', va: 'Virtual account', cash: 'Cash' };
   function methodLabel(m) { return METHOD[m] || (m ? cap(m) : ''); }
-  var KIND = { grab: 'Grab & Go', dine_in: 'Dine-in', pickup: 'Pickup', delivery: 'Delivery', venue: 'Venue' };
+  // Grab & Go is now sent as a paid-online 'pickup' order (checkout GRAB_ONLINE), so pickup reads as Grab & Go.
+  var KIND = { grab: 'Grab & Go', dine_in: 'Dine-in', pickup: 'Grab & Go', delivery: 'Delivery', venue: 'Venue' };
   var SESSION = { morning: 'Morning 08–12', afternoon: 'Afternoon 13–17', evening: 'Evening 18–22' };
   function cap(s) { s = String(s || '').replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); }
   // tone: dark | green | red | grey | amber
