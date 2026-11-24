@@ -301,7 +301,7 @@
           <div style="display:flex;justify-content:center"><span style="{{ grabPillStyle }}">{{ grabPill }}</span></div>
           <div style="text-align:center;font-size:15px;color:#3a3a3a;line-height:1.5">{{ grabSub }}</div>
           <div style="padding:14px 16px;border-radius:16px;background:#f7f6f3;border:1px solid rgba(13,13,13,.08);text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a8a">Kode order</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:28px;letter-spacing:.04em">{{ grabCode }}</div></div>
-          <sc-if value="{{ canCancel }}" hint-placeholder-val="{{ false }}"><button onClick="{{ cancelOrder }}" style="all:unset;cursor:pointer;text-align:center;padding:13px;border-radius:16px;border:1px solid rgba(227,10,46,.4);color:#e30a2e;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;text-transform:uppercase">Batalkan order</button></sc-if>
+          <sc-if value="{{ grabTrack }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:#fff;border:1px solid rgba(13,13,13,.08)"><sc-for list="{{ track }}" as="s"><div style="display:flex;gap:12px;align-items:flex-start"><span style="{{ s.dot }}">{{ s.mark }}</span><div><div style="{{ s.titleStyle }}">{{ s.t }}</div><div style="font-size:13px;color:#5a5a5a;line-height:1.4">{{ s.d }}</div></div></div></sc-for></div><div style="padding:14px 16px;border-radius:16px;background:#fdf1e7;border:1px solid #f3d9c2;font-size:14px;line-height:1.5;color:#5a3a1a"><div style="font-weight:700;margin-bottom:4px">Ambil pesanan</div><div>Nama pemesan: <b>{{ claimName }}</b> · Nomor order: <b>{{ claimCode }}</b></div><div>Sebutkan nama, nomor HP, atau email kamu ke barista saat mengambil pesanan.</div></div></sc-if><sc-if value="{{ canCancel }}" hint-placeholder-val="{{ false }}"><button onClick="{{ cancelOrder }}" style="all:unset;cursor:pointer;text-align:center;padding:13px;border-radius:16px;border:1px solid rgba(227,10,46,.4);color:#e30a2e;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;text-transform:uppercase">Batalkan order</button></sc-if>
         </div>
       </sc-if>
       <sc-if value="{{ doneDine }}" hint-placeholder-val="{{ false }}">
@@ -909,6 +909,9 @@ class Component extends DCLogic {
         : 'Bayar sekarang (QRIS, e-wallet, kartu, atau VA). Ordermu langsung diterima kalau stok tersedia, lalu ambil di cafe.',
       grabConfirm: !!s.confirmUntil, grabConfirmLeft: String(confirmLeft),
       grabConfirmGo: () => this.confirmGo(), grabConfirmCancel: () => this.confirmCancel(),
+      // Grab & Go paid online: tracker + how to claim (no WhatsApp in this flow).
+      grabTrack: g && !gOff && !!live && live.payment_status === 'paid' && tr.steps.length > 0,
+      claimName: (live && live.customer_name) || s.name, claimCode: s.code,
       doneGrab: g, grabPill: st.pill, grabSub: st.sub + (grabLeft ? ' · Sisa waktu konfirmasi ' + grabLeft : ''), grabPillStyle: A.pillStyle(st),
       grabCode: s.code, grabWaiting: gOff && (!live || live.status === 'pending_confirmation'),
       canCancel: gOff && live && live.status === 'pending_confirmation', cancelLeft: grabLeft, cancelOrder: () => this.cancelOrder(),
@@ -948,7 +951,7 @@ class Component extends DCLogic {
       events: EVENTS.map(t => ({ label: t, pick: () => this.setState({ event: t }), style: chip(s.event === t) })),
       refreshOpts: [[true, 'With refreshments', 'Drinks + pastries, ' + rp(cfg.venue_refresh_price || 0) + ' / person'], [false, 'Venue only', 'Order at the bar during the event']].map(([v, label, desc]) => ({ label, desc, pick: () => this.setState({ refresh: v }), style: card(s.refresh === v) })),
       waitElapsed: (() => { const t = Math.max(0, Math.floor(((s.now || Date.now()) - (this._w0 || Date.now())) / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); })(),
-      waitNudge: s.step === 'wait' && !(live && (live.payment_status === 'expired' || live.payment_status === 'failed')) && (s.now || 0) - (this._w0 || Date.now()) >= 45000,
+      waitNudge: !g && s.step === 'wait' && !(live && (live.payment_status === 'expired' || live.payment_status === 'failed')) && (s.now || 0) - (this._w0 || Date.now()) >= 45000,
       openNudge: () => window.open(this.nudgeUrl(), '_blank', 'noopener'),
       lines, totalFmt: rp(total), totalLabel: estimate ? 'Estimated total' : 'Total', payLabel: method.label, code: s.code,
       promo: s.promo, setPromo: e => this.setState({ promo: (e.target.value || '').toUpperCase().replace(/\s/g, ''), promoInfo: null }),

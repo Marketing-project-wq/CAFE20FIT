@@ -239,7 +239,8 @@ class Component extends DCLogic {
         const p = prev.find(x => x.code === o.code);
         if (p && p.status !== o.status) {
           flash[o.code] = Date.now();
-          if (o.status === 'ready') this.showToast('Your order ' + o.code + ' is ready for pickup');
+          if (o.status === 'accepted' && o.type === 'pickup') this.showToast('Order ' + o.code + ' sudah diterima dan sedang disiapkan');
+          if (o.status === 'ready') this.showToast(o.type === 'pickup' ? 'Order ' + o.code + ' siap diambil di bar' : 'Your order ' + o.code + ' is ready for pickup');
           if (o.status === 'checked_in') this.showToast('Checked in · ' + o.code + (o.checked_in_by ? ' · by ' + o.checked_in_by : ''));
         }
       });
