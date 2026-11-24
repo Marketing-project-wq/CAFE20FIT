@@ -21,7 +21,6 @@ const PAYING_STEPS = ['qr', 'wait', 'va', 'ewallet', 'card'];
 // still has the stock (checked by admin.20fit.id) and paid right away via Xendit, like the old Takeaway flow.
 // It is sent as order type 'pickup'. Before anything is created the customer gets a short window to cancel.
 const GRAB_ONLINE = true;
-const GRAB_CONFIRM_SECONDS = 10;
 const METHODS = [
   { id: 'qris', label: 'QRIS', desc: 'Scan with any bank or e-wallet', qr: true, logos: ['qris'] },
   { id: 'ewallet', label: 'E-wallet', desc: 'OVO, ShopeePay, GoPay, DANA, LinkAja', logos: ['ovo', 'shopeepay'] },
@@ -33,8 +32,13 @@ const METHODS = [
 // Xendit QR, VA shows the account number, OVO pushes to the OVO app, cards are verified (3-D Secure) in-page.
 const LOGO_ALT = { qris: 'QRIS', gopay: 'GoPay', ovo: 'OVO', shopeepay: 'ShopeePay', visa: 'Visa', visamc: 'Visa, Mastercard', mastercard: 'Mastercard', jcb: 'JCB', gpn: 'GPN', bca: 'BCA', mandiri: 'Mandiri', bni: 'BNI', bri: 'BRI' };
 // Real brand marks where we have them (self-hosted in /logos, same files as the calorie app); the rest keep the lettermark SVGs.
-const LOGO_SRC = { qris: 'logos/qris.png', ovo: 'logos/ovo-v2.svg', shopeepay: 'logos/shopeepay-v3.svg', bca: 'logos/bca.png', bni: 'logos/bni.png', bri: 'logos/bri.png', mandiri: 'logos/mandiri.webp', visamc: 'logos/visa-mastercard.webp' };
+const LOGO_SRC = { qris: 'logos/qris.png', ovo: 'logos/ovo.svg', shopeepay: 'logos/shopeepay.svg', bca: 'logos/bca.png', bni: 'logos/bni.png', bri: 'logos/bri.png', mandiri: 'logos/mandiri.webp', visamc: 'logos/visa-mastercard.webp' };
 const logoSrc = k => LOGO_SRC[k] || ('logos/' + k + '.svg');
+// Every payment logo sits in the same fixed box (method list, e-wallet / VA pickers, confirm modal, payment page):
+// centred both ways, contained (aspect ratio kept, never stretched), same padding, original brand colours.
+const LOGO_BOX = { boxSizing: 'border-box', width: 80, height: 32, padding: '4px 6px', borderRadius: 8, background: '#fff', border: '1px solid rgba(13,13,13,.08)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden' };
+const LOGO_IMG = { display: 'block', maxWidth: '100%', maxHeight: '100%', width: 'auto', height: 'auto', objectFit: 'contain' };
+const logoEl = (src, alt, key) => React.createElement('span', { key: key || alt, className: 'fx-logo', style: LOGO_BOX }, React.createElement('img', { src, alt, style: LOGO_IMG, decoding: 'async' }));
 const QR_SECONDS = 900; // fallback only; the real window is the Xendit QR's expires_at
 const okName = v => v.trim().length >= 2;
 const okEmail = v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim());
@@ -52,6 +56,7 @@ class Component extends DCLogic {
     const resumeHash = /^#order\//.test(location.hash || '');
     if (!resumeHash) { try { history.pushState({ order: 1 }, '', '#order'); this._pushed = true; } catch (e) {} }
     this._pop = () => { if (this._closing) return; this._popped = true; this.finish(); }; window.addEventListener('popstate', this._pop);
+    this._esc = e => { if (e.key === 'Escape' && this.state.confirmOpen) { e.stopPropagation(); this.confirmCancel(); } }; window.addEventListener('keydown', this._esc, true);
     // One cart for the whole site (CafeApi, localStorage): the menu cards and this page edit the same lines.
     let cart = API().cartGet ? API().cartGet() : {};
     if (!Object.keys(cart).length) (this.props.items || []).forEach(i => { cart[i.key || lineKey(i.id, i.opts)] = { id: i.id, opts: i.opts || [], qty: i.qty }; });
@@ -76,6 +81,11 @@ class Component extends DCLogic {
     if (this.state.code) return;
     clearTimeout(this._pv);
     if ((this.state.promo || '').trim() && this.state.promoInfo) this._pv = setTimeout(() => { if (this.cartLines().length) this.applyPromo(); else this.setState({ promoInfo: null }); }, 450);
+  }
+  methodLogos(id) {
+    const s = this.state, m = METHODS.find(x => x.id === id); if (!m) return [];
+    const keys = id === 'ewallet' ? (s.ewChoice === 'ovo' ? ['ovo'] : ['qris', 'shopeepay']) : id === 'va' ? [({ BCA: 'bca', MANDIRI: 'mandiri', BNI: 'bni', BRI: 'bri' })[s.vaBank || 'BCA']].filter(Boolean) : m.logos;
+    return keys.map(k => ({ src: logoSrc(k), alt: LOGO_ALT[k] }));
   }
   removePromo() { clearTimeout(this._pv); this.setState({ promo: '', promoInfo: null }); }
   // ---------- payment page: resume after a reload, refresh status, download QR ----------
@@ -148,7 +158,7 @@ class Component extends DCLogic {
     if (/^#order\//.test(h)) { try { history.replaceState(null, '', location.pathname + location.search + (this._pushed ? '#order' : '')); } catch (e) {} }
     if (this._pushed && !this._popped && location.hash === '#order') { try { history.back(); } catch (e) {} }
   }
-  componentWillUnmount() { this._offCart && this._offCart(); clearTimeout(this._pv); (this._ts || []).forEach(clearTimeout); clearInterval(this._ci); clearInterval(this._qi); clearInterval(this._wi); clearInterval(this._xw); clearTimeout(this._3t); this.stopLive(); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
+  componentWillUnmount() { window.removeEventListener('keydown', this._esc, true); this._offCart && this._offCart(); clearTimeout(this._pv); (this._ts || []).forEach(clearTimeout); clearInterval(this._ci); clearInterval(this._qi); clearInterval(this._wi); clearInterval(this._xw); clearTimeout(this._3t); this.stopLive(); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
   later(fn, ms) { (this._ts = this._ts || []).push(setTimeout(fn, ms)); }
   dayText() { const d = new Date(); d.setDate(d.getDate() + (this.state.dayI || 0)); return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }); }
   menu() { return this.props.menu || []; }
@@ -171,16 +181,17 @@ class Component extends DCLogic {
     const del = s.mode === 'take' && s.fulfil === 'delivery' ? Number(cfg.delivery_fee) || 0 : 0;
     // Menu prices already include PB1: with no service charge the subtotal is the menu prices the buyer saw and
     // PB1 is shown as included; with a service charge, the full breakdown.
+    const menuSum = this.cartLines().reduce((a, i) => a + i.price * i.qty, 0);
     if (!svc) {
-      lines.push({ label: 'Subtotal', value: rp(sub + tax) });
-      if (cfg.tax_percent != null && tax) lines.push({ label: 'Includes PB1 ' + cfg.tax_percent + '%', value: rp(tax) });
+      lines.push({ label: 'Subtotal', value: rp(menuSum) });
+      if (cfg.tax_percent != null && tax) lines.push({ label: 'Includes PB1 ' + cfg.tax_percent + '%', value: rp(Math.round(menuSum - sub)) });
     } else {
       lines.push({ label: 'Subtotal', value: rp(sub) });
       lines.push({ label: 'Service ' + cfg.service_percent + '%', value: rp(svc) });
       if (cfg.tax_percent != null) lines.push({ label: 'PB1 ' + cfg.tax_percent + '%', value: rp(tax) });
     }
     if (del) lines.push({ label: 'Delivery fee', value: rp(del) });
-    const gross = sub + svc + tax + del, disc = this.promoDiscount(gross);
+    const gross = (svc ? sub + svc + tax : menuSum) + del, disc = this.promoDiscount(gross);
     if (disc > 0) lines.splice(1, 0, { label: 'Voucher ' + (s.promoInfo.name || s.promoInfo.code || ''), value: '-' + rp(disc) });
     return { lines, total: Math.max(0, gross - disc), estimate: true };
   }
@@ -191,7 +202,7 @@ class Component extends DCLogic {
     const sub = this.cartLines().reduce((a, i) => a + i.base * i.qty, 0);
     const svc = Math.round(sub * (Number(cfg.service_percent) || 0) / 100), tax = Math.round((sub + svc) * (Number(cfg.tax_percent) || 0) / 100);
     const del = s.mode === 'take' && s.fulfil === 'delivery' ? Number(cfg.delivery_fee) || 0 : 0;
-    return sub + svc + tax + del;
+    return (svc ? sub + svc + tax : this.cartLines().reduce((a, i) => a + i.price * i.qty, 0)) + del;
   }
   // Discount is computed + returned by the server (cafe_check_voucher); we just show it.
   promoDiscount() {
@@ -249,20 +260,16 @@ class Component extends DCLogic {
     if (s.pay === 'credit' || s.pay === 'debit') return (s.cNum || '').replace(/\D/g, '').length >= 13 && (s.cExp || '').replace(/\D/g, '').length === 4 && (s.cCvv || '').length >= 3;
     return true;
   }
-  // One "Pay" button: creates the order with the choice, or (order already made, e.g. a declined card) pays again.
-  // Grab & Go: GRAB_CONFIRM_SECONDS to go on or cancel before the order is created and paid; no choice = go on.
+  // "Continue to pay" opens CONFIRM YOUR ORDER (nothing is created yet). "Yes, continue" creates the order and
+  // starts the payment right away; "Edit order" / X / Esc go back to the cart untouched. An existing order
+  // (e.g. a retry with another method) skips the modal.
   startConfirm() {
-    const s = this.state; if (s.busy || s.payBusy || s.cardBusy || s.confirmUntil) return;
-    if (s.code) return this.submitPay();  // order already exists (e.g. retry after a failed payment start)
-    clearInterval(this._ci);
-    this.setState({ confirmUntil: Date.now() + GRAB_CONFIRM_SECONDS * 1000, now: Date.now(), err: '' });
-    this._ci = setInterval(() => {
-      if (!this.state.confirmUntil) { clearInterval(this._ci); return; }
-      if (Date.now() >= this.state.confirmUntil) this.confirmGo(); else this.setState({ now: Date.now() });
-    }, 250);
+    const s = this.state; if (s.busy || s.payBusy || s.cardBusy) return;
+    if (s.code) return this.submitPay();
+    this.setState({ confirmOpen: true, err: '' });
   }
-  confirmGo() { clearInterval(this._ci); this.setState({ confirmUntil: 0 }, () => this.submitPay()); }
-  confirmCancel() { clearInterval(this._ci); this.setState({ confirmUntil: 0, err: '' }); }
+  confirmGo() { if (this.state.busy || this._creating) return; this.submitPay(); }
+  confirmCancel() { if (this.state.busy || this._creating) return; this.setState({ confirmOpen: false, err: '' }); }
   submitPay() {
     const s = this.state; if (s.busy || s.payBusy || s.cardBusy) return;
     if (!s.code) return this.createOrder();
@@ -314,7 +321,7 @@ class Component extends DCLogic {
     const h = React.createElement, s = this.state;
     const wrap = ch => h('div', { style: { margin: '-4px 0 4px', padding: 14, borderRadius: '0 0 18px 18px', background: '#faf9f7', border: '1px solid rgba(227,10,46,.25)', borderTop: 'none', display: 'flex', flexDirection: 'column', gap: 10, animation: 'pFade .25s ease' } }, ch);
     const small = { fontSize: 13, color: '#5a5a5a', lineHeight: 1.45 };
-    const chip = (on, label, onClick, logo) => h('button', { key: label, onClick, style: { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', minHeight: 46, padding: '8px 12px', borderRadius: 14, background: '#fff', border: on ? '2px solid #e30a2e' : '1px solid rgba(13,13,13,.12)', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14, textAlign: 'center' } }, logo ? h('img', { src: logo, alt: label, style: { maxHeight: 22, maxWidth: 80 } }) : label);
+    const chip = (on, label, onClick, logo) => h('button', { key: label, onClick, style: { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', minHeight: 46, padding: '8px 12px', borderRadius: 14, background: '#fff', border: on ? '2px solid #e30a2e' : '1px solid rgba(13,13,13,.12)', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 14, textAlign: 'center' } }, logo ? logoEl(logo, label) : label);
     const input = (val, set, ph, extra) => h('input', Object.assign({ value: val || '', placeholder: ph, onChange: e => set(e.target.value), style: { boxSizing: 'border-box', width: '100%', padding: '12px 14px', borderRadius: 12, border: '1px solid rgba(13,13,13,.15)', fontSize: 16, outline: 'none', background: '#fff', fontFamily: "'JetBrains Mono',monospace" } }, extra || {}));
     if (id === 'va') {
       const banks = [['BCA', 'logos/bca.png'], ['MANDIRI', 'logos/mandiri.webp'], ['BNI', 'logos/bni.png'], ['BRI', 'logos/bri.png'], ['PERMATA'], ['BSI'], ['CIMB']];
@@ -325,7 +332,7 @@ class Component extends DCLogic {
       const ovo = s.ewChoice === 'ovo', phone = s.ovoPhone != null ? s.ovoPhone : s.phone;
       return wrap([h('div', { key: 'g', style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } },
           chip(!ovo, 'ShopeePay · GoPay · DANA · LinkAja', () => this.setState({ ewChoice: 'qris' })),
-          chip(ovo, 'OVO', () => this.setState({ ewChoice: 'ovo' }), 'logos/ovo-v2.svg')),
+          chip(ovo, 'OVO', () => this.setState({ ewChoice: 'ovo' }), logoSrc('ovo'))),
         ovo ? h('div', { key: 'o', style: { display: 'flex', flexDirection: 'column', gap: 6 } }, h('div', { style: small }, 'OVO number · we send the payment to your OVO app'), input(phone, v => this.setState({ ovoPhone: v }), '0812xxxxxxx', { type: 'tel', inputMode: 'numeric' }))
           : h('div', { key: 'q', style: small }, 'A QRIS code appears on this page · scan it with your e-wallet app.')]);
     }
@@ -365,7 +372,7 @@ class Component extends DCLogic {
           h('div', { style: { fontWeight: 700, fontSize: 16 } }, 'Choose your bank'),
           h('div', { style: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(130px,1fr))', gap: 10 } }, banks.map(([b, logo]) => h('button', { key: b, onClick: () => this.retryPay({ channel: 'va', bank: b }), disabled: s.payBusy,
             style: { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', height: 64, borderRadius: 16, background: '#fff', border: '1px solid rgba(13,13,13,.12)', display: 'grid', placeItems: 'center', fontWeight: 700, fontSize: 15, opacity: s.payBusy ? .5 : 1 } },
-            logo ? h('img', { src: logo, alt: b, style: { maxHeight: 26, maxWidth: 90 } }) : b))),
+            logo ? logoEl(logo, b) : b))),
           s.payBusy ? h('div', { style: small }, 'Creating your virtual account…') : null, err);
       }
       const grouped = String(v.va_number).replace(/(\d{4})(?=\d)/g, '$1 ');
@@ -384,7 +391,7 @@ class Component extends DCLogic {
       const sent = s.ovoSent, phone = s.ovoPhone != null ? s.ovoPhone : s.phone;
       return h('div', { style: { display: 'flex', flexDirection: 'column', gap: 14 } }, amount,
         h('div', { style: box },
-          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } }, h('img', { src: 'logos/ovo-v2.svg', alt: 'OVO', style: { height: 22 } }), h('span', { style: { fontWeight: 700 } }, 'OVO')),
+          h('div', { style: { display: 'flex', alignItems: 'center', gap: 10 } }, logoEl(logoSrc('ovo'), 'OVO'), h('span', { style: { fontWeight: 700 } }, 'OVO')),
           sent
             ? h('div', { style: { display: 'flex', flexDirection: 'column', gap: 10 } },
                 h('div', { style: { fontSize: 15 } }, 'We sent the payment to OVO ' + sent.phone + '. Open your OVO app and confirm ' + rp(sent.amount) + ' within 60 seconds.'),
@@ -435,18 +442,20 @@ class Component extends DCLogic {
     return p;
   }
   createOrder() {
-    if (this.state.busy) return;
+    if (this.state.busy || this._creating) return;  // instance flag: a double click lands before setState applies
+    this._creating = true;
     const grab = this.state.mode === 'grab' && !GRAB_ONLINE;  // offline Grab & Go (old flow) only
     this.setState({ busy: true, err: '' });
     API().createOrder(grab ? this.payload() : Object.assign(this.payload(), { pay_opts: this.payOpts() })).then(res => {
-      this.setState({ busy: false, created: res, code: res.code, token: res.access_token, step: grab ? 'done' : this.state.step });
+      this._creating = false;
+      this.setState({ busy: false, confirmOpen: false, created: res, code: res.code, token: res.access_token, step: grab ? 'done' : this.state.step });
       if (!grab) { API().payOpenSet({ code: res.code, token: res.access_token }); this.setPayUrl(res.code); }
       if (this.props.onPaid) this.props.onPaid(); // history picks up the new ref right away
       this.startLive();
       if (grab) return;  // Grab & Go: no online payment — the live status page takes over
       if (res.pay) this.usePay(res.pay, res.total);
       else { this.setState({ err: res.pay_error || 'Could not start the payment' }); this.startWait(); }
-    }).catch(e => this.setState({ busy: false, err: e.message || 'Could not create your order' }));
+    }).catch(e => { this._creating = false; this.setState({ busy: false, err: e.message || 'Could not create your order' }); });
   }
   // Grab & Go: the customer can cancel only while still awaiting barista confirmation.
   cancelOrder() {
@@ -547,7 +556,6 @@ class Component extends DCLogic {
     const method = METHODS.find(m => m.id === s.pay) || { id: '', label: 'Payment', qr: true };  // '' until the buyer picks one
     const g = s.mode === 'grab';  // Grab & Go screens
     const gOff = g && !GRAB_ONLINE;  // old flow: pay offline at the cafe after barista confirmation
-    const confirmLeft = s.confirmUntil ? Math.max(0, Math.ceil((s.confirmUntil - (s.now || Date.now())) / 1000)) : 0;
     const cartN = this.cartLines().reduce((a, i) => a + i.qty, 0);
     const cartSum = this.cartLines().reduce((a, i) => a + i.price * i.qty, 0);
     const vNameOk = okName(s.name), vPhoneOk = okPhone(s.phone), slotRem = this.remaining(s.slot), slotOk = !!s.slot && (slotRem === null || slotRem >= s.pax);
@@ -577,9 +585,7 @@ class Component extends DCLogic {
       venue: [s.busy ? 'Sending…' : 'Continue on WhatsApp', () => this.sendWa(), !s.date || !vNameOk || !vPhoneOk || !s.vStart || !s.vEnd || s.busy || (s.refresh && (!s.vServe || this.cartLines().reduce((a, i) => a + i.qty, 0) < (Number((s.cfg || {}).venue_refresh_min) || 0)))],
       pay: gOff
         ? [s.busy ? 'Mengirim…' : detailsOk ? 'Kirim Order' : 'Lengkapi datamu dulu', () => this.createOrder(), !detailsOk || s.busy || cfg.ordering_open === false]
-        : g && s.confirmUntil
-          ? ['Diproses dalam ' + confirmLeft + ' detik…', () => this.confirmGo(), false]
-          : !this.cartLines().length && !s.code ? null
+        : !this.cartLines().length && !s.code ? null
           : [s.busy || s.payBusy || s.cardBusy ? (s.threeDs ? 'Waiting for your bank…' : 'Processing…') : !detailsOk ? 'Fill in your details to pay' : !s.pay ? 'Choose a payment method' : 'Continue to pay · ' + rp(total), () => (g ? this.startConfirm() : this.submitPay()), !detailsOk || !s.pay || s.busy || s.payBusy || s.cardBusy || !this.dropOk() || cfg.ordering_open === false],
       qr: statusCta,
       wait: s.code ? statusCta : null,
@@ -602,7 +608,7 @@ class Component extends DCLogic {
         return { label, pick: () => !locked && this.setState({ mode, step: mode === 'grab' && Object.keys(s.cart).length ? 'pay' : step }), style: { all: 'unset', cursor: locked ? 'default' : 'pointer', padding: '9px 16px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 16, letterSpacing: '.03em', textTransform: 'uppercase', background: on ? '#0d0d0d' : 'transparent', color: on ? '#fff' : '#3a3a3a', opacity: locked && !on ? .4 : 1 } }; }),
       progress: (() => { const flow = s.mode === 'grab' ? ['menu', 'pay', 'done'] : s.mode === 'dine' ? ['visit', 'menu', 'pay', 'done'] : s.mode === 'take' ? ['menu', 'confirm', 'pay', 'done'] : s.mode === 'venue' ? ['venue', 'done'] : ['mode']; const stp = PAYING_STEPS.includes(s.step) ? 'pay' : s.step; const idx = flow.indexOf(stp);
         return flow.map((_, i) => ({ flex: 1, height: 4, borderRadius: 2, background: i <= idx ? '#e30a2e' : 'rgba(13,13,13,.12)', transition: 'background .3s' })); })(),
-      canBack: !!this.prev() && !s.cardBusy && !(s.step === 'pay' && !s.code && g && this.props.onMenu), back: () => { if (s.confirmUntil) this.confirmCancel(); if (s.step === 'pay' && s.code) this.stopLive(); this.setState(s.step === 'pay' && s.code ? { step: this.prev(), code: '', token: '', created: null, live: null, err: '' } : { step: this.prev() }); },
+      canBack: !!this.prev() && !s.cardBusy && !(s.step === 'pay' && !s.code && g && this.props.onMenu), back: () => { if (s.step === 'pay' && s.code) this.stopLive(); this.setState(s.step === 'pay' && s.code ? { step: this.prev(), code: '', token: '', created: null, live: null, err: '' } : { step: this.prev() }); },
       kicker: s.step === 'pay' && g && !s.code ? 'Grab & Go' : onPayPage ? 'Order ' + s.code : titles[s.step][0],
       title: s.step === 'pay' && g && !s.code ? 'Your cart' : onPayPage ? 'Payment' : titles[s.step][1],
       // ---- YOUR CART ----
@@ -622,7 +628,7 @@ class Component extends DCLogic {
         background: { waiting: '#f5c542', expired: '#d9d7d2', failed: '#fdecef', paid: '#128c4a' }[payState], color: { waiting: '#0d0d0d', expired: '#3a3a3a', failed: '#c70026', paid: '#fff' }[payState] },
       payNote: payState === 'expired' ? (lvDead ? 'This order expired before it was paid. Tap Try again to pay for the same items with a new order.' : 'This QR code expired. Tap Try again for a new one.') : payState === 'failed' ? 'The payment did not go through. Choose another payment method and try again.' : 'This page updates automatically once your payment is received.',
       payItems: (((live && live.items) || []).length ? live.items.map(i => ({ label: i.qty + '× ' + i.name, value: rp(i.subtotal) })) : this.cartLines().map(i => ({ label: i.qty + '× ' + i.name, value: rp(i.price * i.qty) }))),
-      payTotalFmt: rp((live && live.total) || (s.created && s.created.total) || total), payMethodLabel: s.pay ? method.label : '',
+      payTotalFmt: rp((live && live.total) || (s.created && s.created.total) || total), payMethodLabel: s.pay ? method.label : '', payLogos: this.methodLogos(s.pay), hasPayLogos: !!s.pay,
       lastChecked: s.lastCheck ? 'Last checked ' + new Date(s.lastCheck).toLocaleTimeString('en-GB', { timeZone: 'Asia/Jakarta', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Checking automatically',
       canDownloadQr: s.step === 'qr' && !!s.qrStr && !qrExpired, downloadQr: () => this.downloadQr(),
       // ---- PAYMENT RECEIVED ----
@@ -634,8 +640,17 @@ class Component extends DCLogic {
       isGrab: g, isGrabOffline: gOff, showPay: !gOff,  // showPay gates the online payment-method section in the pay step
       grabHint: gOff ? 'Bayar langsung di kasir cafe saat ambil pesanan. Barista akan konfirmasi ordermu dulu.'
         : 'Bayar sekarang (QRIS, e-wallet, kartu, atau VA). Ordermu langsung diterima kalau stok tersedia, lalu ambil di cafe.',
-      grabConfirm: !!s.confirmUntil, grabConfirmLeft: String(confirmLeft),
-      grabConfirmGo: () => this.confirmGo(), grabConfirmCancel: () => this.confirmCancel(),
+      // ---- CONFIRM YOUR ORDER modal ----
+      confOpen: !!s.confirmOpen && s.step === 'pay' && !s.code,
+      confItems: this.cartLines().map(l => ({ name: l.name, opt: l.optLabel, qty: '× ' + l.qty, subFmt: rp(l.price * l.qty) })),
+      confHasVoucher: !!(s.promoInfo && s.promoInfo.ok), confVoucher: s.promoInfo && s.promoInfo.ok ? (s.promoInfo.name || s.promoInfo.code) + ' (' + s.promoInfo.code + ')' : '',
+      confVoucherCut: s.promoInfo && s.promoInfo.ok ? '−' + rp(s.promoInfo.discount) : '',
+      confMethod: s.pay ? method.label + (s.pay === 'va' ? ' · ' + (s.vaBank || 'BCA') : s.pay === 'ewallet' ? ' · ' + (s.ewChoice === 'ovo' ? 'OVO' : 'QRIS (ShopeePay, GoPay, DANA…)') : '') : '',
+      confLogos: this.methodLogos(s.pay), confTotal: rp(total),
+      confErr: s.confirmOpen ? errMsg : '', confHasErr: !!(s.confirmOpen && errMsg),
+      confYesLabel: s.busy || s.payBusy || s.cardBusy ? 'Processing…' : 'Yes, continue', confBusy: !!(s.busy || s.payBusy || s.cardBusy),
+      confYes: () => this.confirmGo(), confEdit: () => this.confirmCancel(), confStop: e => e.stopPropagation(),
+      confBackdrop: e => { if (e.target === e.currentTarget) this.confirmCancel(); },
       // Grab & Go paid online: tracker + how to claim (no WhatsApp in this flow).
       grabTrack: g && !gOff && !!live && live.payment_status === 'paid' && tr.steps.length > 0,
       claimName: (live && live.customer_name) || s.name, claimCode: s.code,
@@ -688,7 +703,7 @@ class Component extends DCLogic {
       grabPayOpts: ((cfg.payment_methods) || []).map(m => ({ label: m.label, code: m.code, pick: () => { this.setState({ grabPay: m.code }); if ((s.promo || '').trim() && s.promoInfo) this.applyPromo(); },
         style: { all: 'unset', cursor: 'pointer', fontWeight: 700, fontSize: '13px', padding: '10px 14px', borderRadius: 12, background: s.grabPay === m.code ? '#fdecec' : '#fff', color: s.grabPay === m.code ? '#e30a2e' : '#0d0d0d', border: '1px solid ' + (s.grabPay === m.code ? '#e30a2e' : 'rgba(13,13,13,.12)') } })),
       grabPayShow: s.mode === 'grab',
-      hasErr: !!errMsg, errMsg, vNameErr: s.name && !vNameOk ? 'Please enter your name' : '', vPhoneErr: s.phone && !vPhoneOk ? 'Please enter a valid WhatsApp number, e.g. 0812xxxxxxx' : '',
+      hasErr: !!errMsg && !s.confirmOpen, errMsg, vNameErr: s.name && !vNameOk ? 'Please enter your name' : '', vPhoneErr: s.phone && !vPhoneOk ? 'Please enter a valid WhatsApp number, e.g. 0812xxxxxxx' : '',
       waitTitle: payFailed ? st.pill : 'Waiting for your payment', waitSub: payFailed ? 'Please start a new order or contact the cafe.' : 'Checking your payment. ' + 'This page updates automatically. You can close it; your order stays in Purchase History · ' + s.code,
       email: s.email, phone: s.phone,
       setEmail: e => this.setState({ email: e.target.value }), setPhone: e => this.setState({ phone: e.target.value }),
