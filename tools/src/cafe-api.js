@@ -65,6 +65,24 @@
   function markSeen(list) { var seen = getSeen(); (list || []).forEach(function (o) { seen[o.code] = o.updated_at; }); lsSet(SEEN_KEY, seen); emit('seen', seen); }
   function hasUnseen(list) { var seen = getSeen(); return (list || []).some(function (o) { return o.is_open && seen[o.code] && o.updated_at > seen[o.code]; }); }
 
+  // ---------- cart (one cart for the whole site, kept across reloads) ----------
+  // { [lineKey]: { id, opts: [addon option ids], qty } } in localStorage 20fit-cart. Every screen (menu cards, story,
+  // product pop-up, checkout) writes through cartSet and listens to the 'cart' event, so they always agree.
+  var CART_KEY = '20fit-cart';
+  var PAYOPEN_KEY = '20fit-pay-open';
+  function cleanCart(c) {
+    var out = {};
+    Object.keys(c || {}).forEach(function (k) { var l = c[k]; var q = Math.round(Number(l && l.qty) || 0); if (l && l.id && q > 0) out[k] = { id: l.id, opts: Array.isArray(l.opts) ? l.opts : [], qty: Math.min(99, q) }; });
+    return out;
+  }
+  function cartGet() { var c = lsGet(CART_KEY, {}); return c && typeof c === 'object' && !Array.isArray(c) ? cleanCart(c) : {}; }
+  function cartSet(c) { var clean = cleanCart(c); lsSet(CART_KEY, clean); emit('cart', clean); return clean; }
+  try { window.addEventListener('storage', function (e) { if (e.key === CART_KEY) emit('cart', cartGet()); }); } catch (e) {}
+  // The unpaid order whose payment page is open, so a reload / return lands on the same payment page.
+  function payOpenGet() { var p = lsGet(PAYOPEN_KEY, null); return p && p.code && p.token ? p : null; }
+  function payOpenSet(p) { if (p && p.code && p.token) lsSet(PAYOPEN_KEY, { code: p.code, token: p.token, at: Date.now() }); }
+  function payOpenClear(code) { var p = payOpenGet(); if (!code || (p && p.code === code)) { try { localStorage.removeItem(PAYOPEN_KEY); } catch (e) {} } }
+
   // ---------- cached public data ----------
   var menuP = null, configP = null;
   function getMenu(force) { if (!menuP || force) menuP = rpc('cafe_get_web_menu').catch(function (e) { menuP = null; throw e; }); return menuP; }
@@ -221,6 +239,7 @@
     rpc: rpc, on: on, emit: emit,
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
+    cartGet: cartGet, cartSet: cartSet, payOpenGet: payOpenGet, payOpenSet: payOpenSet, payOpenClear: payOpenClear,
     createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, addVenueRefreshment: addVenueRefreshment, getOrder: getOrder, getMyOrders: getMyOrders,
     findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, checkVoucher: checkVoucher, cancelMyOrder: cancelMyOrder, watch: watch,
     rp: rp, time: time, dateTime: dateTime, dayLabel: dayLabel, ymd: ymd, optionsText: optionsText,

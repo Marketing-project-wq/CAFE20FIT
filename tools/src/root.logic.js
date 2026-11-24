@@ -51,7 +51,7 @@ const isCut = src => /^data:|\.png($|\?)/i.test(src);
 
 class Component extends DCLogic {
   vid = React.createRef();
-  state = { igI: 0, igHold: true, hy: 0, hx: 0, hyM: 0, hon: false, need: 1, heroIn: false, sound: false, tab: 'All', sel: null, cart: {}, checkout: false, full: false, hist: false,
+  state = { igI: 0, igHold: true, hy: 0, hx: 0, hyM: 0, hon: false, need: 1, heroIn: false, sound: false, tab: 'All', sel: null, cart: (window.CafeApi && window.CafeApi.cartGet ? window.CafeApi.cartGet() : {}), checkout: false, resume: null, full: false, hist: false,
     menu: null, menuErr: '', refs: [], hList: null, hErr: '', hLoading: false, hOpen: {}, hFlash: {}, hDot: false, rates: {}, findCode: '', findPhone: '', findMsg: '', findBusy: false, toast: null, pick: {}, vAdd: {}, vAddBusy: {} };
   rail = React.createRef();
   careVid = React.createRef();
@@ -267,11 +267,22 @@ class Component extends DCLogic {
   }
   price(m) { return m ? m.price : 0; }
   // cart: { [lineKey]: { id, opts, qty } }
+  // Every change goes through CafeApi.cartSet (localStorage + 'cart' event); the subscription in componentDidMount
+  // puts it back in state, so the menu, story, pop-up and checkout always show the same cart.
+  setCart(next) { const c = API().cartSet(next); this.setState({ cart: c }); }
   add(id, opts) {
     const m = this.byId(id); if (!m || !m.available) return;
-    const o = opts || defaultOpts(m), k = lineKey(id, o);
-    this.setState(s => ({ cart: { ...s.cart, [k]: { id, opts: o, qty: ((s.cart[k] || {}).qty || 0) + 1 } } }));
+    const o = opts || defaultOpts(m), k = lineKey(id, o), c = this.state.cart;
+    this.setCart({ ...c, [k]: { id, opts: o, qty: ((c[k] || {}).qty || 0) + 1 } });
   }
+  // − on a menu card: takes one off the plain (default options) line first, else the newest line of that item.
+  dec(id) {
+    const m = this.byId(id), c = this.state.cart, keys = Object.keys(c).filter(k => c[k].id === id); if (!keys.length) return;
+    const dk = m ? lineKey(id, defaultOpts(m)) : null, k = keys.includes(dk) ? dk : keys[keys.length - 1];
+    this.setCart({ ...c, [k]: { ...c[k], qty: c[k].qty - 1 } });
+  }
+  // FULL MENU: View Menu / Full menu / #menu / #order all open it on the "All" tab.
+  openFullMenu() { this.setState({ full: true, hist: false, sel: null, tab: 'All' }); }
   qtyOf(id) { return Object.values(this.state.cart).filter(l => l.id === id).reduce((a, l) => a + l.qty, 0); }
   selOpts(m) { const p = this.state.pick[m.id]; return p || defaultOpts(m); }
   pickOpt(m, g, optId) { const cur = this.selOpts(m).filter(id => !(g.options || []).some(o => o.id === id)); this.setState(s => ({ pick: { ...s.pick, [m.id]: cur.concat([optId]) } })); }
@@ -373,6 +384,20 @@ class Component extends DCLogic {
       if (back) { history.replaceState(null, '', location.pathname + location.hash); setTimeout(() => this.openHist(), 300); if (q.get('paid')) this.showToast('Payment received for ' + back + ' · confirming…'); }
     } catch (e) {}
     this._offRefs = API().on('refs', () => this.refreshHist(false));
+    this._offCart = API().on('cart', c => this.setState({ cart: c }));
+    // Deep links: #menu / #order open FULL MENU; #order/CAFE-XXXXX (or an unpaid order whose payment page was open)
+    // opens that order's payment page again.
+    this._hash = () => {
+      const h = decodeURIComponent(location.hash || ''), mm = h.match(/^#order\/([A-Za-z0-9-]+)$/);
+      const open = API().payOpenGet();
+      if (mm) { const code = mm[1].toUpperCase(), token = API().tokenFor(code) || (open && open.code === code ? open.token : null);
+        if (token) { this.setState({ resume: { code, token }, checkout: true, full: false, sel: null, mode: 'grab' }); return; }
+        try { history.replaceState(null, '', location.pathname + '#order'); } catch (e) {}
+        this.openFullMenu(); return; }
+      if (h === '#menu' || h === '#order') { if (!this.state.checkout) this.openFullMenu(); }
+    };
+    this._hash();
+    window.addEventListener('hashchange', this._hash);
     this._poll = setInterval(() => { if (API().getRefs().length && (this.state.hist || (this.state.hList || []).some(o => o.is_open))) this.refreshHist(false); }, 20000);
     this._focus = () => { if (document.visibilityState === 'visible') this.refreshHist(false); };
     document.addEventListener('visibilitychange', this._focus); window.addEventListener('focus', this._focus);
@@ -408,7 +433,9 @@ class Component extends DCLogic {
     // the day timeline is a horizontal swipe / scroll carousel — keep the clock / sky / active stop in sync with its scroll
     setTimeout(() => { const dt = this.dayTrack.current; if (dt) { this._dayScroll = () => { if (this._dayScrollRaf) return; this._dayScrollRaf = requestAnimationFrame(() => { this._dayScrollRaf = 0; this.daySync(); }); }; dt.addEventListener('scroll', this._dayScroll, { passive: true }); this.setupDayDrag(); this.daySync(); } }, 600);
     this._dayTimer = setInterval(() => { try { this.dayAutoTick(performance.now()); } catch (e) {} }, 33);
-    this._key = e => { if (!this.state.sel) return; if (e.key === 'Escape') this.setState({ sel: null }); if (e.key === 'ArrowRight') this.step(1); if (e.key === 'ArrowLeft') this.step(-1); };
+    this._key = e => {
+      if (!this.state.sel) { if (e.key === 'Escape' && this.state.full && !this.state.checkout) this.setState({ full: false }); return; }
+      if (e.key === 'Escape') this.setState({ sel: null }); if (e.key === 'ArrowRight') this.step(1); if (e.key === 'ArrowLeft') this.step(-1); };
     window.addEventListener('keydown', this._key);
     const loop = () => {
       const t = performance.now() / 1000;
@@ -425,7 +452,7 @@ class Component extends DCLogic {
     };
     this._raf = requestAnimationFrame(loop);
   }
-  componentWillUnmount() { clearInterval(this._cWatch); if (this._cStop) this._cStop(); document.removeEventListener('visibilitychange', this._cVis); if (this._reveal) this._reveal.disconnect(); window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); cancelAnimationFrame(this._raf); }
+  componentWillUnmount() { clearInterval(this._cWatch); if (this._cStop) this._cStop(); document.removeEventListener('visibilitychange', this._cVis); if (this._reveal) this._reveal.disconnect(); window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); window.removeEventListener('hashchange', this._hash); this._offCart && this._offCart(); cancelAnimationFrame(this._raf); }
 
   viewer(m, key) {
     const h = React.createElement;
@@ -617,7 +644,7 @@ class Component extends DCLogic {
           style: { all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, opacity: on ? 1 : 0, transform: 'translateY(' + ((on ? 0 : 40) - y) + 'px) rotate(' + ((i - 1) * (on ? 2 : 8)) + 'deg)', transition: 'opacity .8s ' + (0.2 + i * 0.15) + 's, transform .9s cubic-bezier(.2,.8,.2,1) ' + (i * 0.15) + 's' } }; }),
       // Pauses the About-section video (site music) while the menu / order / checkout / history / product view is open
       mediaHold: !!(this.state.checkout || this.state.full || this.state.hist || this.state.sel),
-      showFull: this.state.full, openFull: () => this.setState({ full: true, hist: false }), closeFull: () => this.setState({ full: false }),
+      showFull: this.state.full, openFull: () => this.openFullMenu(), closeFull: () => this.setState({ full: false }), fullBackdrop: e => { if (e.target === e.currentTarget) this.setState({ full: false }); },
       showHist: this.state.hist, closeHist: () => this.setState({ hist: false }),
       sub: this.state.sub || 'table',
       hLoading: this.state.hLoading && !H.length, hError: !!this.state.hErr && !H.length, retryHist: () => this.refreshHist(true),
@@ -629,8 +656,8 @@ class Component extends DCLogic {
       setFindCode: e => this.setState({ findCode: e.target.value }), setFindPhone: e => this.setState({ findPhone: e.target.value }),
       doFind: () => !this.state.findBusy && this.findOrder(),
       hasToast: !!this.state.toast, toast: this.state.toast || '', closeToast: () => this.setState({ toast: null }),
-      savePaid: () => { this.setState({ cart: {} }); this.refreshHist(false); },
-      toMenu: () => this.scrollMenu(),
+      savePaid: () => this.refreshHist(false),  // the checkout empties the cart itself once the payment is received
+      toMenu: () => this.openFullMenu(),
       openHero: () => this.setState({ sel: 'aren' }),
       toOrder: () => this.setState({ mode: null, checkout: true, sel: null, full: false }),
       waNumber: this.props.waNumber ?? '6285284200036',
@@ -650,15 +677,20 @@ class Component extends DCLogic {
       cartItems: Object.entries(this.state.cart).filter(([, l]) => this.byId(l.id)).map(([key, l]) => { const x = this.byId(l.id); return { key, id: l.id, opts: l.opts, name: x.name, optLabel: optsLabel(x, l.opts), price: x.price + optsPrice(x, l.opts), qty: l.qty }; }),
       showCheckout: this.state.checkout,
       openCheckout: () => this.setState(s => ({ checkout: true, sel: null, full: false, mode: s.mode === 'venue' ? null : s.mode })),
-      closeCheckout: () => this.setState({ checkout: false }),
-      clearCart: () => this.setState({ cart: {} }),
+      closeCheckout: () => this.setState({ checkout: false, resume: null }),
+      backToMenu: () => this.setState({ checkout: false, resume: null, full: true, hist: false, sel: null, tab: 'All' }),
+      resume: this.state.resume,
+      clearCart: () => this.setCart({}),
       addSel: () => m && this.add(m.id, this.selOpts(m)),
       addSelLabel: !m ? '' : !m.available ? 'Sold out' : (this.qtyOf(m.id) ? 'Add another (' + this.qtyOf(m.id) + ')' : '+ Order') + ' · ' + rp(m.price + optsPrice(m, this.selOpts(m))),
       hasAddons: !!(m && m.available && m.addons && m.addons.length),
       addonGroups: m ? (m.addons || []).map(g => ({ group: g.group, options: (g.options || []).map(o => { const on = this.selOpts(m).includes(o.id); return { label: o.label + (Number(o.price) ? ' +' + rp(o.price) : ''), pick: () => this.pickOpt(m, g, o.id),
         style: { all: 'unset', cursor: 'pointer', whiteSpace: 'nowrap', padding: '7px 12px', borderRadius: 999, fontSize: 13, fontWeight: 600, background: on ? '#0d0d0d' : 'rgba(255,255,255,.75)', color: on ? '#fff' : '#0d0d0d', border: '1px solid ' + (on ? '#0d0d0d' : 'rgba(13,13,13,.12)') } }; }) })) : [],
       menuLoading: this.state.menu === null && !this.state.menuErr, menuError: !!this.state.menuErr, retryMenu: () => this.loadMenu(),
-      items: l.map(x => ({ ...x, priceFmt: rp(this.price(x)), add: () => this.add(x.id), soldOut: !x.available, addLabel: !x.available ? 'Sold out' : this.qtyOf(x.id) ? 'In cart · ' + this.qtyOf(x.id) : '+ Add',
+      items: l.map(x => ({ ...x, priceFmt: rp(this.price(x)), add: () => this.add(x.id), soldOut: !x.available, addLabel: !x.available ? 'Sold out' : '+ Add',
+        // card stepper: [ − ] qty [ + ] once the item is in the cart (qty = all its lines), "+ Add" otherwise
+        qty: this.qtyOf(x.id), noQty: !x.available || !this.qtyOf(x.id), hasQty: !!x.available && this.qtyOf(x.id) > 0, dec: () => this.dec(x.id),
+        decLabel: 'Remove one ' + x.name, incLabel: 'Add one more ' + x.name,
         addStyle: this.addStyle(x.available, false), addStyleSm: this.addStyle(x.available, true), src: this.src(x.imgs[0]), imgStyle: this.imgStyle(this.src(x.imgs[0]), 'cover'), open: () => this.setState({ sel: x.id }) })),
       hasSel: !!m, sel: m || {},
       counter: m ? m.cat + ' · ' + String(l.findIndex(x => x.id === sel) + 1).padStart(2, '0') + ' / ' + String(l.length).padStart(2, '0') : '',
