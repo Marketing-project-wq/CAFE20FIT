@@ -83,41 +83,88 @@ class Component extends DCLogic {
       const r = pol.getBoundingClientRect(), pr = reduceMotionNow() ? 1 : clamp01((innerHeight - r.top) / (innerHeight * 0.85));
       [...pol.children].forEach((c, i) => { const d = i - 1; c.style.transform = 'translateX(' + (d * (1 - pr) * 38) + '%) rotate(' + (d * (4 + 10 * (1 - pr))) + 'deg) translateY(' + (Math.abs(d) * 14 * pr) + 'px)'; });
     }
-    // CH 03 — on phones this is a vertical list driven by scroll (active = the stop nearest the screen's middle);
-    // on wider screens it is a self-running carousel (see dayAutoTick), so scrolling is no longer needed to advance it.
+    // CH 03 — a native horizontal scroll carousel on every width (swipe / trackpad / drag / arrows / dots); the
+    // clock, sky and active stop follow its scroll position (see daySync).
     const el = this.day.current, stage = this.dayStage.current, track = this.dayTrack.current; if (!el || !stage || !track || !n) return;
-    if (dayMobile()) { this.dayMobileActive(); }
+    this.daySync();
   }
-  // Phone day carousel: native horizontal scroll drives position; the active stop is the card nearest the track's
-  // horizontal centre. Keeps the clock / sky / chip / active index in sync with the swipe.
-  dayMobileActive() {
+  // Day carousel: native horizontal scroll drives position on every width. Each stop has a scroll target (its card's
+  // left edge at the track's left padding, clamped to the end of the row); the float position between two targets
+  // drives the clock / sky / active stop, so a swipe moves the time of day smoothly.
+  dayTargets() {
+    const track = this.dayTrack.current; if (!track) return [];
+    const cards = track.querySelectorAll('[data-stop]'), padL = parseFloat(getComputedStyle(track).paddingLeft) || 0;
+    const max = Math.max(0, track.scrollWidth - track.clientWidth);
+    return [...cards].map(c => Math.max(0, Math.min(max, c.offsetLeft - padL)));
+  }
+  daySync() {
     const track = this.dayTrack.current; if (!track) return;
-    const cards = track.querySelectorAll('[data-stop]'); if (!cards.length) return;
-    track.style.transform = '';               // native horizontal scroll positions the row on phones
-    const cx = track.scrollLeft + track.clientWidth / 2;
-    let best = 0, bd = 1e9;
-    cards.forEach((c, i) => { const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - cx); if (d < bd) { bd = d; best = i; } });
-    this.applyDay(best, true);
+    if (track.style.transform) track.style.transform = '';
+    const t = this.dayTargets(), n = t.length; if (!n) return;
+    const sl = track.scrollLeft; let pos = 0;
+    if (sl >= t[n - 1] - 1) pos = n - 1;
+    else for (let i = 0; i < n - 1; i++) { if (sl < t[i + 1]) { const span = t[i + 1] - t[i]; pos = i + (span > 0 ? clamp01((sl - t[i]) / span) : 1); break; } }
+    this.applyDay(pos);
   }
-  // Tap a position dot (phones): scroll the carousel so that stop snaps into view.
-  scrollDayTo(i) {
+  // Scroll the carousel so stop i snaps into view (dots, arrows, keyboard, auto-advance).
+  scrollDayTo(i, user) {
     const track = this.dayTrack.current; if (!track) return;
-    const c = track.querySelectorAll('[data-stop]')[i]; if (!c) return;
-    track.scrollTo({ left: Math.max(0, c.offsetLeft - 16), behavior: 'smooth' });
+    const t = this.dayTargets(), n = t.length; if (!n) return;
+    i = Math.max(0, Math.min(n - 1, i));
+    if (user) this._dayUserT = performance.now();
+    this._dayAcc = 0;
+    track.scrollTo({ left: t[i], behavior: reduceMotionNow() ? 'auto' : 'smooth' });
   }
-  // Apply one point on the day timeline (pos is a float across the stops). flat = vertical phone layout: skip the
-  // horizontal track slide and only move the clock / sky / active stop.
-  applyDay(pos, flat) {
+  dayStep(d) { const n = SC().stops.length, i = this.state.dayI || 0; this.scrollDayTo(Math.max(0, Math.min(n - 1, i + d)), true); }
+  // Mouse drag-to-scroll (touch and trackpads scroll natively). Snap is suspended while dragging, then the row
+  // settles on the stop in the direction of the drag; a drag never fires the click of the card it started on.
+  setupDayDrag() {
+    const track = this.dayTrack.current, el = this.day.current; if (!track || !el) return;
+    let d = null;
+    const down = e => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      d = { x: e.clientX, sl: track.scrollLeft, moved: false, id: e.pointerId, i: this.state.dayI || 0 };
+    };
+    const move = e => {
+      if (!d || e.pointerId !== d.id) return;
+      const dx = e.clientX - d.x;
+      if (!d.moved && Math.abs(dx) < 6) return;
+      if (!d.moved) { d.moved = true; track.style.scrollSnapType = 'none'; track.style.scrollBehavior = 'auto'; track.classList.add('is-drag'); try { track.setPointerCapture(d.id); } catch (er) {} }
+      track.scrollLeft = d.sl - dx; e.preventDefault();
+    };
+    const up = e => {
+      if (!d || e.pointerId !== d.id) return;
+      const dd = d; d = null;
+      if (!dd.moved) return;
+      try { track.releasePointerCapture(dd.id); } catch (er) {}
+      track.classList.remove('is-drag'); track.style.scrollBehavior = '';
+      const dx = e.clientX - dd.x, n = SC().stops.length;
+      const to = Math.abs(dx) > 50 ? Math.max(0, Math.min(n - 1, dd.i + (dx < 0 ? 1 : -1))) : dd.i;
+      this.scrollDayTo(to, true);
+      setTimeout(() => { track.style.scrollSnapType = ''; }, reduceMotionNow() ? 0 : 520);
+      this._dayNoClick = performance.now();
+    };
+    track.addEventListener('pointerdown', down);
+    track.addEventListener('pointermove', move);
+    track.addEventListener('pointerup', up);
+    track.addEventListener('pointercancel', up);
+    track.addEventListener('click', e => { if (this._dayNoClick && performance.now() - this._dayNoClick < 80) { e.preventDefault(); e.stopPropagation(); } }, true);
+    track.addEventListener('dragstart', e => e.preventDefault());
+    // any manual scroll (trackpad swipe, shift+wheel, touch) counts as the visitor taking over from auto-advance
+    track.addEventListener('wheel', e => { if (Math.abs(e.deltaX) > Math.abs(e.deltaY) || e.shiftKey) this._dayUserT = performance.now(); }, { passive: true });
+    track.addEventListener('touchstart', () => { this._dayUserT = performance.now(); }, { passive: true });
+    // ← → while focus is inside the section
+    el.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+      if (e.target && /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+      e.preventDefault(); this.dayStep(e.key === 'ArrowRight' ? 1 : -1);
+    });
+  }
+  // Apply one point on the day timeline (pos is a float across the stops): clock, sky, photo parallax, active stop.
+  applyDay(pos) {
     const cfg = SC(), stops = cfg.stops, n = stops.length; const stage = this.dayStage.current, track = this.dayTrack.current;
     if (!stage || !track || !n) return;
-    if (!flat) {
-      // card i lands exactly where card 0 starts (left padding) when the day reaches stop i
-      const cards = track.querySelectorAll('[data-stop]'), ci = Math.min(n - 2, Math.floor(pos)), cf = pos - ci;
-      const x0 = cards[0] ? cards[0].offsetLeft : 0, xa = cards[Math.max(0, ci)] ? cards[Math.max(0, ci)].offsetLeft : 0, xb = cards[ci + 1] ? cards[ci + 1].offsetLeft : xa;
-      const mv = cf < 0.3 ? 0 : cf > 0.7 ? 1 : (1 - Math.cos((cf - 0.3) / 0.4 * Math.PI)) / 2;
-      track.style.transform = 'translate3d(' + (-(xa + (xb - xa) * mv - x0)) + 'px,0,0)';
-      track.style.setProperty('--dp', (n > 1 ? pos / (n - 1) : 0).toFixed(4));
-    }
+    track.style.setProperty('--dp', (n > 1 ? pos / (n - 1) : 0).toFixed(4));
     const i = Math.min(n - 2, Math.floor(pos)), f = pos - i, a = stops[Math.max(0, i)], b = stops[Math.min(n - 1, i + 1)] || a;
     const hour = a.hour + (b.hour - a.hour) * (n > 1 ? f : 0);
     const hh = Math.floor(hour), mm = Math.round((hour - hh) * 60 / 5) * 5 % 60;
@@ -133,30 +180,19 @@ class Component extends DCLogic {
     if (stage.dataset.dark !== String(dark)) stage.dataset.dark = String(dark);
     const di = Math.round(pos); if (di !== this.state.dayI) this.setState({ dayI: di });
   }
-  // The day carousel runs itself on wider screens: each stop dwells, then eases to the next, and the loop snaps back
-  // to the start after the evening stop. It pauses while an overlay is open, the tab is hidden, or the pointer hovers
-  // the section (so people can read), and it leaves the phone layout (scroll-driven vertical list) untouched.
+  // Auto-advance on wider screens: each stop dwells, then the row scrolls to the next one and loops back to the
+  // morning after the evening stop. It waits while the pointer is over the section, an overlay is open, the tab is
+  // hidden, or the visitor scrolled / dragged / tapped the carousel in the last few seconds. Phones never auto-advance.
   dayAutoTick(now) {
     const dt = now - (this._dayPrev || now); this._dayPrev = now;
     const el = this.day.current; if (!el) return;
-    if (dayMobile()) { this._dayAcc = 0; this._dayMode = 'hold'; this._dayFrom = 0; return; }
+    if (dayMobile() || reduceMotionNow()) { this._dayAcc = 0; return; }
     const r = el.getBoundingClientRect(), inView = r.top < innerHeight * 0.85 && r.bottom > innerHeight * 0.15;
     if (!inView || this._dayPaused || this.overlayOpen() || document.visibilityState !== 'visible') return;
-    const n = SC().stops.length; if (n < 2) { this.applyDay(0, false); return; }
-    const DWELL = 3000, SLIDE = reduceMotionNow() ? 1 : 950;
+    if (this._dayUserT && now - this._dayUserT < 12000) { this._dayAcc = 0; return; }
+    const n = SC().stops.length; if (n < 2) return;
     this._dayAcc = (this._dayAcc || 0) + dt;
-    if (this._dayMode === 'move') {
-      const t = clamp01(this._dayAcc / SLIDE), e = (1 - Math.cos(t * Math.PI)) / 2;
-      this.applyDay((this._dayFrom || 0) + e, false);
-      if (this._dayAcc >= SLIDE) { this._dayFrom = this._dayTo; this._dayMode = 'hold'; this._dayAcc = 0; }
-    } else {
-      this.applyDay(this._dayFrom || 0, false);
-      if (this._dayAcc >= DWELL) {
-        this._dayAcc = 0;
-        if ((this._dayFrom || 0) >= n - 1) { this._dayFrom = 0; this.applyDay(0, false); }   // loop: snap back to the morning
-        else { this._dayTo = (this._dayFrom || 0) + 1; this._dayMode = 'move'; }
-      }
-    }
+    if (this._dayAcc >= 4200) { const i = this.state.dayI || 0; this.scrollDayTo(i >= n - 1 ? 0 : i + 1, false); }
   }
   // '+ Add' from the story: same cart as the menu, with the product thumbnail flying to the cart bar
   storyAdd(m, chapter, e) {
@@ -367,10 +403,10 @@ class Component extends DCLogic {
     window.addEventListener('scroll', this._story, { passive: true }); window.addEventListener('resize', this._story);
     setTimeout(() => { this._chs = SC().chapters.filter(c => document.getElementById(c.el)); this.storyTick(); }, 600);
     // CH 03 day carousel auto-advance (wider screens) — pauses while the pointer is over the section
-    this._dayFrom = 0; this._dayTo = 0; this._dayAcc = 0; this._dayMode = 'hold'; this._dayPrev = 0; this._dayPaused = false;
+    this._dayAcc = 0; this._dayPrev = 0; this._dayPaused = false; this._dayUserT = 0;
     setTimeout(() => { const de = this.day.current; if (de) { de.addEventListener('pointerenter', () => { this._dayPaused = true; }); de.addEventListener('pointerleave', () => { this._dayPaused = false; }); } }, 600);
-    // phones: the day timeline is a horizontal swipe carousel — keep the clock / sky / active stop in sync with its scroll
-    setTimeout(() => { const dt = this.dayTrack.current; if (dt) { this._dayScroll = () => { if (!dayMobile() || this._dayScrollRaf) return; this._dayScrollRaf = requestAnimationFrame(() => { this._dayScrollRaf = 0; this.dayMobileActive(); }); }; dt.addEventListener('scroll', this._dayScroll, { passive: true }); } }, 600);
+    // the day timeline is a horizontal swipe / scroll carousel — keep the clock / sky / active stop in sync with its scroll
+    setTimeout(() => { const dt = this.dayTrack.current; if (dt) { this._dayScroll = () => { if (this._dayScrollRaf) return; this._dayScrollRaf = requestAnimationFrame(() => { this._dayScrollRaf = 0; this.daySync(); }); }; dt.addEventListener('scroll', this._dayScroll, { passive: true }); this.setupDayDrag(); this.daySync(); } }, 600);
     this._dayTimer = setInterval(() => { try { this.dayAutoTick(performance.now()); } catch (e) {} }, 33);
     this._key = e => { if (!this.state.sel) return; if (e.key === 'Escape') this.setState({ sel: null }); if (e.key === 'ArrowRight') this.step(1); if (e.key === 'ArrowLeft') this.step(-1); };
     window.addEventListener('keydown', this._key);
@@ -495,9 +531,12 @@ class Component extends DCLogic {
       }),
       dayCartText: cartN ? cartN + ' in your cup · ' + rp(cartSum) : 'Your cup is empty',
       dayCartOn: cartN > 0, openCart: () => cartN && this.setState(s => ({ checkout: true, sel: null, full: false, mode: s.mode === 'venue' ? null : s.mode })),
-      // CH 03 position dots — shown on phones (where the desktop clock is hidden); active follows the swipe carousel.
+      // CH 03 position dots + prev/next arrows; active follows the scroll carousel.
+      dayPrev: () => this.dayStep(-1), dayNext: () => this.dayStep(1),
+      dayPrevStyle: (() => { const off = (this.state.dayI || 0) <= 0; return { all: 'unset', cursor: off ? 'default' : 'pointer', boxSizing: 'border-box', width: 34, height: 34, borderRadius: 999, display: 'grid', placeItems: 'center', background: off ? 'rgba(13,13,13,.08)' : '#0d0d0d', color: off ? 'rgba(13,13,13,.3)' : '#fff', fontSize: 16, lineHeight: 1, transition: 'background .2s, color .2s' }; })(),
+      dayNextStyle: (() => { const off = (this.state.dayI || 0) >= (cfg.stops || []).length - 1; return { all: 'unset', cursor: off ? 'default' : 'pointer', boxSizing: 'border-box', width: 34, height: 34, borderRadius: 999, display: 'grid', placeItems: 'center', background: off ? 'rgba(13,13,13,.08)' : '#0d0d0d', color: off ? 'rgba(13,13,13,.3)' : '#fff', fontSize: 16, lineHeight: 1, transition: 'background .2s, color .2s' }; })(),
       dayDots: (cfg.stops || []).map((st, i) => { const on = i === (this.state.dayI || 0);
-        return { label: 'Go to ' + (st.time || ('stop ' + (i + 1))), go: () => this.scrollDayTo(i),
+        return { label: 'Go to ' + (st.time || ('stop ' + (i + 1))), go: () => this.scrollDayTo(i, true),
           style: { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', width: on ? 22 : 8, height: 8, borderRadius: 999, background: on ? '#e30a2e' : 'rgba(140,140,140,.55)', transition: 'width .3s, background .3s' } }; }),
       // CH 04 — Find your fuel
       quizQ: (() => { const Q = cfg.quiz, i = this.state.qi || 0; if (!Q || i >= Q.questions.length) return null; return Q.questions[i]; })() ? 1 : 0,
