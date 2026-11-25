@@ -83,6 +83,17 @@
   function payOpenSet(p) { if (p && p.code && p.token) lsSet(PAYOPEN_KEY, { code: p.code, token: p.token, at: Date.now() }); }
   function payOpenClear(code) { var p = payOpenGet(); if (!code || (p && p.code === code)) { try { localStorage.removeItem(PAYOPEN_KEY); } catch (e) {} } }
 
+  // ---------- table QR (cafe.20fit.id/#t/{token}) ----------
+  // The token from a table QR is remembered for table_session_hours (default 4 h) so the order can be labelled
+  // "MEJA x" (spec 2026-11-25-zoe-cafe-qr-meja-claim-grab). Only the backend decides if a token is valid.
+  var TABLE_KEY = '20fit-table-session';
+  var CLAIM_KEY = '20fit-claim-point';
+  function tableSessionGet() { var t = lsGet(TABLE_KEY, null); if (!t || !t.token) return null; if (t.until && Date.now() > t.until) { try { localStorage.removeItem(TABLE_KEY); } catch (e) {} return null; } return t; }
+  function tableSessionSet(t) { if (t && t.token) { lsSet(TABLE_KEY, t); emit('table', t); } }
+  function tableSessionClear() { try { localStorage.removeItem(TABLE_KEY); } catch (e) {} emit('table', null); }
+  function tableResolve(token) { return rpc('cafe_table_resolve', { p_token: String(token || '').trim() }); }
+  function claimPointSet(token) { if (token) lsSet(CLAIM_KEY, { token: token, at: Date.now() }); }
+
   // ---------- cached public data ----------
   var menuP = null, configP = null;
   function getMenu(force) { if (!menuP || force) menuP = rpc('cafe_get_web_menu').catch(function (e) { menuP = null; throw e; }); return menuP; }
@@ -239,6 +250,7 @@
     rpc: rpc, on: on, emit: emit,
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
+    tableSessionGet: tableSessionGet, tableSessionSet: tableSessionSet, tableSessionClear: tableSessionClear, tableResolve: tableResolve, claimPointSet: claimPointSet,
     cartGet: cartGet, cartSet: cartSet, payOpenGet: payOpenGet, payOpenSet: payOpenSet, payOpenClear: payOpenClear,
     createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, addVenueRefreshment: addVenueRefreshment, getOrder: getOrder, getMyOrders: getMyOrders,
     findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, checkVoucher: checkVoucher, cancelMyOrder: cancelMyOrder, watch: watch,

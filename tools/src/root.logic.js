@@ -281,6 +281,24 @@ class Component extends DCLogic {
     const dk = m ? lineKey(id, defaultOpts(m)) : null, k = keys.includes(dk) ? dk : keys[keys.length - 1];
     this.setCart({ ...c, [k]: { ...c[k], qty: c[k].qty - 1 } });
   }
+  // Table QR scanned: remember the table, open FULL MENU right away (never a blank page), then let the backend
+  // confirm the token. Invalid → "QR meja tidak valid" and the visitor simply continues as Grab n Go.
+  tableScan(token) {
+    const A = API(), hours = 4;
+    A.tableSessionSet({ token, at: Date.now(), until: Date.now() + hours * 36e5 });
+    try { history.replaceState(null, '', '/#menu'); } catch (e) {}
+    this.openFullMenu();
+    A.tableResolve(token).then(r => {
+      if (r && r.ok) {
+        const h = Number(r.session_hours) || hours;
+        A.tableSessionSet({ token, table_id: r.table_id, code: r.code, label: r.label, at: Date.now(), until: Date.now() + h * 36e5 });
+        this.showToast('Dine-in · ' + r.label + ' — pesananmu diantar ke meja ini');
+      } else if (r && r.ok === false) {
+        A.tableSessionClear();
+        this.showToast(r.error || 'QR meja tidak valid, silakan tanya kasir');
+      }
+    }).catch(() => {});  // backend not updated yet: keep the remembered table, the menu still works
+  }
   // FULL MENU: View Menu / Full menu / #menu / #order all open it on the "All" tab.
   openFullMenu() { this.setState({ full: true, hist: false, sel: null, tab: 'All' }); }
   qtyOf(id) { return Object.values(this.state.cart).filter(l => l.id === id).reduce((a, l) => a + l.qty, 0); }
@@ -395,6 +413,12 @@ class Component extends DCLogic {
     // opens that order's payment page again.
     this._hash = () => {
       const h = decodeURIComponent(location.hash || ''), mm = h.match(/^#order\/([A-Za-z0-9-]+)$/);
+      // Table QR: #t/{token} (or /t/{token}) → FULL MENU, the table is remembered for the order (Fase 2 labels it).
+      const tq = h.match(/^#t\/([A-Za-z0-9_-]{8,64})$/) || (location.pathname || '').match(/^\/t\/([A-Za-z0-9_-]{8,64})\/?$/);
+      if (tq) { this.tableScan(tq[1]); return; }
+      // Counter Claim QR: #claim/{token} (or /claim/{token}) → the customer's orders (claim screen comes in Fase 3).
+      const cq = h.match(/^#claim\/([A-Za-z0-9_-]{8,64})$/) || (location.pathname || '').match(/^\/claim\/([A-Za-z0-9_-]{8,64})\/?$/);
+      if (cq) { API().claimPointSet(cq[1]); try { history.replaceState(null, '', '/#order'); } catch (e) {} this.openHist(); return; }
       const open = API().payOpenGet();
       if (mm) { const code = mm[1].toUpperCase(), token = API().tokenFor(code) || (open && open.code === code ? open.token : null);
         if (token) { this.setState({ resume: { code, token }, checkout: true, full: false, sel: null, mode: 'grab' }); return; }
