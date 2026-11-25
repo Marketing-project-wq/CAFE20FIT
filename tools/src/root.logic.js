@@ -292,7 +292,7 @@ class Component extends DCLogic {
       if (r && r.ok) {
         const h = Number(r.session_hours) || hours;
         A.tableSessionSet({ token, table_id: r.table_id, code: r.code, label: r.label, at: Date.now(), until: Date.now() + h * 36e5 });
-        this.showToast('Dine-in · ' + r.label + ' — pesananmu diantar ke meja ini');
+        // the FULL MENU banner "DINE-IN · MEJA 7" shows it (no toast: it would cover the cart / confirm modal)
       } else if (r && r.ok === false) {
         A.tableSessionClear();
         this.showToast(r.error || 'QR meja tidak valid, silakan tanya kasir');
@@ -409,6 +409,9 @@ class Component extends DCLogic {
     } catch (e) {}
     this._offRefs = API().on('refs', () => this.refreshHist(false));
     this._offCart = API().on('cart', c => this.setState({ cart: c }));
+    // Table session (from a table QR): FULL MENU shows "DINE-IN · MEJA 7" while it lasts.
+    this._offTable = API().on('table', t => this.setState({ table: t || null }));
+    this.setState({ table: API().tableSessionGet() });
     // Deep links: #menu / #order open FULL MENU; #order/CAFE-XXXXX (or an unpaid order whose payment page was open)
     // opens that order's payment page again.
     this._hash = () => {
@@ -482,7 +485,7 @@ class Component extends DCLogic {
     };
     this._raf = requestAnimationFrame(loop);
   }
-  componentWillUnmount() { clearInterval(this._cWatch); if (this._cStop) this._cStop(); document.removeEventListener('visibilitychange', this._cVis); if (this._reveal) this._reveal.disconnect(); window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); window.removeEventListener('hashchange', this._hash); this._offCart && this._offCart(); cancelAnimationFrame(this._raf); }
+  componentWillUnmount() { clearInterval(this._cWatch); if (this._cStop) this._cStop(); document.removeEventListener('visibilitychange', this._cVis); if (this._reveal) this._reveal.disconnect(); window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); window.removeEventListener('hashchange', this._hash); this._offCart && this._offCart(); this._offTable && this._offTable(); cancelAnimationFrame(this._raf); }
 
   viewer(m, key) {
     const h = React.createElement;
@@ -674,6 +677,10 @@ class Component extends DCLogic {
           style: { all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, opacity: on ? 1 : 0, transform: 'translateY(' + ((on ? 0 : 40) - y) + 'px) rotate(' + ((i - 1) * (on ? 2 : 8)) + 'deg)', transition: 'opacity .8s ' + (0.2 + i * 0.15) + 's, transform .9s cubic-bezier(.2,.8,.2,1) ' + (i * 0.15) + 's' } }; }),
       // Pauses the About-section video (site music) while the menu / order / checkout / history / product view is open
       mediaHold: !!(this.state.checkout || this.state.full || this.state.hist || this.state.sel),
+      // Fase 2: dine-in banner while a confirmed table session lasts ("Bukan di meja?" leaves table mode).
+      hasTable: !!(this.state.table && this.state.table.label && (!this.state.table.until || Date.now() < this.state.table.until)),
+      tableBanner: this.state.table && this.state.table.label ? 'Dine-in · ' + this.state.table.label : '',
+      leaveTable: () => { API().tableSessionClear(); this.showToast('Mode meja dimatikan · pesanan jadi Grab n Go (ambil di counter)'); },
       showFull: this.state.full, openFull: () => this.openFullMenu(), closeFull: () => this.setState({ full: false }), fullBackdrop: e => { if (e.target === e.currentTarget) this.setState({ full: false }); },
       showHist: this.state.hist, closeHist: () => this.setState({ hist: false }),
       sub: this.state.sub || 'table',
