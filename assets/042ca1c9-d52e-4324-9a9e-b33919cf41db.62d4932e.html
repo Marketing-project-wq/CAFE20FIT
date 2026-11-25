@@ -369,8 +369,18 @@
         <div style="display:flex;flex-direction:column;gap:14px;padding:4px 0 8px"><sc-if value="{{ grabWaiting }}" hint-placeholder-val="{{ true }}"><div style="display:flex;justify-content:center;padding:2px 0 0"><style>@keyframes g2fwRing{0%{transform:scale(.55);opacity:.5}100%{transform:scale(1.25);opacity:0}}@keyframes g2fwBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}@keyframes g2fwSteam{0%{opacity:0;transform:translateY(5px)}45%{opacity:.85}100%{opacity:0;transform:translateY(-7px)}}@keyframes g2fwDot{0%,100%{transform:translateY(0);opacity:.35}50%{transform:translateY(-5px);opacity:1}}.g2fw-ring{transform-box:fill-box;transform-origin:center;animation:g2fwRing 2s ease-out infinite}.g2fw-barista{transform-box:fill-box;transform-origin:center;animation:g2fwBob 2.6s ease-in-out infinite}.g2fw-steam{transform-box:fill-box;transform-origin:center;animation:g2fwSteam 1.9s ease-in-out infinite}.g2fw-s2{animation-delay:.6s}.g2fw-dot{transform-box:fill-box;transform-origin:center;animation:g2fwDot 1.2s ease-in-out infinite}.g2fw-d2{animation-delay:.18s}.g2fw-d3{animation-delay:.36s}</style><svg viewBox="0 0 200 162" width="188" height="152" role="img" aria-label="Menunggu barista menerima order"><circle class="g2fw-ring" cx="100" cy="70" r="42" fill="none" stroke="#e30a2e" stroke-width="2"/><g class="g2fw-barista"><rect x="84" y="70" width="32" height="42" rx="13" fill="#e30a2e"/><circle cx="100" cy="54" r="15" fill="#f4cda4"/><path d="M85 52a15 15 0 0 1 30 0z" fill="#0d0d0d"/><rect x="86" y="48" width="28" height="7" rx="3" fill="#0d0d0d"/></g><rect x="26" y="112" width="148" height="6" rx="3" fill="#e30a2e"/><rect x="26" y="118" width="148" height="28" rx="7" fill="#0d0d0d"/><rect x="120" y="98" width="18" height="16" rx="2" fill="#fff" stroke="#0d0d0d" stroke-width="2"/><path d="M138 101h4a3 3 0 0 1 0 8h-4" fill="none" stroke="#0d0d0d" stroke-width="2"/><path class="g2fw-steam" d="M126 96c-3-4 3-7 0-11" fill="none" stroke="#c9b9a6" stroke-width="2" stroke-linecap="round"/><path class="g2fw-steam g2fw-s2" d="M133 96c-3-4 3-7 0-11" fill="none" stroke="#c9b9a6" stroke-width="2" stroke-linecap="round"/><circle class="g2fw-dot" cx="92" cy="156" r="3.5" fill="#e30a2e"/><circle class="g2fw-dot g2fw-d2" cx="100" cy="156" r="3.5" fill="#e30a2e"/><circle class="g2fw-dot g2fw-d3" cx="108" cy="156" r="3.5" fill="#e30a2e"/></svg></div></sc-if>
           <div style="display:flex;justify-content:center"><span style="{{ grabPillStyle }}">{{ grabPill }}</span></div>
           <div style="text-align:center;font-size:15px;color:#3a3a3a;line-height:1.5">{{ grabSub }}</div>
-          <div style="padding:14px 16px;border-radius:16px;background:#f7f6f3;border:1px solid rgba(13,13,13,.08);text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a8a">Kode order</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:28px;letter-spacing:.04em">{{ grabCode }}</div></div>
-          <sc-if value="{{ grabTrack }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:#fff;border:1px solid rgba(13,13,13,.08)"><sc-for list="{{ track }}" as="s"><div style="display:flex;gap:12px;align-items:flex-start"><span style="{{ s.dot }}">{{ s.mark }}</span><div><div style="{{ s.titleStyle }}">{{ s.t }}</div><div style="font-size:13px;color:#5a5a5a;line-height:1.4">{{ s.d }}</div></div></div></sc-for></div><div style="padding:14px 16px;border-radius:16px;background:#fdf1e7;border:1px solid #f3d9c2;font-size:14px;line-height:1.5;color:#5a3a1a"><div style="font-weight:700;margin-bottom:4px">Ambil pesanan</div><div>Nama pemesan: <b>{{ claimName }}</b> · Nomor order: <b>{{ claimCode }}</b></div><div>Sebutkan nama, nomor HP, atau email kamu ke barista saat mengambil pesanan.</div></div></sc-if><sc-if value="{{ canCancel }}" hint-placeholder-val="{{ false }}"><button onClick="{{ cancelOrder }}" style="all:unset;cursor:pointer;text-align:center;padding:13px;border-radius:16px;border:1px solid rgba(227,10,46,.4);color:#e30a2e;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;text-transform:uppercase">Batalkan order</button></sc-if>
+          <div style="padding:14px 16px;border-radius:16px;background:#f7f6f3;border:1px solid rgba(13,13,13,.08);text-align:center"><div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#8a8a8a">{{ grabCodeLabel }}</div><div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:44px;line-height:1;letter-spacing:.04em;margin-top:4px">{{ grabCode }}</div><sc-if value="{{ grabCodeSmall }}" hint-placeholder-val="{{ false }}"><div style="font-family:'JetBrains Mono',monospace;font-size:12px;color:#8a8a8a;margin-top:4px">{{ grabCodeSmall }}</div></sc-if></div>
+          <sc-if value="{{ waitClaim }}" hint-placeholder-val="{{ false }}"><div role="status" style="display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:18px;background:#0d0d0d;color:#fff">
+            <div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;border-radius:50%;background:#f5c542;box-shadow:0 0 0 4px rgba(245,197,66,.3)"></span><span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:20px;letter-spacing:.03em">{{ waitClaimTitle }}</span></div>
+            <div style="font-size:14px;color:#d8d8d8;line-height:1.5"><b style="color:#fff">{{ claimName }}</b> · {{ waitClaimItems }}</div>
+            <ol style="margin:0;padding-left:20px;font-size:14px;line-height:1.6;color:#fff">
+              <li>Sudah sampai di 20FIT Cafe?</li>
+              <li>Scan <b>QR Claim Order</b> di kasir dengan kamera HP ini, lalu tekan <b>Claim</b>.</li>
+              <li>Atau tunjukkan kode <b>{{ grabCode }}</b> ke kasir.</li>
+            </ol>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:#f5c542">{{ waitClaimUntil }} · pesanan mulai dibuat setelah claim</div>
+          </div></sc-if>
+          <sc-if value="{{ grabTrack }}" hint-placeholder-val="{{ false }}"><div style="display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:16px;background:#fff;border:1px solid rgba(13,13,13,.08)"><sc-for list="{{ track }}" as="s"><div style="display:flex;gap:12px;align-items:flex-start"><span style="{{ s.dot }}">{{ s.mark }}</span><div><div style="{{ s.titleStyle }}">{{ s.t }}</div><div style="font-size:13px;color:#5a5a5a;line-height:1.4">{{ s.d }}</div></div></div></sc-for></div><div style="padding:14px 16px;border-radius:16px;background:#fdf1e7;border:1px solid #f3d9c2;font-size:14px;line-height:1.5;color:#5a3a1a"><div style="font-weight:700;margin-bottom:4px">{{ pickupTitle }}</div><div>Nama pemesan: <b>{{ claimName }}</b> · Nomor order: <b>{{ claimCode }}</b></div><div>{{ pickupNote }}</div></div></sc-if><sc-if value="{{ canCancel }}" hint-placeholder-val="{{ false }}"><button onClick="{{ cancelOrder }}" style="all:unset;cursor:pointer;text-align:center;padding:13px;border-radius:16px;border:1px solid rgba(227,10,46,.4);color:#e30a2e;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:16px;text-transform:uppercase">Batalkan order</button></sc-if>
         </div>
       </sc-if>
       <sc-if value="{{ doneDine }}" hint-placeholder-val="{{ false }}">
@@ -494,6 +504,7 @@
           <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 14px;padding:12px 16px;border-radius:16px;background:#fff;border:1px solid rgba(13,13,13,.08);font-size:14px">
             <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#5a5a5a;align-self:center">Tipe order</span><span style="font-weight:700">{{ confOrigin }}</span>
             <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#5a5a5a;align-self:center">Nama</span><span style="font-weight:700">{{ confName }}</span>
+            <sc-if value="{{ confIsGrab }}" hint-placeholder-val="{{ false }}"><span style="grid-column:1/-1;margin-top:4px;padding:10px 12px;border-radius:12px;background:#fdf1e7;color:#7a4a1f;font-size:13px;line-height:1.45">{{ confGrabNote }}</span></sc-if>
           </div>
           <div style="padding:6px 16px;border-radius:18px;background:#fff;border:1px solid rgba(13,13,13,.08)">
             <sc-for list="{{ confItems }}" as="it" hint-placeholder-count="2">
@@ -1040,6 +1051,10 @@ class Component extends DCLogic {
     this._lpAt = Date.now();
     const settle = this.state.mode !== 'venue' && PAYING_STEPS.includes(this.state.step) ? API().payStatus(code, token).catch(() => null) : Promise.resolve();
     settle.then(() => this.state.mode === 'venue' ? API().getMyOrders().then(l => l.find(o => o.code === code)) : API().getOrder(code, token)).then(o => {
+      if (!o || this.state.mode === 'venue' || !API().queueInfo) return o;
+      // QR Meja Fase 3: queue code (#A23), origin, table and closing time come from cafe_order_queue_info.
+      return API().queueInfo(code, token).then(q => (q && q.ok ? { ...o, order_origin: q.order_origin, queue_code: q.queue_code, table_label: q.table_label, close_time: q.close_time, claimable: q.claimable } : o)).catch(() => o);
+    }).then(o => {
       if (!o) return;
       const paying = PAYING_STEPS.includes(this.state.step);
       this.setState(paying ? { live: o, lastCheck: Date.now() } : { live: o });
@@ -1186,11 +1201,13 @@ class Component extends DCLogic {
       originShow: g && s.step === 'pay' && !s.code && this.cartLines().length > 0,
       originIsTable: !!(this.tableNow() && this.tableNow().label),
       originTitle: this.tableNow() && this.tableNow().label ? 'Dine-in · ' + this.tableNow().label : 'Grab n Go',
-      originNote: this.tableNow() && this.tableNow().label ? 'Pesananmu langsung dibuat setelah bayar dan diantar ke meja ini.' : 'Ambil sendiri di counter cafe. Sebutkan nama kamu ke barista.',
+      originNote: this.tableNow() && this.tableNow().label ? 'Pesananmu langsung dibuat setelah bayar dan diantar ke meja ini.' : 'Pesananmu mulai dibuat saat kamu sampai di cafe dan klik Claim Order. Order berlaku sampai jam tutup hari ini (21.00).',
       originStyle: { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 18, background: this.tableNow() && this.tableNow().label ? '#fdecef' : '#fff', border: '1px solid ' + (this.tableNow() && this.tableNow().label ? 'rgba(227,10,46,.35)' : 'rgba(13,13,13,.08)') },
       originBadge: this.tableNow() && this.tableNow().label ? 'MEJA' : 'GO',
       confOrigin: this.tableNow() && this.tableNow().label ? 'Dine-in · ' + this.tableNow().label : 'Grab n Go (ambil di counter)',
       confName: (s.name || '').trim(),
+      confIsGrab: !(this.tableNow() && this.tableNow().label),
+      confGrabNote: 'Pesananmu akan mulai dibuat saat kamu sampai di cafe dan klik Claim Order. Order berlaku sampai jam tutup hari ini (21.00).',
       // ---- CONFIRM YOUR ORDER modal ----
       confOpen: !!s.confirmOpen && s.step === 'pay' && !s.code,
       confItems: this.cartLines().map(l => ({ name: l.name, opt: l.optLabel, qty: '× ' + l.qty, subFmt: rp(l.price * l.qty) })),
@@ -1204,9 +1221,18 @@ class Component extends DCLogic {
       confBackdrop: e => { if (e.target === e.currentTarget) this.confirmCancel(); },
       // Grab & Go paid online: tracker + how to claim (no WhatsApp in this flow).
       grabTrack: g && !gOff && !!live && live.payment_status === 'paid' && tr.steps.length > 0,
-      claimName: (live && live.customer_name) || s.name, claimCode: s.code,
+      claimName: (live && live.customer_name) || s.name, claimCode: live && live.queue_code ? '#' + live.queue_code + ' (' + s.code + ')' : s.code,
+      grabCodeLabel: live && live.queue_code ? 'Kode antrean' : 'Kode order',
+      grabCodeSmall: live && live.queue_code ? s.code : '',
+      // QR Meja Fase 3: Grab n Go accepted, waiting for the customer to claim at the cafe.
+      waitClaim: !!(live && live.status === 'waiting_claim'),
+      waitClaimTitle: 'Paid · waiting for you to claim at the cafe',
+      waitClaimItems: ((live && live.items) || []).map(i => i.qty + '× ' + i.name).join(', '),
+      waitClaimUntil: 'Berlaku sampai ' + ((live && live.close_time) || '21:00') + ' hari ini',
+      pickupTitle: live && live.order_origin === 'table' ? 'Diantar ke meja' : 'Ambil pesanan',
+      pickupNote: live && live.order_origin === 'table' ? 'Barista mengantar pesananmu ke ' + (live.table_label || 'mejamu') + '. Tetap di meja ya.' : 'Sebutkan nama, nomor HP, atau email kamu ke barista saat mengambil pesanan.',
       doneGrab: g, grabPill: st.pill, grabSub: st.sub + (grabLeft ? ' · Sisa waktu konfirmasi ' + grabLeft : ''), grabPillStyle: A.pillStyle(st),
-      grabCode: s.code, grabWaiting: gOff && (!live || live.status === 'pending_confirmation'),
+      grabCode: live && live.queue_code ? '#' + live.queue_code : s.code, grabWaiting: gOff && (!live || live.status === 'pending_confirmation'),
       canCancel: gOff && live && live.status === 'pending_confirmation', cancelLeft: grabLeft, cancelOrder: () => this.cancelOrder(),
       modes: [
         { badge: 'GO', label: 'Grab & Go', desc: GRAB_ONLINE ? 'Pesan & bayar online, ambil di cafe' : 'Pesan sekarang, bayar di kasir saat ambil pesanan', pick: () => this.setState({ mode: 'grab', step: Object.keys(s.cart).length ? 'pay' : 'menu' }) },

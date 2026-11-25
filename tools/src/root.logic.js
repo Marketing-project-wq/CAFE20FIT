@@ -214,7 +214,7 @@ class Component extends DCLogic {
   }
   // ---- CH 05 video = the site's music: starts muted, sound on at the first tap/click/key, keeps playing while the
   // visitor scrolls, pauses only while an overlay (menu / order / checkout / history / product) is open or the tab is hidden.
-  overlayOpen() { const st = this.state; return !!(st.checkout || st.full || st.hist || st.sel); }
+  overlayOpen() { const st = this.state; return !!(st.checkout || st.full || st.hist || st.sel || st.cl); }
   cVidLive() { return !this.overlayOpen() && document.visibilityState === 'visible'; }
   ctlCareVid() {
     const v = this.careVid.current; if (!v) return;
@@ -298,6 +298,72 @@ class Component extends DCLogic {
         this.showToast(r.error || 'QR meja tidak valid, silakan tanya kasir');
       }
     }).catch(() => {});  // backend not updated yet: keep the remembered table, the menu still works
+  }
+  // Fase 3 · counter "QR Claim Order" (#claim/{token}): this phone's paid Grab n Go orders of today, CLAIM sends one to
+  // the barista queue. Ordered on another phone → find it by order / queue code + name or WhatsApp number.
+  openClaim(token) {
+    API().claimPointSet(token);
+    this.setState({ cl: { token, phase: 'loading', orders: [], close: '21:00', busy: null, msg: {}, done: null, fCode: '', fWho: '', fBusy: false, fMsg: '', more: false }, full: false, hist: false, sel: null, checkout: false });
+    this.loadClaim();
+  }
+  clSet(patch) { this.setState(s => (s.cl ? { cl: { ...s.cl, ...(typeof patch === 'function' ? patch(s.cl) : patch) } } : null)); }
+  loadClaim() {
+    const c = this.state.cl; if (!c) return;
+    this.clSet({ phase: 'loading', err: '' });
+    API().claimMine(c.token, API().getRefs()).then(r => {
+      if (!r || r.ok === false) { this.clSet({ phase: 'invalid', err: (r && r.error) || 'QR Claim tidak valid. Silakan tanya kasir.' }); return; }
+      const orders = r.orders || [];
+      this.clSet({ phase: 'ok', orders, close: r.close_time || '21:00', more: !orders.length });
+    }).catch(() => this.clSet({ phase: 'error', err: 'Gagal memuat order. Cek koneksi lalu coba lagi.' }));
+  }
+  claimIt(o) {
+    const c = this.state.cl; if (!c || c.busy) return;
+    this.clSet(x => ({ busy: o.code, msg: { ...x.msg, [o.code]: '' } }));
+    API().claimOrder(c.token, o.code).then(r => {
+      if (r && r.ok) { this.clSet({ busy: null, done: r.order }); this.refreshHist(false); return; }
+      this.clSet(x => ({ busy: null, msg: { ...x.msg, [o.code]: (r && r.error) || 'Gagal claim, coba lagi' } }));
+    }).catch(() => this.clSet(x => ({ busy: null, msg: { ...x.msg, [o.code]: 'Gagal claim. Cek koneksi lalu coba lagi.' } })));
+  }
+  claimFind() {
+    const c = this.state.cl; if (!c || c.fBusy) return;
+    if ((c.fCode || '').trim().length < 2 || (c.fWho || '').trim().length < 2) { this.clSet({ fMsg: 'Isi kode order / antrean dan nama atau nomor WhatsApp.' }); return; }
+    this.clSet({ fBusy: true, fMsg: '' });
+    API().claimFind(c.token, c.fCode.trim(), c.fWho.trim()).then(r => {
+      if (r && r.ok) { API().addRef({ code: r.code, token: r.token, kind: 'order' }); this.clSet({ fBusy: false, done: r.order }); return; }
+      this.clSet({ fBusy: false, fMsg: (r && r.error) || 'Order tidak ditemukan' });
+    }).catch(() => this.clSet({ fBusy: false, fMsg: 'Gagal mencari order. Cek koneksi lalu coba lagi.' }));
+  }
+  closeClaim(toHist) {
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    this.setState({ cl: null });
+    if (toHist) this.openHist();
+  }
+  claimVals() {
+    const c = this.state.cl, rp = n => 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID');
+    if (!c) return { clOpen: false };
+    const items = o => (o.items || []).map(i => i.qty + '× ' + i.name).join(', ');
+    const d = c.done;
+    return {
+      clOpen: true, clLoading: c.phase === 'loading', clBad: c.phase === 'invalid' || c.phase === 'error', clErr: c.err || '',
+      clRetry: c.phase === 'error', clReload: () => this.loadClaim(),
+      clOk: c.phase === 'ok' && !d, clDone: !!d,
+      clClose: () => this.closeClaim(false), clToHist: () => this.closeClaim(true),
+      clUntil: 'Claim Grab n Go sampai ' + (c.close || '21:00') + ' hari ini',
+      clHasOrders: !!(c.orders || []).length, clNone: !(c.orders || []).length,
+      clOrders: (c.orders || []).map(o => {
+        const busy = c.busy === o.code, can = !!o.claimable;
+        return { key: o.code, code: o.queue_code ? '#' + o.queue_code : o.code, sub: o.queue_code ? o.code : '', name: o.customer_name || '-', items: items(o), total: rp(o.total),
+          can, reason: can ? '' : (o.reason || ''), msg: (c.msg || {})[o.code] || '', hasMsg: !!(c.msg || {})[o.code],
+          btn: busy ? 'Memproses…' : 'Claim order ' + (o.queue_code ? '#' + o.queue_code : ''), go: () => this.claimIt(o),
+          btnStyle: { all: 'unset', cursor: can && !busy ? 'pointer' : 'default', boxSizing: 'border-box', width: '100%', minHeight: 52, padding: '0 18px', borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: can ? '#e30a2e' : 'rgba(13,13,13,.12)', color: can ? '#fff' : 'rgba(13,13,13,.45)', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 20, textTransform: 'uppercase', letterSpacing: '.03em', opacity: busy ? .7 : 1 } };
+      }),
+      clMore: !!c.more, clToggleMore: () => this.clSet(x => ({ more: !x.more })), clMoreLabel: c.more ? 'Tutup' : 'Pesan dari HP lain?',
+      clFCode: c.fCode || '', clFWho: c.fWho || '', clFMsg: c.fMsg || '', clFBusy: !!c.fBusy,
+      clSetFCode: e => this.clSet({ fCode: e.target.value }), clSetFWho: e => this.clSet({ fWho: e.target.value }),
+      clFind: () => this.claimFind(), clFindLabel: c.fBusy ? 'Mencari…' : 'Cari & claim',
+      clDoneCode: d ? (d.queue_code ? '#' + d.queue_code : d.code) : '', clDoneSub: d && d.queue_code ? d.code : '',
+      clDoneName: d ? d.customer_name || '' : '', clDoneItems: d ? items(d) : '',
+    };
   }
   // FULL MENU: View Menu / Full menu / #menu / #order all open it on the "All" tab.
   openFullMenu() { this.setState({ full: true, hist: false, sel: null, tab: 'All' }); }
@@ -388,7 +454,7 @@ class Component extends DCLogic {
   }
   // The hero video only plays while it is on screen and nothing (menu, order, checkout, history) covers it,
   // so its music never runs underneath the ordering flow or while scrolling through the menu.
-  vidLive() { const st = this.state; return !!this.vidSeen && !st.checkout && !st.full && !st.hist && !st.sel && document.visibilityState === 'visible'; }
+  vidLive() { const st = this.state; return !!this.vidSeen && !st.checkout && !st.full && !st.hist && !st.sel && !st.cl && document.visibilityState === 'visible'; }
   ctlVid() { const v = this.vid.current; if (!v) return; v.muted = !this.state.sound; if (this.vidLive()) { if (v.paused) v.play().catch(() => { if (!v.muted) { v.muted = true; this.setState({ sound: false }); v.play().catch(() => {}); } }); } else if (!v.paused) v.pause(); }
   componentDidUpdate() { this.syncVid(); const ov = this.overlayOpen(); if (ov !== this._ov) { this._ov = ov; this.ctlCareVid(); } }
   componentDidMount() {
@@ -419,9 +485,9 @@ class Component extends DCLogic {
       // Table QR: #t/{token} (or /t/{token}) → FULL MENU, the table is remembered for the order (Fase 2 labels it).
       const tq = h.match(/^#t\/([A-Za-z0-9_-]{8,64})$/) || (location.pathname || '').match(/^\/t\/([A-Za-z0-9_-]{8,64})\/?$/);
       if (tq) { this.tableScan(tq[1]); return; }
-      // Counter Claim QR: #claim/{token} (or /claim/{token}) → the customer's orders (claim screen comes in Fase 3).
+      // Counter Claim QR: #claim/{token} (or /claim/{token}) → Claim Order screen (Fase 3).
       const cq = h.match(/^#claim\/([A-Za-z0-9_-]{8,64})$/) || (location.pathname || '').match(/^\/claim\/([A-Za-z0-9_-]{8,64})\/?$/);
-      if (cq) { API().claimPointSet(cq[1]); try { history.replaceState(null, '', '/#order'); } catch (e) {} this.openHist(); return; }
+      if (cq) { this.openClaim(cq[1]); return; }
       const open = API().payOpenGet();
       if (mm) { const code = mm[1].toUpperCase(), token = API().tokenFor(code) || (open && open.code === code ? open.token : null);
         if (token) { this.setState({ resume: { code, token }, checkout: true, full: false, sel: null, mode: 'grab' }); return; }
@@ -467,6 +533,7 @@ class Component extends DCLogic {
     setTimeout(() => { const dt = this.dayTrack.current; if (dt) { this._dayScroll = () => { if (this._dayScrollRaf) return; this._dayScrollRaf = requestAnimationFrame(() => { this._dayScrollRaf = 0; this.daySync(); }); }; dt.addEventListener('scroll', this._dayScroll, { passive: true }); this.setupDayDrag(); this.daySync(); } }, 600);
     this._dayTimer = setInterval(() => { try { this.dayAutoTick(performance.now()); } catch (e) {} }, 33);
     this._key = e => {
+      if (e.key === 'Escape' && this.state.cl) { this.closeClaim(false); return; }
       if (!this.state.sel) { if (e.key === 'Escape' && this.state.full && !this.state.checkout) this.setState({ full: false }); return; }
       if (e.key === 'Escape') this.setState({ sel: null }); if (e.key === 'ArrowRight') this.step(1); if (e.key === 'ArrowLeft') this.step(-1); };
     window.addEventListener('keydown', this._key);
@@ -568,7 +635,7 @@ class Component extends DCLogic {
     const l = this.list();
     const m = this.byId(sel);
     const H = this.state.hList || [];
-    const cfg = SC(), needLabel = cfg.needs[this.state.need] || 'Fueling', overlay = !!(this.state.checkout || this.state.full || this.state.hist || m);
+    const cfg = SC(), needLabel = cfg.needs[this.state.need] || 'Fueling', overlay = !!(this.state.checkout || this.state.full || this.state.hist || this.state.cl || m);
     const cartN = Object.values(this.state.cart).reduce((a, l) => a + l.qty, 0);
     const cartSum = Object.values(this.state.cart).reduce((a, l) => { const x = this.byId(l.id); return a + (x ? (x.price + optsPrice(x, l.opts)) * l.qty : 0); }, 0);
     const words = (t, on) => String(t).split(' ').map((w, k) => ({ w, style: { display: 'inline-block', marginRight: '.22em', opacity: on ? 1 : 0.12, transform: on ? 'none' : 'translateY(18px)', transition: 'opacity .5s ease ' + (k * 70) + 'ms, transform .6s cubic-bezier(.2,.8,.2,1) ' + (k * 70) + 'ms' } }));
@@ -678,6 +745,7 @@ class Component extends DCLogic {
       // Pauses the About-section video (site music) while the menu / order / checkout / history / product view is open
       mediaHold: !!(this.state.checkout || this.state.full || this.state.hist || this.state.sel),
       // Fase 2: dine-in banner while a confirmed table session lasts ("Bukan di meja?" leaves table mode).
+      ...this.claimVals(),
       hasTable: !!(this.state.table && this.state.table.label && (!this.state.table.until || Date.now() < this.state.table.until)),
       tableBanner: this.state.table && this.state.table.label ? 'Dine-in · ' + this.state.table.label : '',
       leaveTable: () => { API().tableSessionClear(); this.showToast('Mode meja dimatikan · pesanan jadi Grab n Go (ambil di counter)'); },
