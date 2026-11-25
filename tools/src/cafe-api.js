@@ -93,6 +93,13 @@
   function tableSessionClear() { try { localStorage.removeItem(TABLE_KEY); } catch (e) {} emit('table', null); }
   function tableResolve(token) { return rpc('cafe_table_resolve', { p_token: String(token || '').trim() }); }
   function claimPointSet(token) { if (token) lsSet(CLAIM_KEY, { token: token, at: Date.now() }); }
+  // Label a just-created order as ordered from a table (valid table token) or Grab n Go. The backend checks the order's
+  // own code + access token and the table token (spec Fase 2); a paid table order then goes straight to the barista queue.
+  function setOrigin(code, token, tableToken) { return rpc('cafe_order_set_origin', { p_code: code, p_token: token, p_table_token: tableToken || null }); }
+  // Name / email / WhatsApp of the last order, so the next order is quicker (this browser only).
+  var CUSTOMER_KEY = '20fit-customer';
+  function customerGet() { var c = lsGet(CUSTOMER_KEY, null); return c && typeof c === 'object' ? c : {}; }
+  function customerSet(c) { lsSet(CUSTOMER_KEY, { name: c.name || '', email: c.email || '', phone: c.phone || '' }); }
 
   // ---------- cached public data ----------
   var menuP = null, configP = null;
@@ -250,7 +257,7 @@
     rpc: rpc, on: on, emit: emit,
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
-    tableSessionGet: tableSessionGet, tableSessionSet: tableSessionSet, tableSessionClear: tableSessionClear, tableResolve: tableResolve, claimPointSet: claimPointSet,
+    tableSessionGet: tableSessionGet, tableSessionSet: tableSessionSet, tableSessionClear: tableSessionClear, tableResolve: tableResolve, claimPointSet: claimPointSet, setOrigin: setOrigin, customerGet: customerGet, customerSet: customerSet,
     cartGet: cartGet, cartSet: cartSet, payOpenGet: payOpenGet, payOpenSet: payOpenSet, payOpenClear: payOpenClear,
     createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, addVenueRefreshment: addVenueRefreshment, getOrder: getOrder, getMyOrders: getMyOrders,
     findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, checkVoucher: checkVoucher, cancelMyOrder: cancelMyOrder, watch: watch,

@@ -61,6 +61,15 @@ class Component extends DCLogic {
     let cart = API().cartGet ? API().cartGet() : {};
     if (!Object.keys(cart).length) (this.props.items || []).forEach(i => { cart[i.key || lineKey(i.id, i.opts)] = { id: i.id, opts: i.opts || [], qty: i.qty }; });
     this._offCart = API().on('cart', c => { this.setState({ cart: c }); this.cartChanged(); });
+    // Fase 2: remembered customer details + the table session from a table QR (#t/{token}).
+    const me = API().customerGet ? API().customerGet() : {};
+    this.setState(s => ({ name: s.name || me.name || '', email: s.email || me.email || '', phone: s.phone || me.phone || '', table: API().tableSessionGet ? API().tableSessionGet() : null }));
+    this._offTable = API().on('table', t => this.setState({ table: t || null }));
+    const ts = API().tableSessionGet ? API().tableSessionGet() : null;
+    if (ts && ts.token && !ts.label) API().tableResolve(ts.token).then(r => {
+      if (r && r.ok) API().tableSessionSet({ ...ts, table_id: r.table_id, code: r.code, label: r.label });
+      else if (r && r.ok === false) API().tableSessionClear();
+    }).catch(() => {});
     API().getConfig().then(cfg => { this.setState(s => ({ cfg, slot: s.slot || (cfg.slots || [])[0] || '', grabPay: s.grabPay || ((cfg.payment_methods || [])[0] || {}).code || '' })); this.loadAvail(this.state.dayI); }).catch(e => this.setState({ err: e.message }));
     const m = this.props.startMode, sub = this.props.startSub, has = Object.keys(cart).length > 0;
     const next = { cart };
@@ -87,6 +96,8 @@ class Component extends DCLogic {
     const keys = id === 'ewallet' ? (s.ewChoice === 'ovo' ? ['ovo'] : ['qris', 'shopeepay']) : id === 'va' ? [({ BCA: 'bca', MANDIRI: 'mandiri', BNI: 'bni', BRI: 'bri' })[s.vaBank || 'BCA']].filter(Boolean) : m.logos;
     return keys.map(k => ({ src: logoSrc(k), alt: LOGO_ALT[k] }));
   }
+  // Active table session (from a table QR), or null = Grab n Go.
+  tableNow() { const t = this.state.table; return t && t.token && (!t.until || Date.now() < t.until) ? t : null; }
   removePromo() { clearTimeout(this._pv); this.setState({ promo: '', promoInfo: null }); }
   // ---------- payment page: resume after a reload, refresh status, download QR ----------
   setPayUrl(code) { try { history.replaceState(history.state, '', location.pathname + location.search + (code ? '#order/' + code : '#order')); } catch (e) {} }
@@ -158,7 +169,7 @@ class Component extends DCLogic {
     if (/^#order\//.test(h)) { try { history.replaceState(null, '', location.pathname + location.search + (this._pushed ? '#order' : '')); } catch (e) {} }
     if (this._pushed && !this._popped && location.hash === '#order') { try { history.back(); } catch (e) {} }
   }
-  componentWillUnmount() { window.removeEventListener('keydown', this._esc, true); this._offCart && this._offCart(); clearTimeout(this._pv); (this._ts || []).forEach(clearTimeout); clearInterval(this._ci); clearInterval(this._qi); clearInterval(this._wi); clearInterval(this._xw); clearTimeout(this._3t); this.stopLive(); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
+  componentWillUnmount() { window.removeEventListener('keydown', this._esc, true); this._offCart && this._offCart(); this._offTable && this._offTable(); clearTimeout(this._pv); (this._ts || []).forEach(clearTimeout); clearInterval(this._ci); clearInterval(this._qi); clearInterval(this._wi); clearInterval(this._xw); clearTimeout(this._3t); this.stopLive(); window.removeEventListener('popstate', this._pop); document.body.style.overflow = ''; }
   later(fn, ms) { (this._ts = this._ts || []).push(setTimeout(fn, ms)); }
   dayText() { const d = new Date(); d.setDate(d.getDate() + (this.state.dayI || 0)); return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }); }
   menu() { return this.props.menu || []; }
@@ -450,6 +461,10 @@ class Component extends DCLogic {
       this._creating = false;
       this.setState({ busy: false, confirmOpen: false, created: res, code: res.code, token: res.access_token, step: grab ? 'done' : this.state.step });
       if (!grab) { API().payOpenSet({ code: res.code, token: res.access_token }); this.setPayUrl(res.code); }
+      try { API().customerSet({ name: this.state.name.trim(), email: this.state.email.trim(), phone: this.state.phone.trim() }); } catch (e) {}
+      // Fase 2: ordered from a table (table QR session) or Grab n Go. Done right away, before the customer pays;
+      // the backend checks the table token and, once paid, a table order goes straight to the barista queue.
+      if (API().setOrigin) { const ts = this.tableNow(); API().setOrigin(res.code, res.access_token, ts ? ts.token : null).catch(() => {}); }
       if (this.props.onPaid) this.props.onPaid(); // history picks up the new ref right away
       this.startLive();
       if (grab) return;  // Grab & Go: no online payment — the live status page takes over
@@ -640,6 +655,15 @@ class Component extends DCLogic {
       isGrab: g, isGrabOffline: gOff, showPay: !gOff,  // showPay gates the online payment-method section in the pay step
       grabHint: gOff ? 'Bayar langsung di kasir cafe saat ambil pesanan. Barista akan konfirmasi ordermu dulu.'
         : 'Bayar sekarang (QRIS, e-wallet, kartu, atau VA). Ordermu langsung diterima kalau stok tersedia, lalu ambil di cafe.',
+      // ---- Fase 2: order origin (table QR session) ----
+      originShow: g && s.step === 'pay' && !s.code && this.cartLines().length > 0,
+      originIsTable: !!(this.tableNow() && this.tableNow().label),
+      originTitle: this.tableNow() && this.tableNow().label ? 'Dine-in · ' + this.tableNow().label : 'Grab n Go',
+      originNote: this.tableNow() && this.tableNow().label ? 'Pesananmu langsung dibuat setelah bayar dan diantar ke meja ini.' : 'Ambil sendiri di counter cafe. Sebutkan nama kamu ke barista.',
+      originStyle: { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 18, background: this.tableNow() && this.tableNow().label ? '#fdecef' : '#fff', border: '1px solid ' + (this.tableNow() && this.tableNow().label ? 'rgba(227,10,46,.35)' : 'rgba(13,13,13,.08)') },
+      originBadge: this.tableNow() && this.tableNow().label ? 'MEJA' : 'GO',
+      confOrigin: this.tableNow() && this.tableNow().label ? 'Dine-in · ' + this.tableNow().label : 'Grab n Go (ambil di counter)',
+      confName: (s.name || '').trim(),
       // ---- CONFIRM YOUR ORDER modal ----
       confOpen: !!s.confirmOpen && s.step === 'pay' && !s.code,
       confItems: this.cartLines().map(l => ({ name: l.name, opt: l.optLabel, qty: '× ' + l.qty, subFmt: rp(l.price * l.qty) })),
