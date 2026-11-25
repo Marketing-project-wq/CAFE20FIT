@@ -96,6 +96,13 @@
   // Label a just-created order as ordered from a table (valid table token) or Grab n Go. The backend checks the order's
   // own code + access token and the table token (spec Fase 2); a paid table order then goes straight to the barista queue.
   function setOrigin(code, token, tableToken) { return rpc('cafe_order_set_origin', { p_code: code, p_token: token, p_table_token: tableToken || null }); }
+  // ---------- QR Meja Fase 3: Grab n Go claim at the cafe (counter Claim QR #claim/{token}) ----------
+  function claimPoint(t) { return rpc('cafe_claim_point', { p_token: t }); }
+  function claimMine(t, refs) { return rpc('cafe_claim_mine', { p_token: t, p_refs: (refs || []).map(function (r) { return { code: r.code, token: r.token }; }) }); }
+  function claimOrder(t, code, access) { return rpc('cafe_claim_order', { p_token: t, p_code: code, p_access: access || tokenFor(code) }); }
+  function claimFind(t, code, who) { return rpc('cafe_claim_find', { p_token: t, p_code: code, p_who: who }); }
+  // Queue code, origin (table / grab), table label and closing time of my own order (status page).
+  function queueInfo(code, token) { return rpc('cafe_order_queue_info', { p_code: code, p_token: token || tokenFor(code) }); }
   // Name / email / WhatsApp of the last order, so the next order is quicker (this browser only).
   var CUSTOMER_KEY = '20fit-customer';
   function customerGet() { var c = lsGet(CUSTOMER_KEY, null); return c && typeof c === 'object' ? c : {}; }
@@ -215,7 +222,14 @@
     // Grab & Go paid online (spec grab-v2): paid → barista accepts (no reject) → made → ready → collected.
     if (t === 'pickup') {
       if (s === 'received') return { pill: 'Pembayaran Berhasil', sub: 'Menunggu barista menerima ordermu…', tone: 'amber' };
-      if (s === 'accepted') return { pill: 'Diterima Barista', sub: 'Order kamu sudah diterima dan sedang disiapkan', tone: 'green' };
+      // QR Meja Fase 3: Grab n Go accepted, made only after the customer claims it at the cafe.
+      if (s === 'waiting_claim') return { pill: 'Paid · waiting for you', sub: 'Sudah sampai? Scan QR Claim Order di kasir, atau tunjukkan kode ini ke kasir.', tone: 'amber' };
+      if (s === 'unclaimed') return { pill: 'Tidak di-claim', sub: 'Order tidak diambil sampai jam tutup. Hubungi kasir untuk refund / voucher.', tone: 'grey' };
+      if (s === 'accepted') return o.order_origin === 'table'
+        ? { pill: 'Masuk Antrean', sub: 'Pesananmu sedang disiapkan dan diantar ke ' + (o.table_label || 'mejamu'), tone: 'green' }
+        : o.order_origin === 'grab'
+          ? { pill: 'Masuk Antrean', sub: 'Order kamu sudah di-claim, barista sedang menyiapkannya', tone: 'green' }
+          : { pill: 'Diterima Barista', sub: 'Order kamu sudah diterima dan sedang disiapkan', tone: 'green' };
       if (s === 'preparing') return { pill: 'Sedang Dibuat', sub: 'Barista sedang membuat pesananmu', tone: 'green' };
       if (s === 'ready') return { pill: 'Siap Diambil', sub: 'Ambil di bar · sebutkan nama, nomor HP, atau email kamu ke barista', tone: 'red', pulse: true };
       if (s === 'completed') return { pill: 'Sudah Diambil', sub: 'Terima kasih!', tone: 'dark' };
@@ -241,6 +255,12 @@
     var steps = o.type === 'delivery'
       ? [['received', 'Order confirmed', 'The cafe received your order'], ['preparing', 'Barista is preparing', 'Your drinks are made fresh'], ['driver_picked_up', 'Driver picked up', 'Sealed and on the bike'], ['on_the_way', 'On the way', 'Heading to your address'], ['completed', 'Delivered', 'Enjoy, and fuel up']]
       : [['received', 'Pembayaran Berhasil', 'Pembayaran kamu sudah diterima'], ['accepted', 'Diterima Barista', 'Order kamu sudah diterima dan sedang disiapkan'], ['preparing', 'Sedang Dibuat', 'Dibuat fresh oleh barista'], ['ready', 'Siap Diambil', 'Ambil di bar dengan menyebutkan nama, nomor HP, atau email'], ['completed', 'Sudah Diambil', 'Selamat menikmati!']];
+    // QR Meja Fase 3: Grab n Go waits for a claim at the cafe before it is made; table orders skip Terima.
+    if (o.type === 'pickup' && o.order_origin === 'grab') {
+      steps = [steps[0], ['waiting_claim', 'Diterima Barista', 'Datang ke cafe, lalu scan QR Claim Order di kasir'], ['accepted', 'Masuk Antrean', 'Order di-claim, menunggu dibuat']].concat(steps.slice(2));
+    } else if (o.type === 'pickup' && o.order_origin === 'table') {
+      steps = [steps[0], ['accepted', 'Masuk Antrean', 'Langsung dibuat setelah bayar']].concat(steps.slice(2));
+    }
     var idx = steps.findIndex(function (s) { return s[0] === o.status; });
     return { steps: steps, idx: idx };
   }
@@ -258,6 +278,7 @@
     getRefs: getRefs, addRef: addRef, tokenFor: tokenFor, markSeen: markSeen, hasUnseen: hasUnseen,
     getMenu: getMenu, getConfig: getConfig,
     tableSessionGet: tableSessionGet, tableSessionSet: tableSessionSet, tableSessionClear: tableSessionClear, tableResolve: tableResolve, claimPointSet: claimPointSet, setOrigin: setOrigin, customerGet: customerGet, customerSet: customerSet,
+    claimPoint: claimPoint, claimMine: claimMine, claimOrder: claimOrder, claimFind: claimFind, queueInfo: queueInfo,
     cartGet: cartGet, cartSet: cartSet, payOpenGet: payOpenGet, payOpenSet: payOpenSet, payOpenClear: payOpenClear,
     createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, addVenueRefreshment: addVenueRefreshment, getOrder: getOrder, getMyOrders: getMyOrders,
     findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, checkVoucher: checkVoucher, cancelMyOrder: cancelMyOrder, watch: watch,

@@ -513,6 +513,10 @@ class Component extends DCLogic {
     this._lpAt = Date.now();
     const settle = this.state.mode !== 'venue' && PAYING_STEPS.includes(this.state.step) ? API().payStatus(code, token).catch(() => null) : Promise.resolve();
     settle.then(() => this.state.mode === 'venue' ? API().getMyOrders().then(l => l.find(o => o.code === code)) : API().getOrder(code, token)).then(o => {
+      if (!o || this.state.mode === 'venue' || !API().queueInfo) return o;
+      // QR Meja Fase 3: queue code (#A23), origin, table and closing time come from cafe_order_queue_info.
+      return API().queueInfo(code, token).then(q => (q && q.ok ? { ...o, order_origin: q.order_origin, queue_code: q.queue_code, table_label: q.table_label, close_time: q.close_time, claimable: q.claimable } : o)).catch(() => o);
+    }).then(o => {
       if (!o) return;
       const paying = PAYING_STEPS.includes(this.state.step);
       this.setState(paying ? { live: o, lastCheck: Date.now() } : { live: o });
@@ -659,11 +663,13 @@ class Component extends DCLogic {
       originShow: g && s.step === 'pay' && !s.code && this.cartLines().length > 0,
       originIsTable: !!(this.tableNow() && this.tableNow().label),
       originTitle: this.tableNow() && this.tableNow().label ? 'Dine-in · ' + this.tableNow().label : 'Grab n Go',
-      originNote: this.tableNow() && this.tableNow().label ? 'Pesananmu langsung dibuat setelah bayar dan diantar ke meja ini.' : 'Ambil sendiri di counter cafe. Sebutkan nama kamu ke barista.',
+      originNote: this.tableNow() && this.tableNow().label ? 'Pesananmu langsung dibuat setelah bayar dan diantar ke meja ini.' : 'Pesananmu mulai dibuat saat kamu sampai di cafe dan klik Claim Order. Order berlaku sampai jam tutup hari ini (21.00).',
       originStyle: { display: 'flex', alignItems: 'flex-start', gap: 12, padding: '14px 16px', borderRadius: 18, background: this.tableNow() && this.tableNow().label ? '#fdecef' : '#fff', border: '1px solid ' + (this.tableNow() && this.tableNow().label ? 'rgba(227,10,46,.35)' : 'rgba(13,13,13,.08)') },
       originBadge: this.tableNow() && this.tableNow().label ? 'MEJA' : 'GO',
       confOrigin: this.tableNow() && this.tableNow().label ? 'Dine-in · ' + this.tableNow().label : 'Grab n Go (ambil di counter)',
       confName: (s.name || '').trim(),
+      confIsGrab: !(this.tableNow() && this.tableNow().label),
+      confGrabNote: 'Pesananmu akan mulai dibuat saat kamu sampai di cafe dan klik Claim Order. Order berlaku sampai jam tutup hari ini (21.00).',
       // ---- CONFIRM YOUR ORDER modal ----
       confOpen: !!s.confirmOpen && s.step === 'pay' && !s.code,
       confItems: this.cartLines().map(l => ({ name: l.name, opt: l.optLabel, qty: '× ' + l.qty, subFmt: rp(l.price * l.qty) })),
@@ -677,9 +683,18 @@ class Component extends DCLogic {
       confBackdrop: e => { if (e.target === e.currentTarget) this.confirmCancel(); },
       // Grab & Go paid online: tracker + how to claim (no WhatsApp in this flow).
       grabTrack: g && !gOff && !!live && live.payment_status === 'paid' && tr.steps.length > 0,
-      claimName: (live && live.customer_name) || s.name, claimCode: s.code,
+      claimName: (live && live.customer_name) || s.name, claimCode: live && live.queue_code ? '#' + live.queue_code + ' (' + s.code + ')' : s.code,
+      grabCodeLabel: live && live.queue_code ? 'Kode antrean' : 'Kode order',
+      grabCodeSmall: live && live.queue_code ? s.code : '',
+      // QR Meja Fase 3: Grab n Go accepted, waiting for the customer to claim at the cafe.
+      waitClaim: !!(live && live.status === 'waiting_claim'),
+      waitClaimTitle: 'Paid · waiting for you to claim at the cafe',
+      waitClaimItems: ((live && live.items) || []).map(i => i.qty + '× ' + i.name).join(', '),
+      waitClaimUntil: 'Berlaku sampai ' + ((live && live.close_time) || '21:00') + ' hari ini',
+      pickupTitle: live && live.order_origin === 'table' ? 'Diantar ke meja' : 'Ambil pesanan',
+      pickupNote: live && live.order_origin === 'table' ? 'Barista mengantar pesananmu ke ' + (live.table_label || 'mejamu') + '. Tetap di meja ya.' : 'Sebutkan nama, nomor HP, atau email kamu ke barista saat mengambil pesanan.',
       doneGrab: g, grabPill: st.pill, grabSub: st.sub + (grabLeft ? ' · Sisa waktu konfirmasi ' + grabLeft : ''), grabPillStyle: A.pillStyle(st),
-      grabCode: s.code, grabWaiting: gOff && (!live || live.status === 'pending_confirmation'),
+      grabCode: live && live.queue_code ? '#' + live.queue_code : s.code, grabWaiting: gOff && (!live || live.status === 'pending_confirmation'),
       canCancel: gOff && live && live.status === 'pending_confirmation', cancelLeft: grabLeft, cancelOrder: () => this.cancelOrder(),
       modes: [
         { badge: 'GO', label: 'Grab & Go', desc: GRAB_ONLINE ? 'Pesan & bayar online, ambil di cafe' : 'Pesan sekarang, bayar di kasir saat ambil pesanan', pick: () => this.setState({ mode: 'grab', step: Object.keys(s.cart).length ? 'pay' : 'menu' }) },
