@@ -383,7 +383,18 @@ class Component extends DCLogic {
     };
   }
   // FULL MENU: View Menu / Full menu / #menu / #order all open it on the "All" tab.
-  openFullMenu() { this.setState({ full: true, hist: false, sel: null, tab: 'All' }); }
+  openFullMenu() { this.setState({ full: true, hist: false, sel: null, tab: 'All' }); setTimeout(() => this.hintTabs(true), 450); }
+  // Category chips are one scrollable row: fade + "›" while more chips are to the right, hidden at the end / when all fit.
+  // nudge = a one-time small slide when the FULL MENU opens, so it reads as scrollable.
+  hintTabs(nudge) {
+    document.querySelectorAll('.fx-tabs-wrap').forEach(w => {
+      const row = w.querySelector('.fx-tabs'); if (!row) return;
+      const update = () => { w.classList.toggle('fx-no-more', row.scrollLeft + row.clientWidth >= row.scrollWidth - 48); w.classList.toggle('fx-scrolled', row.scrollLeft > 8); };
+      if (!row.__fxHint) { row.__fxHint = true; row.addEventListener('scroll', update, { passive: true }); window.addEventListener('resize', update); }
+      update();
+      if (nudge && !w.classList.contains('fx-no-more') && !reduceMotionNow()) { row.classList.remove('fx-nudge'); void row.offsetWidth; row.classList.add('fx-nudge'); setTimeout(() => row.classList.remove('fx-nudge'), 1000); }
+    });
+  }
   qtyOf(id) { return Object.values(this.state.cart).filter(l => l.id === id).reduce((a, l) => a + l.qty, 0); }
   selOpts(m) { const p = this.state.pick[m.id]; return p || defaultOpts(m); }
   pickOpt(m, g, optId) { const cur = this.selOpts(m).filter(id => !(g.options || []).some(o => o.id === id)); this.setState(s => ({ pick: { ...s.pick, [m.id]: cur.concat([optId]) } })); }
@@ -475,6 +486,7 @@ class Component extends DCLogic {
   ctlVid() { const v = this.vid.current; if (!v) return; v.muted = !this.state.sound; if (this.vidLive()) { if (v.paused) v.play().catch(() => { if (!v.muted) { v.muted = true; this.setState({ sound: false }); v.play().catch(() => {}); } }); } else if (!v.paused) v.pause(); }
   componentDidUpdate() { this.syncVid(); const ov = this.overlayOpen(); if (ov !== this._ov) { this._ov = ov; this.ctlCareVid(); } }
   componentDidMount() {
+    this._tabsHintT = setInterval(() => this.hintTabs(false), 1500);
     // A product photo that fails to load (e.g. a POS upload that no longer exists) shows the neutral
     // 20FIT CAFE placeholder instead of a broken-image icon. Capture phase: image errors do not bubble.
     if (!window.__cafeImgFallback) {
@@ -569,7 +581,7 @@ class Component extends DCLogic {
     };
     this._raf = requestAnimationFrame(loop);
   }
-  componentWillUnmount() { clearInterval(this._cWatch); if (this._cStop) this._cStop(); document.removeEventListener('visibilitychange', this._cVis); if (this._reveal) this._reveal.disconnect(); window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); window.removeEventListener('hashchange', this._hash); this._offCart && this._offCart(); this._offTable && this._offTable(); cancelAnimationFrame(this._raf); }
+  componentWillUnmount() { clearInterval(this._tabsHintT); clearInterval(this._cWatch); if (this._cStop) this._cStop(); document.removeEventListener('visibilitychange', this._cVis); if (this._reveal) this._reveal.disconnect(); window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); window.removeEventListener('hashchange', this._hash); this._offCart && this._offCart(); this._offTable && this._offTable(); cancelAnimationFrame(this._raf); }
 
   viewer(m, key) {
     const h = React.createElement;
@@ -784,6 +796,7 @@ class Component extends DCLogic {
       toOrder: () => this.setState({ mode: null, checkout: true, sel: null, full: false }),
       waNumber: this.props.waNumber ?? '6285284200036',
       menuLite: this.menuAll().map(m => ({ id: m.id, name: m.name, cat: m.cat, price: m.price, base: m.base, src: this.src(m.imgs[0]), available: m.available, addons: m.addons })),
+      tabsNext: e => { const w = e && e.currentTarget && e.currentTarget.closest('.fx-tabs-wrap'); const row = w && w.querySelector('.fx-tabs'); if (row) row.scrollBy({ left: Math.max(120, row.clientWidth * 0.6), behavior: 'smooth' }); },
       tabs: ['All'].concat([...new Set(this.menuAll().map(x => x.cat))]).map(t => ({ label: t, pick: () => this.setState({ tab: t }),
         style: { all: 'unset', cursor: 'pointer', padding: '9px 18px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '.03em', textTransform: 'uppercase',
           background: t === tab ? '#e30a2e' : 'transparent', color: t === tab ? '#fff' : '#3a3a3a', transition: 'background .2s' } })),
