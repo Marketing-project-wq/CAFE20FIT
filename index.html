@@ -621,6 +621,7 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
   .fx-music { left: 12px !important; bottom: 12px !important; padding: 7px 11px !important; font-size: 10px !important; letter-spacing: .08em !important; }
   .fx-fullgrid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
   .fx-tabs::-webkit-scrollbar { display: none; }
+  .fx-tbl-note { display: none !important; } .fx-tbl-gap { display: block !important; }
   .fx-co-bar { flex-wrap: wrap !important; justify-content: space-between !important; padding: 10px 14px !important; gap: 8px 10px !important; }
   .fx-co-tabs { order: 3; flex: 1 1 100% !important; flex-wrap: nowrap !important; justify-content: space-between !important; }
   .fx-co-tabs button { white-space: nowrap; }
@@ -896,19 +897,19 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
 
   <sc-if value="{{ showFull }}" hint-placeholder-val="{{ false }}">
     <div data-screen-label="Full menu" role="dialog" aria-modal="true" aria-label="Full menu" sc-camel-on-click="{{ fullBackdrop }}" style="position:fixed;inset:0;z-index:65;overflow:auto;background:radial-gradient(900px 600px at 90% 0%, rgba(227,10,46,.18), transparent 60%), #f4f4f2;animation:pFade .25s ease">
-      <div style="position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding:16px 24px;background:rgba(244,244,242,.75);backdrop-filter:blur(22px) saturate(180%);border-bottom:1px solid rgba(13,13,13,.06)">
+      <div style="position:sticky;top:0;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;padding:16px 24px;background:rgba(244,244,242,.96);backdrop-filter:blur(22px) saturate(180%);border-bottom:1px solid rgba(13,13,13,.06)">
         <div style="font-family:'Barlow Condensed',sans-serif;font-weight:800;font-style:italic;text-transform:uppercase;font-size:36px;line-height:1">Full <span style="color:#e30a2e">Menu</span></div>
         <button sc-camel-on-click="{{ closeFull }}" aria-label="Close" style="all:unset;cursor:pointer;width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:#0d0d0d;color:#fff" style-hover="background:#e30a2e">✕</button>
-      </div>
-      <div style="max-width:1240px;margin:0 auto;padding:24px 24px 120px;display:flex;flex-direction:column;gap:20px">
         <sc-if value="{{ hasTable }}" hint-placeholder-val="{{ false }}">
-          <div role="status" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:12px 16px;border-radius:18px;background:#0d0d0d;color:#fff">
-            <span style="width:9px;height:9px;border-radius:50%;background:#e30a2e;box-shadow:0 0 0 4px rgba(227,10,46,.3)"></span>
-            <span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:22px;letter-spacing:.04em;line-height:1">{{ tableBanner }}</span>
-            <span style="font-size:13px;color:#cfcfcf;flex:1;min-width:180px">Pesananmu diantar ke meja ini setelah dibayar.</span>
-            <button sc-camel-on-click="{{ leaveTable }}" style="all:unset;cursor:pointer;min-height:36px;padding:0 14px;display:flex;align-items:center;border-radius:999px;border:1px solid rgba(255,255,255,.35);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase" style-hover="border-color:#fff">Bukan di meja?</button>
+          <div role="status" style="flex:1 1 100%;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;border-radius:999px;background:#0d0d0d;color:#fff;min-width:0">
+            <span style="flex:none;width:8px;height:8px;border-radius:50%;background:#e30a2e;box-shadow:0 0 0 4px rgba(227,10,46,.3)"></span>
+            <span style="flex:none;font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:18px;letter-spacing:.04em;line-height:1;white-space:nowrap">{{ tableBanner }}</span>
+            <span class="fx-tbl-note" style="flex:1;min-width:0;font-size:12px;color:#cfcfcf;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Diantar ke meja setelah dibayar</span><span class="fx-tbl-gap" style="flex:1;display:none"></span>
+            <button sc-camel-on-click="{{ leaveTable }}" style="all:unset;flex:none;cursor:pointer;min-height:32px;padding:0 12px;display:flex;align-items:center;border-radius:999px;border:1px solid rgba(255,255,255,.35);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap" style-hover="border-color:#fff">Bukan di meja?</button>
           </div>
         </sc-if>
+      </div>
+      <div style="max-width:1240px;margin:0 auto;padding:24px 24px 120px;display:flex;flex-direction:column;gap:20px">
         <div class="fx-tabs" style="display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;max-width:100%;padding-bottom:2px">
           <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
             <button sc-camel-on-click="{{ t.pick }}" style="{{ t.style }}">{{ t.label }}</button>
