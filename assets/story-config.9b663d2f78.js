@@ -16,6 +16,13 @@ window.StoryConfig = {
   ],
   needs: ['Fresh', 'Fueling', 'Light energy'],   // same order as the hero chips
 
+  // Menu (filter chips, FULL MENU and the home menu rail). Categories come from the POS; `merge` shows a POS category
+  // under another name, `order` sets the order of the groups ('*' = every category not listed). Drinks first.
+  menu: {
+    merge: { Chia: 'Food' },
+    order: ['Coffee', 'Signature', 'Hybrid', 'Smoothies', 'Tea', 'Chocolate', '*', 'Food']
+  },
+
   // CH 03 — A day, fueled. One stop per time of day.
   stops: [
     { time: '06:00', hour: 6, kicker: 'Before you train', title: 'Wake up, warm up', copy: 'A clean lift before your first set. Light enough to train on.',
