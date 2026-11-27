@@ -19,7 +19,11 @@ const PHOTO_KEYS = Object.keys(PHOTOS).reduce((m, k) => { const [n, c] = k.split
 const photosFor = it => { const n = String(it.name || '').toLowerCase(), c = String(it.category || '').toLowerCase(), k = nameKey(n);
   return PHOTOS[n + '|' + c] || PHOTOS[n] || PHOTO_KEYS[k + '|' + c] || PHOTO_KEYS[k] || (it.image_url ? [it.image_url] : [NO_PHOTO]); };
 // Server menu item -> view model used by this page and the checkout
-const toItem = it => ({ id: it.id, name: it.name, cat: it.category, price: Number(it.price_display) || 0, base: Number(it.price) || 0, description: it.description || '', available: it.available !== false, addons: it.addons || [], imgs: photosFor(it) });
+// Display category: a POS category can be shown under another one (StoryConfig.menu.merge, e.g. Chia → Food).
+const catOf = c => { const mg = ((window.StoryConfig || {}).menu || {}).merge || {}; return mg[c] || c; };
+// Group order from StoryConfig.menu.order ('*' = any category not listed); drinks first, food last.
+const catRank = c => { const o = ((window.StoryConfig || {}).menu || {}).order || ['*']; const i = o.indexOf(c); return i >= 0 ? i : (o.indexOf('*') >= 0 ? o.indexOf('*') : o.length); };
+const toItem = it => ({ id: it.id, name: it.name, cat: catOf(it.category), price: Number(it.price_display) || 0, base: Number(it.price) || 0, description: it.description || '', available: it.available !== false, addons: it.addons || [], imgs: photosFor(it) });
 const defaultOpts = m => (m.addons || []).map(g => { const d = (g.options || []).find(o => o.default) || null; return d ? d.id : null; }).filter(Boolean);
 const lineKey = (id, opts) => id + (opts && opts.length ? '~' + opts.slice().sort().join(',') : '');
 const optsPrice = (m, opts) => (m.addons || []).reduce((a, g) => a + (g.options || []).filter(o => opts.includes(o.id)).reduce((b, o) => b + (Number(o.price) || 0), 0), 0);
@@ -255,7 +259,12 @@ class Component extends DCLogic {
     API().getMenu().then(res => { this.setState({ menu: (res.items || []).map(toItem) }); try { localStorage.setItem(MENU_CACHE, JSON.stringify({ at: Date.now(), items: res.items || [] })); } catch (e) {} })
       .catch(e => this.setState(s => (s.menu ? {} : { menuErr: e.message || 'Menu unavailable' })));
   }
-  menuAll() { return this.state.menu || []; }
+  // Menu in group order (drinks first); the original order is kept inside a group.
+  menuAll() {
+    const m = this.state.menu || [];
+    if (this._sortedFor !== m) { this._sortedFor = m; this._sorted = m.map((x, i) => [x, i]).sort((a, b) => (catRank(a[0].cat) - catRank(b[0].cat)) || (a[0].cat < b[0].cat ? -1 : a[0].cat > b[0].cat ? 1 : 0) || (a[1] - b[1])).map(p => p[0]); }
+    return this._sorted;
+  }
   byId(id) { return this.menuAll().find(x => x.id === id); }
   byName(n) { const all = this.menuAll(), k = nameKey(n); return all.find(x => x.name.toLowerCase() === n) || all.find(x => nameKey(x.name) === k) || null; }
   // Story picks by name, topped up from the same category (live POS menu) when a pick is missing or sold out.
@@ -266,6 +275,14 @@ class Component extends DCLogic {
     return got.slice(0, n);
   }
   price(m) { return m ? m.price : 0; }
+  // One product card of the FULL MENU (price, add / stepper, photo).
+  card(x) {
+    return ({ ...x, priceFmt: rp(this.price(x)), add: () => this.add(x.id), soldOut: !x.available, addLabel: !x.available ? 'Sold out' : '+ Add',
+        // card stepper: [ − ] qty [ + ] once the item is in the cart (qty = all its lines), "+ Add" otherwise
+        qty: this.qtyOf(x.id), noQty: !x.available || !this.qtyOf(x.id), hasQty: !!x.available && this.qtyOf(x.id) > 0, dec: () => this.dec(x.id),
+        decLabel: 'Remove one ' + x.name, incLabel: 'Add one more ' + x.name,
+        addStyle: this.addStyle(x.available, false), addStyleSm: this.addStyle(x.available, true), src: this.src(x.imgs[0]), imgStyle: this.imgStyle(this.src(x.imgs[0]), 'cover'), open: () => this.setState({ sel: x.id }) });
+  }
   // cart: { [lineKey]: { id, opts, qty } }
   // Every change goes through CafeApi.cartSet (localStorage + 'cart' event); the subscription in componentDidMount
   // puts it back in state, so the menu, story, pop-up and checkout always show the same cart.
@@ -792,11 +809,9 @@ class Component extends DCLogic {
       addonGroups: m ? (m.addons || []).map(g => ({ group: g.group, options: (g.options || []).map(o => { const on = this.selOpts(m).includes(o.id); return { label: o.label + (Number(o.price) ? ' +' + rp(o.price) : ''), pick: () => this.pickOpt(m, g, o.id),
         style: { all: 'unset', cursor: 'pointer', whiteSpace: 'nowrap', padding: '7px 12px', borderRadius: 999, fontSize: 13, fontWeight: 600, background: on ? '#0d0d0d' : 'rgba(255,255,255,.75)', color: on ? '#fff' : '#0d0d0d', border: '1px solid ' + (on ? '#0d0d0d' : 'rgba(13,13,13,.12)') } }; }) })) : [],
       menuLoading: this.state.menu === null && !this.state.menuErr, menuError: !!this.state.menuErr, retryMenu: () => this.loadMenu(),
-      items: l.map(x => ({ ...x, priceFmt: rp(this.price(x)), add: () => this.add(x.id), soldOut: !x.available, addLabel: !x.available ? 'Sold out' : '+ Add',
-        // card stepper: [ − ] qty [ + ] once the item is in the cart (qty = all its lines), "+ Add" otherwise
-        qty: this.qtyOf(x.id), noQty: !x.available || !this.qtyOf(x.id), hasQty: !!x.available && this.qtyOf(x.id) > 0, dec: () => this.dec(x.id),
-        decLabel: 'Remove one ' + x.name, incLabel: 'Add one more ' + x.name,
-        addStyle: this.addStyle(x.available, false), addStyleSm: this.addStyle(x.available, true), src: this.src(x.imgs[0]), imgStyle: this.imgStyle(this.src(x.imgs[0]), 'cover'), open: () => this.setState({ sel: x.id }) })),
+      // FULL MENU in groups: on "All" one titled group per category (drinks first), otherwise one untitled group.
+      menuGroups: (() => { const by = []; for (const x of l) { const k = tab === 'All' ? x.cat : ''; let g = by.find(z => z.key === k); if (!g) by.push(g = { key: k, label: k, showHead: tab === 'All', items: [] }); g.items.push(this.card(x)); } return by; })(),
+      items: l.map(x => this.card(x)),
       hasSel: !!m, sel: m || {},
       counter: m ? m.cat + ' · ' + String(l.findIndex(x => x.id === sel) + 1).padStart(2, '0') + ' / ' + String(l.length).padStart(2, '0') : '',
       popView: m ? this.viewer(m, 'pop') : null,
