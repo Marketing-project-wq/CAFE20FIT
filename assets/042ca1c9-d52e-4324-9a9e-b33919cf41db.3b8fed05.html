@@ -251,7 +251,7 @@
           <sc-for list="{{ lines }}" as="l" hint-placeholder-count="3">
             <div style="display:flex;justify-content:space-between;gap:12px;font-size:14px"><span>{{ l.label }}</span><span style="font-family:'JetBrains Mono',monospace;white-space:nowrap">{{ l.value }}</span></div>
           </sc-for>
-          <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:12px;border-top:1px dashed rgba(13,13,13,.15)"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:22px">{{ totalLabel }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:600;color:#e30a2e">{{ totalFmt }}</span></div>
+          <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:12px;border-top:1px dashed rgba(13,13,13,.15)"><span style="font-family:'Barlow Condensed',sans-serif;font-weight:800;text-transform:uppercase;font-size:22px">{{ totalLabel }}</span><span style="font-family:'JetBrains Mono',monospace;font-size:24px;font-weight:600;color:#e30a2e">{{ totalFmt }}</span></div><div style="margin-top:2px;text-align:right;font-size:11px;color:#6b6b6b;letter-spacing:.02em">{{ taxNote }}</div>
           <sc-if value="{{ promoOn }}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:10px;margin-top:4px;padding:10px 12px;border-radius:14px;background:#e9f9ef;border:1px solid #bfe8cf"><span aria-hidden="true" style="color:#128c4a;font-weight:800">✓</span><span style="flex:1;min-width:0"><span style="display:block;font-weight:700;font-size:14px">{{ promoName }}</span><span style="display:block;font-family:'JetBrains Mono',monospace;font-size:12px;color:#128c4a">{{ promoCode }} · {{ promoCut }}</span></span><button onClick="{{ removePromo }}" aria-label="Remove voucher" style="all:unset;cursor:pointer;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#5a5a5a;font-size:16px" style-hover="color:#e30a2e">✕</button></div></sc-if>
           <sc-if value="{{ promoOff }}" hint-placeholder-val="{{ true }}"><div style="display:flex;gap:8px;align-items:stretch;margin-top:4px"><input value="{{ promo }}" onChange="{{ setPromo }}" placeholder="Voucher code (optional)" style="flex:1;min-width:0;font:inherit;font-weight:600;font-size:14px;letter-spacing:.08em;text-transform:uppercase;padding:12px 14px;border-radius:14px;border:1px solid rgba(13,13,13,.12);background:#fff;outline-color:#e30a2e"><button onClick="{{ applyPromo }}" style="all:unset;cursor:pointer;display:flex;align-items:center;padding:0 18px;border-radius:14px;background:#0d0d0d;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:15px;text-transform:uppercase">Apply</button></div></sc-if>
           <sc-if value="{{ promoMsg }}" hint-placeholder-val="{{ false }}"><div style="{{ promoMsgStyle }}">{{ promoMsg }}</div></sc-if>
@@ -721,7 +721,9 @@ class Component extends DCLogic {
   dealLines() { return DEALS.filter(d => this.state.deals[d.id] > 0).map(d => ({ ...d, qty: this.state.deals[d.id] })); }
   bill() {
     const s = this.state, cfg = s.cfg || {}, lines = [];
-    if (s.created) { const c = s.created; [['Subtotal', c.subtotal], ['Service', c.service_charge], ['PB1 ' + (cfg.tax_percent != null ? cfg.tax_percent + '%' : ''), c.ppn], ['Delivery fee', c.delivery_fee]].forEach(([k, v]) => { if (k === 'Subtotal' || Number(v) > 0) lines.push({ label: k.trim(), value: rp(v) }); });
+    // Prices already include tax (POS price = final): the tax is never a separate line that adds to the total.
+    // While the backend still splits PB1 out, it is folded back into the subtotal for display (total unchanged).
+    if (s.created) { const c = s.created, svcOn = Number(c.service_charge) > 0; [['Subtotal', svcOn ? c.subtotal : Number(c.subtotal || 0) + Number(c.ppn || 0)], ['Service', c.service_charge], ['PB1 ' + (cfg.tax_percent != null ? cfg.tax_percent + '%' : ''), svcOn ? c.ppn : 0], ['Delivery fee', c.delivery_fee]].forEach(([k, v]) => { if (k === 'Subtotal' || Number(v) > 0) lines.push({ label: k.trim(), value: rp(v) }); });
       if (Number(c.discount) > 0) lines.push({ label: 'Promo ' + (c.promo_code || ''), value: '-' + rp(c.discount) });
       return { lines, total: Number(c.total) || 0, estimate: false }; }
     if (s.mode !== 'dine' && s.mode !== 'take' && s.mode !== 'grab') return { lines, total: 0, estimate: true };
@@ -733,7 +735,6 @@ class Component extends DCLogic {
     const menuSum = this.cartLines().reduce((a, i) => a + i.price * i.qty, 0);
     if (!svc) {
       lines.push({ label: 'Subtotal', value: rp(menuSum) });
-      if (cfg.tax_percent != null && tax) lines.push({ label: 'Includes PB1 ' + cfg.tax_percent + '%', value: rp(Math.round(menuSum - sub)) });
     } else {
       lines.push({ label: 'Subtotal', value: rp(sub) });
       lines.push({ label: 'Service ' + cfg.service_percent + '%', value: rp(svc) });
@@ -1272,7 +1273,7 @@ class Component extends DCLogic {
       waitElapsed: (() => { const t = Math.max(0, Math.floor(((s.now || Date.now()) - (this._w0 || Date.now())) / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); })(),
       waitNudge: !g && s.step === 'wait' && !(live && (live.payment_status === 'expired' || live.payment_status === 'failed')) && (s.now || 0) - (this._w0 || Date.now()) >= 45000,
       openNudge: () => window.open(this.nudgeUrl(), '_blank', 'noopener'),
-      lines, totalFmt: rp(total), totalLabel: estimate ? 'Estimated total' : 'Total', payLabel: method.label, code: s.code,
+      lines, totalFmt: rp(total), totalLabel: estimate ? 'Estimated total' : 'Total', taxNote: 'Harga sudah termasuk pajak', payLabel: method.label, code: s.code,
       promo: s.promo, setPromo: e => this.setState({ promo: (e.target.value || '').toUpperCase().replace(/\s/g, ''), promoInfo: null }),
       applyPromo: () => this.applyPromo(),
       promoMsg: s.promoBusy ? 'Checking voucher…' : (s.promoInfo && !s.promoInfo.ok ? (s.promoInfo.message || 'This voucher code is not valid') : ''),  // a valid voucher shows as the green chip

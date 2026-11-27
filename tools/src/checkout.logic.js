@@ -183,7 +183,9 @@ class Component extends DCLogic {
   dealLines() { return DEALS.filter(d => this.state.deals[d.id] > 0).map(d => ({ ...d, qty: this.state.deals[d.id] })); }
   bill() {
     const s = this.state, cfg = s.cfg || {}, lines = [];
-    if (s.created) { const c = s.created; [['Subtotal', c.subtotal], ['Service', c.service_charge], ['PB1 ' + (cfg.tax_percent != null ? cfg.tax_percent + '%' : ''), c.ppn], ['Delivery fee', c.delivery_fee]].forEach(([k, v]) => { if (k === 'Subtotal' || Number(v) > 0) lines.push({ label: k.trim(), value: rp(v) }); });
+    // Prices already include tax (POS price = final): the tax is never a separate line that adds to the total.
+    // While the backend still splits PB1 out, it is folded back into the subtotal for display (total unchanged).
+    if (s.created) { const c = s.created, svcOn = Number(c.service_charge) > 0; [['Subtotal', svcOn ? c.subtotal : Number(c.subtotal || 0) + Number(c.ppn || 0)], ['Service', c.service_charge], ['PB1 ' + (cfg.tax_percent != null ? cfg.tax_percent + '%' : ''), svcOn ? c.ppn : 0], ['Delivery fee', c.delivery_fee]].forEach(([k, v]) => { if (k === 'Subtotal' || Number(v) > 0) lines.push({ label: k.trim(), value: rp(v) }); });
       if (Number(c.discount) > 0) lines.push({ label: 'Promo ' + (c.promo_code || ''), value: '-' + rp(c.discount) });
       return { lines, total: Number(c.total) || 0, estimate: false }; }
     if (s.mode !== 'dine' && s.mode !== 'take' && s.mode !== 'grab') return { lines, total: 0, estimate: true };
@@ -195,7 +197,6 @@ class Component extends DCLogic {
     const menuSum = this.cartLines().reduce((a, i) => a + i.price * i.qty, 0);
     if (!svc) {
       lines.push({ label: 'Subtotal', value: rp(menuSum) });
-      if (cfg.tax_percent != null && tax) lines.push({ label: 'Includes PB1 ' + cfg.tax_percent + '%', value: rp(Math.round(menuSum - sub)) });
     } else {
       lines.push({ label: 'Subtotal', value: rp(sub) });
       lines.push({ label: 'Service ' + cfg.service_percent + '%', value: rp(svc) });
@@ -734,7 +735,7 @@ class Component extends DCLogic {
       waitElapsed: (() => { const t = Math.max(0, Math.floor(((s.now || Date.now()) - (this._w0 || Date.now())) / 1000)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); })(),
       waitNudge: !g && s.step === 'wait' && !(live && (live.payment_status === 'expired' || live.payment_status === 'failed')) && (s.now || 0) - (this._w0 || Date.now()) >= 45000,
       openNudge: () => window.open(this.nudgeUrl(), '_blank', 'noopener'),
-      lines, totalFmt: rp(total), totalLabel: estimate ? 'Estimated total' : 'Total', payLabel: method.label, code: s.code,
+      lines, totalFmt: rp(total), totalLabel: estimate ? 'Estimated total' : 'Total', taxNote: 'Harga sudah termasuk pajak', payLabel: method.label, code: s.code,
       promo: s.promo, setPromo: e => this.setState({ promo: (e.target.value || '').toUpperCase().replace(/\s/g, ''), promoInfo: null }),
       applyPromo: () => this.applyPromo(),
       promoMsg: s.promoBusy ? 'Checking voucher…' : (s.promoInfo && !s.promoInfo.ok ? (s.promoInfo.message || 'This voucher code is not valid') : ''),  // a valid voucher shows as the green chip
