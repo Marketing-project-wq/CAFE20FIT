@@ -226,7 +226,7 @@
       if (s === 'waiting_claim') return { pill: 'Paid · waiting for you', sub: 'Sudah sampai? Scan QR Claim Order di kasir, atau tunjukkan kode ini ke kasir.', tone: 'amber' };
       if (s === 'unclaimed') return { pill: 'Tidak di-claim', sub: 'Order tidak diambil sampai jam tutup. Hubungi kasir untuk refund / voucher.', tone: 'grey' };
       if (s === 'accepted') return o.order_origin === 'table'
-        ? { pill: 'Masuk Antrean', sub: 'Pesananmu sedang disiapkan dan diantar ke ' + (o.table_label || 'mejamu'), tone: 'green' }
+        ? { pill: 'Masuk Antrean', sub: 'Pesananmu sedang disiapkan. Namamu akan dipanggil saat pesanan siap.', tone: 'green' }
         : o.order_origin === 'grab'
           ? { pill: 'Masuk Antrean', sub: 'Order kamu sudah di-claim, barista sedang menyiapkannya', tone: 'green' }
           : { pill: 'Diterima Barista', sub: 'Order kamu sudah diterima dan sedang disiapkan', tone: 'green' };
