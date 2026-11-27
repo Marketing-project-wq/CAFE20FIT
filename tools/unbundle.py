@@ -19,6 +19,14 @@ for u,e in man.items():
 res={x['id']:rel[x['uuid']] for x in ext if x['uuid'] in paths}
 for u,p in rel.items(): tpl=tpl.replace(u,p)
 tpl=re.sub(r'\s+integrity="[^"]*"','',tpl,flags=re.I); tpl=re.sub(r'\s+crossorigin="[^"]*"','',tpl,flags=re.I)
+# The page template lives in <x-dc> as live HTML, so the browser would fetch every bound URL ("{{ it.src }}") before
+# the runtime renders. Bound src/poster attributes are parked as data-dc-* and handed back to the runtime, which reads
+# the template through x-dc.innerHTML, by the small script right after </x-dc> (no request for a placeholder URL).
+xa,xb=tpl.find('<x-dc>'),tpl.rfind('</x-dc>')
+if xa>=0 and xb>xa:
+    body=re.sub(r'(\s)(src|poster)="\{\{',r'\1data-dc-\2="{{',tpl[xa:xb])
+    fix='</x-dc><script>(function(){var x=document.querySelector("x-dc");if(!x)return;var h=x.innerHTML.replace(/(\\s)data-dc-(src|poster)="\\{\\{/g,\'$1$2="{{\');Object.defineProperty(x,"innerHTML",{configurable:true,get:function(){return h}});})();</script>'
+    tpl=tpl[:xa]+body+fix+tpl[xb+len('</x-dc>'):]
 inject='<script>window.__resources = (function (r) { for (var k in r) r[k] = new URL(r[k], document.baseURI).href; return r; })('+json.dumps(res).replace('</','<\\/')+');</script>'
 m=re.search(r'<head[^>]*>',tpl,re.I); assert m
 tpl=tpl[:m.end()]+inject+tpl[m.end():]

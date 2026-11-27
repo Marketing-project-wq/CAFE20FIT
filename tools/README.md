@@ -29,3 +29,15 @@ prototype logic and markup.
 
 All data goes through Supabase RPCs on project `cpvzwqptzcxnwzfzgrmt` (see `src/cafe-api.js`).
 The browser only stores order keys in `localStorage` `20fit-order-refs` (`{ code, token }`).
+
+## Product photos (POS is the only source)
+
+Every product photo on the site — landing sections (hero card, "A day, fueled", quiz), FULL MENU, product view and
+checkout — is the POS photo from the web menu (`cafe_get_web_menu` → `image_url`, synced from the POS every minute
+and right after a product is saved). A POS product without a photo shows its 2D 20FIT illustration (`productArt`).
+The site keeps no menu photos of its own: the old design photos were moved to `tools/archive/menu-photos-2026-11-27/`
+(not loaded by the page).
+
+Landing sections reference products by web menu id in `src/story-config.js` (`P.<name>.id`). A product that is not
+on the menu, hidden from the web or sold out is left out of its section (never replaced by another product).
+To find an id: `curl -s -X POST https://cpvzwqptzcxnwzfzgrmt.supabase.co/rest/v1/rpc/cafe_get_web_menu -H "apikey: <publishable key from cafe-api.js>" -H "Content-Type: application/json" -d '{}'`.
