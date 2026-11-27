@@ -1,6 +1,6 @@
 
 const U = n => (window.__resources && window.__resources['img_' + n]) || ('src/' + n + '.jpg');
-// Product photos from the design, matched to POS menu items by name (+ category for duplicates).
+// Design photos, matched to POS menu items by name (+ category for duplicates): used only while a product has no POS photo.
 const PHOTOS = {
   'chia pudding': [U('DSC3733'), U('DSC3737-1')], 'signature aren': [U('20Fit-Signature-Aren-1')], 'choco overload|coffee': [U('Choco-overload')],
   'coffee 1': [U('DSC3568')], 'cloud coffee': [U('Cloud-Coffee')], 'honey berry americano': [U('Honey-Berry-Americano')], 'oat honey macchiato': [U('Oat-honey-macchiato')],
@@ -16,8 +16,10 @@ const NO_PHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="ht
 // ("Ice Long Black"), the story copy and design photos may use another spelling ("Long Black Iced").
 const nameKey = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean).map(w => (w === 'iced' ? 'ice' : w)).sort().join(' ');
 const PHOTO_KEYS = Object.keys(PHOTOS).reduce((m, k) => { const [n, c] = k.split('|'); m[nameKey(n) + (c ? '|' + c : '')] = PHOTOS[k]; return m; }, {});
+// Product photo: the POS photo first (POS is the source of truth, synced to image_url); the design photo only for a
+// product that has no photo in the POS yet; else the neutral placeholder.
 const photosFor = it => { const n = String(it.name || '').toLowerCase(), c = String(it.category || '').toLowerCase(), k = nameKey(n);
-  return PHOTOS[n + '|' + c] || PHOTOS[n] || PHOTO_KEYS[k + '|' + c] || PHOTO_KEYS[k] || (it.image_url ? [it.image_url] : [NO_PHOTO]); };
+  return (it.image_url ? [it.image_url] : null) || PHOTOS[n + '|' + c] || PHOTOS[n] || PHOTO_KEYS[k + '|' + c] || PHOTO_KEYS[k] || [NO_PHOTO]; };
 // Server menu item -> view model used by this page and the checkout
 // Display category: a POS category can be shown under another one (StoryConfig.menu.merge, e.g. Chia → Food).
 const catOf = c => { const mg = ((window.StoryConfig || {}).menu || {}).merge || {}; return mg[c] || c; };
