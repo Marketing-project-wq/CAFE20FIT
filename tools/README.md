@@ -41,3 +41,27 @@ The site keeps no menu photos of its own: the old design photos were moved to `t
 Landing sections reference products by web menu id in `src/story-config.js` (`P.<name>.id`). A product that is not
 on the menu, hidden from the web or sold out is left out of its section (never replaced by another product).
 To find an id: `curl -s -X POST https://cpvzwqptzcxnwzfzgrmt.supabase.co/rest/v1/rpc/cafe_get_web_menu -H "apikey: <publishable key from cafe-api.js>" -H "Content-Type: application/json" -d '{}'`.
+
+## Languages (EN default, ID)
+
+- `src/i18n.js` is the core: the visitor's choice lives in localStorage `20fit-lang` and applies to every page.
+  - There is no browser-language detection: English until the visitor taps **ID** in the EN | ID switch (header, FULL MENU, checkout).
+- Texts live in `src/i18n/<area>.<lang>.js` as `I18N.add('en', { key: 'text' })`. The areas are:
+  - `home*`: landing, FULL MENU, history, claim
+  - `co*`: checkout, payment, order status
+  - `api`: status labels, methods, errors
+  - `st*`: 3D coffee story
+- `*.tpl.*` files hold the template texts.
+- Templates bind `{{ t.key }}` (every `renderVals()` returns `t: I18N.table()`). Logic calls `T('key', { var })`, with `{var}` placeholders in the text.
+  - A key missing in ID falls back to EN.
+  - A key missing everywhere shows the key itself, so it is visible in review.
+- Story copy in `src/story-config.js` is written as `{ en, id }` objects.
+- Product names are never translated (they follow the POS).
+  - Category names go through `cat.<POS name>` (e.g. Food → Makanan).
+  - Descriptions come from the POS in both languages (`description_en` / `description_id`); an empty Indonesian description shows the English one.
+- An order keeps the language it was made in:
+  - It is sent to admin.20fit.id → `cf_online_order.language`, and also saved on this phone's order ref (`20fit-order-refs[].lang`).
+  - Its status screens and the customer receipt use that language.
+- `i18n_extract.py` was used once to move the template texts into the dictionaries.
+  - Re-run it only for a new template page.
+  - New texts in an existing template: add `{{ t.new_key }}` by hand plus the key in both languages.
