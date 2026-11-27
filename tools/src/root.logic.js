@@ -11,15 +11,16 @@ const PHOTOS = {
   '20fit signature aren latte': [U('20Fit-Signature-Aren-1')], 'honey oat macchiato': [U('Oat-honey-macchiato')], 'choco overload|hybrid': [U('Choco-Overload-1')],
   'chia pudding|smoothies bowl': [U('DSC3733'), U('DSC3737-1')]
 };
-const NO_PHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><rect width="400" height="500" fill="#e8e6e1"/><text x="200" y="262" text-anchor="middle" font-family="Arial" font-size="28" fill="#9a978f">20FIT CAFE</text></svg>');
+const NO_PHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6f4f1"/><stop offset="1" stop-color="#ebe8e3"/></linearGradient></defs><rect width="400" height="500" fill="url(#g)"/><circle cx="200" cy="218" r="46" fill="none" stroke="#e30a2e" stroke-width="10"/><circle cx="200" cy="218" r="18" fill="#e30a2e"/><text x="200" y="318" text-anchor="middle" font-family="Barlow Condensed,Arial Narrow,Arial,sans-serif" font-weight="800" font-size="34" letter-spacing="3" fill="#0d0d0d">20FIT CAFE</text><text x="200" y="350" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="15" letter-spacing="3" fill="#9a978f">PHOTO SOON</text></svg>');
 // Name key that ignores word order, punctuation and "iced"/"ice": the menu names now come from the POS
 // ("Ice Long Black"), the story copy and design photos may use another spelling ("Long Black Iced").
 const nameKey = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean).map(w => (w === 'iced' ? 'ice' : w)).sort().join(' ');
 const PHOTO_KEYS = Object.keys(PHOTOS).reduce((m, k) => { const [n, c] = k.split('|'); m[nameKey(n) + (c ? '|' + c : '')] = PHOTOS[k]; return m; }, {});
-// Product photo: the POS photo first (POS is the source of truth, synced to image_url); the design photo only for a
-// product that has no photo in the POS yet; else the neutral placeholder.
-const photosFor = it => { const n = String(it.name || '').toLowerCase(), c = String(it.category || '').toLowerCase(), k = nameKey(n);
-  return (it.image_url ? [it.image_url] : null) || PHOTOS[n + '|' + c] || PHOTOS[n] || PHOTO_KEYS[k + '|' + c] || PHOTO_KEYS[k] || [NO_PHOTO]; };
+// Design photos (designFor) are only for story spots whose product is not on the menu (hero, finale).
+const designFor = it => { const n = String(it.name || '').toLowerCase(), c = String(it.category || '').toLowerCase(), k = nameKey(n);
+  return PHOTOS[n + '|' + c] || PHOTOS[n] || PHOTO_KEYS[k + '|' + c] || PHOTO_KEYS[k] || [NO_PHOTO]; };
+// Menu products show the POS photo only (one consistent style); no POS photo yet → the branded placeholder.
+const photosFor = it => (it.image_url ? [it.image_url] : [NO_PHOTO]);
 // Server menu item -> view model used by this page and the checkout
 // Display category: a POS category can be shown under another one (StoryConfig.menu.merge, e.g. Chia → Food).
 const catOf = c => { const mg = ((window.StoryConfig || {}).menu || {}).merge || {}; return mg[c] || c; };
@@ -279,7 +280,7 @@ class Component extends DCLogic {
   price(m) { return m ? m.price : 0; }
   // One product card of the FULL MENU (price, add / stepper, photo).
   card(x) {
-    return ({ ...x, priceFmt: rp(this.price(x)), add: () => this.add(x.id), soldOut: !x.available, addLabel: !x.available ? 'Sold out' : '+ Add',
+    return ({ ...x, nameWrap: String(x.name).replace(/\//g, '/\u200b'), priceFmt: rp(this.price(x)), add: () => this.add(x.id), soldOut: !x.available, addLabel: !x.available ? 'Sold out' : '+ Add',
         // card stepper: [ − ] qty [ + ] once the item is in the cart (qty = all its lines), "+ Add" otherwise
         qty: this.qtyOf(x.id), noQty: !x.available || !this.qtyOf(x.id), hasQty: !!x.available && this.qtyOf(x.id) > 0, dec: () => this.dec(x.id),
         decLabel: 'Remove one ' + x.name, incLabel: 'Add one more ' + x.name,
@@ -730,7 +731,7 @@ class Component extends DCLogic {
         return { place: F.place || '20FIT', address: real(F.address) ? F.address : '', hours: real(F.hours) ? F.hours : '', hasAddress: real(F.address), hasHours: real(F.hours),
           ig: '@' + (F.instagram || '20fit.cafe'), igUrl: 'https://www.instagram.com/' + (F.instagram || '20fit.cafe') + '/',
           wa: '+' + wa.replace(/^(\d{2})(\d{3})(\d{4})(\d+)$/, '$1 $2-$3-$4'), waUrl: 'https://wa.me/' + wa + '?text=' + encodeURIComponent('Hi 20FIT Cafe!'),
-          src: this.src((ph ? ph.imgs : photosFor({ name: String(F.photo || '') }))[0]) }; })(),
+          src: this.src((ph ? ph.imgs : designFor({ name: String(F.photo || '') }))[0]) }; })(),
       // CH 06 — Your turn
       orderHasCart: cartN > 0, orderCartText: cartN + ' item' + (cartN > 1 ? 's' : '') + ' · ' + rp(cartSum) + ' — choose how to get it',
       modesStyle: { '--deal': this.state.orderIn || reduceMotionNow() ? 1 : 0, '--cart': cartN > 0 ? 1 : 0 },
@@ -767,10 +768,10 @@ class Component extends DCLogic {
       badgeA: { position: 'absolute', left: 0, top: '18%', zIndex: 2, transform: 'translate(' + (this.state.hx * -36) + 'px,' + (this.state.hyM * -28) + 'px)', transition: 'transform .3s ease-out' },
       badgeB: { position: 'absolute', right: 0, bottom: '16%', zIndex: 2, transform: 'translate(' + (this.state.hx * 30) + 'px,' + (this.state.hyM * 24) + 'px)', transition: 'transform .3s ease-out' },
       needs: NEED_NAMES.map(([label], i) => { const on = this.state.need === i; return { label, pick: () => this.state.need !== i && this.setState({ need: i }), style: { all: 'unset', cursor: 'pointer', padding: '9px 16px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '.04em', textTransform: 'uppercase', border: '1px solid ' + (on ? '#0d0d0d' : 'rgba(13,13,13,.18)'), background: on ? '#0d0d0d' : 'rgba(255,255,255,.6)', color: on ? '#fff' : '#0d0d0d', transition: 'all .2s' } }; }),
-      need: (() => { const n = NEED_NAMES[this.state.need]; const m = this.byName(n[1]) || { id: null, name: n[1].replace(/\b\w/g, c => c.toUpperCase()).replace('20fit', '20FIT'), price: 0, imgs: photosFor({ name: n[1] }) }; return { kind: n[0], name: m.name, price: m.id ? rp(m.price) : '', open: () => m.id && this.setState({ sel: m.id }), imgStyle: { width: 64, height: 64, flexShrink: 0, borderRadius: 14, backgroundColor: '#e8e6e1', backgroundImage: 'url("' + this.src(m.imgs[0]) + '")', backgroundSize: 'cover', backgroundPosition: 'center' } }; })(),
+      need: (() => { const n = NEED_NAMES[this.state.need]; const m = this.byName(n[1]) || { id: null, name: n[1].replace(/\b\w/g, c => c.toUpperCase()).replace('20fit', '20FIT'), price: 0, imgs: designFor({ name: n[1] }) }; return { kind: n[0], name: m.name, price: m.id ? rp(m.price) : '', open: () => m.id && this.setState({ sel: m.id }), imgStyle: { width: 64, height: 64, flexShrink: 0, borderRadius: 14, backgroundColor: '#e8e6e1', backgroundImage: 'url("' + this.src(m.imgs[0]) + '")', backgroundSize: 'cover', backgroundPosition: 'center' } }; })(),
       needCardStyle: { all: 'unset', cursor: 'pointer', position: 'absolute', left: '-6%', bottom: '4%', zIndex: 3, display: 'flex', alignItems: 'center', gap: 12, padding: 10, paddingRight: 18, borderRadius: 20, background: 'rgba(255,255,255,.82)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,.95)', boxShadow: '0 20px 50px rgba(13,13,13,.18)', maxWidth: 300, transform: 'translate(' + (this.state.hx * -22) + 'px,' + (this.state.hyM * -18) + 'px)', transition: 'transform .3s ease-out' },
       heroMediaStyle: { position: 'relative', zIndex: 1, height: 'clamp(520px, 74vh, 720px)', aspectRatio: this.props.heroVideo ? (this.state.vAR || '9/16') : '4/5', maxWidth: '100%', borderRadius: 28, overflow: 'hidden', background: 'linear-gradient(90deg,#e7e6e3 0%,#f3f2f0 45%,#e7e6e3 90%) 0 0/220% 100%', animation: 'skMove 1.25s ease-in-out infinite', boxShadow: '0 40px 90px rgba(13,13,13,.28), 0 0 0 1px rgba(255,255,255,.6) inset', transform: 'translateY(' + (this.state.hy * -0.1) + 'px)', willChange: 'transform' },
-      heroDrinks: NEED_NAMES.map(([kind, nm], i) => { const m = this.byName(nm) || { id: null, name: nm.replace(/\b\w/g, c => c.toUpperCase()).replace('20fit', '20FIT'), imgs: photosFor({ name: nm }) }; const y = this.state.hy * (0.05 + i * 0.05), on = this.state.heroIn;
+      heroDrinks: NEED_NAMES.map(([kind, nm], i) => { const m = this.byName(nm) || { id: null, name: nm.replace(/\b\w/g, c => c.toUpperCase()).replace('20fit', '20FIT'), imgs: designFor({ name: nm }) }; const y = this.state.hy * (0.05 + i * 0.05), on = this.state.heroIn;
         return { kind, name: m.name, imgStyle: { display: 'block', aspectRatio: '1', borderRadius: 16, overflow: 'hidden', backgroundColor: '#e8e6e1', boxShadow: '0 10px 30px rgba(13,13,13,.12)', backgroundImage: 'url("' + this.src(m.imgs[0]) + '")', backgroundSize: 'cover', backgroundPosition: 'center' }, open: () => m.id && this.setState({ sel: m.id }),
           style: { all: 'unset', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, opacity: on ? 1 : 0, transform: 'translateY(' + ((on ? 0 : 40) - y) + 'px) rotate(' + ((i - 1) * (on ? 2 : 8)) + 'deg)', transition: 'opacity .8s ' + (0.2 + i * 0.15) + 's, transform .9s cubic-bezier(.2,.8,.2,1) ' + (i * 0.15) + 's' } }; }),
       // Pauses the About-section video (site music) while the menu / order / checkout / history / product view is open
