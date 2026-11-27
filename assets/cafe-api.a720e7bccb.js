@@ -33,7 +33,7 @@
   // Rejects with an Error whose message is the server's message.
   function rpc(name, args) {
     return sb().rpc(name, args || {}).then(function (res) {
-      if (res.error) { var err = new Error(res.error.message || 'Something went wrong'); err.code = res.error.code; throw err; }
+      if (res.error) { var err = new Error(res.error.message || tr('api_err_generic')); err.code = res.error.code; throw err; }
       return res.data;
     });
   }
@@ -42,10 +42,10 @@
     var opts = body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : { method: 'GET' };
     return fetch(PAY_API + path, opts).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) {
-        if (!r.ok) { var err = new Error(j.error || 'Something went wrong, please try again'); err.status = r.status; throw err; }
+        if (!r.ok) { var err = new Error(j.error || tr('api_err_retry')); err.status = r.status; throw err; }
         return j;
       });
-    }, function () { throw new Error('No connection, please try again'); });
+    }, function () { throw new Error(tr('api_err_offline')); });
   }
 
   // ---------- storage ----------
@@ -57,9 +57,20 @@
   function getRefs() { var r = lsGet(REFS_KEY, []); return Array.isArray(r) ? r.filter(function (x) { return x && x.code && x.token; }) : []; }
   function addRef(ref) {
     var refs = getRefs().filter(function (x) { return x.code !== ref.code; });
-    refs.push({ code: ref.code, token: ref.token, kind: ref.kind || 'order', created_at: ref.created_at || new Date().toISOString() });
+    var old = getRefs().find(function (x) { return x.code === ref.code; }) || {};
+    // lang = the website language the order was made in (status screens of that order use it; EN | ID)
+    refs.push({ code: ref.code, token: ref.token, kind: ref.kind || 'order', created_at: ref.created_at || new Date().toISOString(), lang: ref.lang || old.lang || L() });
     lsSet(REFS_KEY, refs); emit('refs', refs); return refs;
   }
+  // Website language (tools/src/i18n.js); the language an order was made in (server field, else this phone's ref).
+  function L() { return window.I18N ? window.I18N.lang() : 'en'; }
+  function tr(key, vars, lang) { return window.T ? window.T(key, vars, lang) : key; }
+  function orderLang(o) {
+    if (o && (o.language === 'en' || o.language === 'id')) return o.language;
+    var r = o && o.code ? getRefs().find(function (x) { return x.code === o.code; }) : null;
+    return r && (r.lang === 'en' || r.lang === 'id') ? r.lang : L();
+  }
+  function locale(lang) { return (lang || L()) === 'id' ? 'id-ID' : 'en-GB'; }
   function tokenFor(code) { var r = getRefs().find(function (x) { return x.code === code; }); return r ? r.token : null; }
   function getSeen() { return lsGet(SEEN_KEY, {}); }
   function markSeen(list) { var seen = getSeen(); (list || []).forEach(function (o) { seen[o.code] = o.updated_at; }); lsSet(SEEN_KEY, seen); emit('seen', seen); }
@@ -110,15 +121,25 @@
 
   // ---------- cached public data ----------
   var menuP = null, configP = null;
-  function getMenu(force) { if (!menuP || force) menuP = rpc('cafe_get_web_menu').catch(function (e) { menuP = null; throw e; }); return menuP; }
+  // Menu + the EN / ID product descriptions from the POS (cafe_get_web_menu_text; older backend without it → none).
+  function getMenu(force) {
+    if (!menuP || force) menuP = Promise.all([rpc('cafe_get_web_menu'), rpc('cafe_get_web_menu_text').catch(function () { return []; })]).then(function (r) {
+      var res = r[0] || {}, text = {};
+      (Array.isArray(r[1]) ? r[1] : []).forEach(function (x) { if (x && x.id) text[x.id] = x; });
+      (res.items || []).forEach(function (it) { var d = text[it.id]; if (d) { it.description_en = d.description_en || null; it.description_id = d.description_id || null; } });
+      return res;
+    }).catch(function (e) { menuP = null; throw e; });
+    return menuP;
+  }
   function getConfig(force) { if (!configP || force) configP = rpc('cafe_get_web_config').catch(function (e) { configP = null; throw e; }); return configP; }
 
   // ---------- customer RPCs ----------
   // Returns the order plus `pay`: { kind: 'qr', qr_string, expires_at } | { kind: 'redirect', url, expires_at },
   // or `pay_error` when the order was made but its payment could not be started (retry with pay()).
   function createOrder(p) {
-    return payApi('/order', p).then(function (res) {
-      addRef({ code: res.code, token: res.access_token, kind: 'order' }); // saved right away, before the payment screen
+    var lang = (p && (p.language === 'id' || p.language === 'en')) ? p.language : L();
+    return payApi('/order', Object.assign({}, p, { language: lang })).then(function (res) {
+      addRef({ code: res.code, token: res.access_token, kind: 'order', lang: lang }); // saved right away, before the payment screen
       return res;
     });
   }
@@ -172,76 +193,71 @@
 
   // ---------- formatting ----------
   function rp(n) { return 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID'); }
-  function time(iso) { if (!iso) return ''; return new Date(iso).toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit' }); }
-  function dateTime(iso) { if (!iso) return ''; return new Date(iso).toLocaleString('en-GB', { timeZone: TZ, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-  function dayLabel(ymd) { if (!ymd) return ''; var d = new Date(ymd + 'T00:00:00+07:00'); return d.toLocaleDateString('en-GB', { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short' }); }
+  function time(iso, lang) { if (!iso) return ''; return new Date(iso).toLocaleTimeString(locale(lang), { timeZone: TZ, hour: '2-digit', minute: '2-digit' }); }
+  function dateTime(iso, lang) { if (!iso) return ''; return new Date(iso).toLocaleString(locale(lang), { timeZone: TZ, day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  function dayLabel(ymd, lang) { if (!ymd) return ''; var d = new Date(ymd + 'T00:00:00+07:00'); return d.toLocaleDateString(locale(lang), { timeZone: TZ, weekday: 'short', day: 'numeric', month: 'short' }); }
   // YYYY-MM-DD of today + n days in Jakarta time
   function ymd(addDays) { var d = new Date(Date.now() + (addDays || 0) * 864e5); return d.toLocaleDateString('en-CA', { timeZone: TZ }); }
-  function optionsText(opts) { if (!opts) return ''; return Object.keys(opts).map(function (k) { return k === 'Note' ? 'Note: ' + opts[k] : opts[k]; }).join(' · '); }
+  function optionsText(opts) { if (!opts) return ''; return Object.keys(opts).map(function (k) { return k === 'Note' ? tr('api_note', { text: opts[k] }) : opts[k]; }).join(' · '); }
 
-  // ---------- status (one source for Done screen + Purchase History) ----------
-  var METHOD = { qris: 'QRIS', ewallet: 'GoPay / OVO / ShopeePay', credit: 'Credit card', debit: 'Debit card', va: 'Virtual account', cash: 'Cash' };
-  function methodLabel(m) { return METHOD[m] || (m ? cap(m) : ''); }
+  // ---------- status (one source for Done screen + Purchase History), in the order's language ----------
+  function methodLabel(m, lang) { var k = 'api_m_' + m; var t = m ? tr(k, null, lang) : ''; return t === k ? cap(m) : t; }
   // Grab & Go is now sent as a paid-online 'pickup' order (checkout GRAB_ONLINE), so pickup reads as Grab & Go.
-  var KIND = { grab: 'Grab & Go', dine_in: 'Dine-in', pickup: 'Grab & Go', delivery: 'Delivery', venue: 'Venue' };
-  var SESSION = { morning: 'Morning 08–12', afternoon: 'Afternoon 13–17', evening: 'Evening 18–22' };
+  var KIND = {};
+  ['grab', 'dine_in', 'pickup', 'delivery', 'venue'].forEach(function (t) { Object.defineProperty(KIND, t, { enumerable: true, get: function () { return tr('api_k_' + t); } }); });
+  var SESSION = {};
+  ['morning', 'afternoon', 'evening'].forEach(function (t) { Object.defineProperty(SESSION, t, { enumerable: true, get: function () { return tr('api_s_' + t); } }); });
   function cap(s) { s = String(s || '').replace(/_/g, ' '); return s.charAt(0).toUpperCase() + s.slice(1); }
+  function st(key, tone, lang, sub, extra) { var r = { pill: tr(key, null, lang), sub: sub != null ? sub : tr(key + '_sub', null, lang), tone: tone }; if (extra) for (var x in extra) r[x] = extra[x]; return r; }
   // tone: dark | green | red | grey | amber
   function status(o) {
     if (!o) return { pill: '', sub: '', tone: 'dark' };
+    var lg = orderLang(o);
     if (o.kind === 'venue') {
-      var vp = { new: 'Request sent', contacted: 'Contacted', confirmed: 'Confirmed', completed: 'Completed', cancelled: 'Cancelled' }[o.status] || cap(o.status);
-      return { pill: vp, sub: cap(o.event_type) + ' · ' + o.guests + ' guests · ' + dayLabel(o.event_date) + ' ' + (SESSION[o.session] || cap(o.session)), tone: o.status === 'confirmed' ? 'green' : o.status === 'cancelled' ? 'grey' : 'dark' };
+      var vk = 'api_v_' + o.status, vp = tr(vk, null, lg); if (vp === vk) vp = cap(o.status);
+      return { pill: vp, sub: tr('api_v_sub', { type: cap(o.event_type), n: o.guests, date: dayLabel(o.event_date, lg), session: (o.session ? tr('api_s_' + o.session, null, lg) : '') }, lg), tone: o.status === 'confirmed' ? 'green' : o.status === 'cancelled' ? 'grey' : 'dark' };
     }
     var t = o.type, s = o.status;
-    // Grab & Go lifecycle (status-driven): pending_confirmation -> accepted -> paid -> completed (+ rejected/cancelled/expired)
     // Old flow only (type grab). Grab & Go paid online is type 'pickup' (see below).
     if (t === 'grab') {
-      if (s === 'pending_confirmation') return { pill: 'Menunggu Konfirmasi', sub: 'Menunggu barista menerima ordermu…', tone: 'amber' };
-      if (s === 'accepted') return { pill: 'Order Diterima', sub: 'Silakan datang ke cafe dan bayar di kasir saat ambil pesanan.', tone: 'green' };
-      if (s === 'paid') return { pill: 'Sudah Dibayar', sub: 'Pembayaran diterima · tinggal ambil pesananmu di cafe.', tone: 'green' };
-      if (s === 'completed') return { pill: 'Selesai', sub: 'Pesanan sudah diambil. Terima kasih!', tone: 'dark' };
-      if (s === 'rejected') return { pill: 'Order Ditolak', sub: o.cancel_reason || 'Order ditolak barista.', tone: 'grey' };
-      if (s === 'cancelled_by_user') return { pill: 'Dibatalkan', sub: 'Kamu membatalkan order ini.', tone: 'grey' };
-      if (s === 'cancelled_by_admin') return { pill: 'Dibatalkan', sub: o.cancel_reason || 'Order dibatalkan cafe.', tone: 'grey' };
-      if (s === 'expired') return { pill: 'Kedaluwarsa', sub: o.cancel_reason || 'Order kedaluwarsa.', tone: 'grey' };
+      var tone = { pending_confirmation: 'amber', accepted: 'green', paid: 'green', completed: 'dark' }[s] || 'grey';
+      if (['pending_confirmation', 'accepted', 'paid', 'completed', 'cancelled_by_user'].indexOf(s) >= 0) return st('api_g_' + s, tone, lg);
+      if (['rejected', 'cancelled_by_admin', 'expired'].indexOf(s) >= 0) return st('api_g_' + s, 'grey', lg, o.cancel_reason || tr('api_g_' + s + '_sub', null, lg));
     }
     if (s === 'pending_payment') {
-      if (o.payment_status === 'expired' || o.payment_status === 'failed') return { pill: o.payment_status === 'expired' ? 'Payment expired' : 'Payment failed', sub: 'This order was not paid', tone: 'grey' };
-      return { pill: 'Waiting payment', sub: 'Not paid yet · it updates automatically once your payment goes through', tone: 'amber' };
+      if (o.payment_status === 'expired' || o.payment_status === 'failed') return st(o.payment_status === 'expired' ? 'api_pay_expired' : 'api_pay_failed', 'grey', lg, tr('api_not_paid', null, lg));
+      return st('api_wait_pay', 'amber', lg);
     }
-    if (s === 'cancelled') return { pill: 'Cancelled', sub: [o.cancel_reason, o.payment_status === 'refunded' ? 'Refunded' : ''].filter(Boolean).join(' · '), tone: 'grey' };
+    if (s === 'cancelled') return st('api_cancelled', 'grey', lg, [o.cancel_reason, o.payment_status === 'refunded' ? tr('api_refunded', null, lg) : ''].filter(Boolean).join(' · '));
     // DEPRECATED: Dine-in (table reservation) is retired — no new dine_in orders are created. Kept so existing/old
     // dine_in orders still render correctly in Purchase History. Do not add new dine_in UI.
     if (t === 'dine_in') {
-      if (s === 'booked') return { pill: 'Booked', sub: 'Table for ' + o.pax + ' · ' + dayLabel(o.reservation_date) + ' ' + (o.reservation_slot || '') + ' · Check in at the barista counter with your QR / booking code', tone: 'dark' };
-      if (s === 'checked_in') return { pill: 'Checked in', sub: 'Checked in at ' + time(o.checked_in_at) + (o.checked_in_by ? ' by ' + o.checked_in_by : ''), tone: 'green' };
-      if (s === 'completed') return { pill: 'Completed', sub: '', tone: 'dark' };
-      if (s === 'no_show') return { pill: 'No-show', sub: '', tone: 'grey' };
+      if (s === 'booked') return st('api_d_booked', 'dark', lg, tr('api_d_booked_sub', { n: o.pax, date: dayLabel(o.reservation_date, lg), slot: o.reservation_slot || '' }, lg));
+      if (s === 'checked_in') return st('api_d_checked_in', 'green', lg, tr('api_d_checked_in_sub', { time: time(o.checked_in_at, lg) }, lg) + (o.checked_in_by ? tr('api_by', { name: o.checked_in_by }, lg) : ''));
+      if (s === 'completed') return st('api_d_completed', 'dark', lg, '');
+      if (s === 'no_show') return st('api_d_no_show', 'grey', lg, '');
     }
     // Grab & Go paid online (spec grab-v2): paid → barista accepts (no reject) → made → ready → collected.
+    // Self service: dine-in (table) orders are not brought to the table either — the name is called, pick up at the counter.
     if (t === 'pickup') {
-      if (s === 'received') return { pill: 'Pembayaran Berhasil', sub: 'Menunggu barista menerima ordermu…', tone: 'amber' };
+      if (s === 'received') return st('api_p_received', 'amber', lg);
       // QR Meja Fase 3: Grab n Go accepted, made only after the customer claims it at the cafe.
-      if (s === 'waiting_claim') return { pill: 'Paid · waiting for you', sub: 'Sudah sampai? Scan QR Claim Order di kasir, atau tunjukkan kode ini ke kasir.', tone: 'amber' };
-      if (s === 'unclaimed') return { pill: 'Tidak di-claim', sub: 'Order tidak diambil sampai jam tutup. Hubungi kasir untuk refund / voucher.', tone: 'grey' };
-      if (s === 'accepted') return o.order_origin === 'table'
-        ? { pill: 'Masuk Antrean', sub: 'Pesananmu sedang disiapkan. Namamu akan dipanggil saat pesanan siap.', tone: 'green' }
-        : o.order_origin === 'grab'
-          ? { pill: 'Masuk Antrean', sub: 'Order kamu sudah di-claim, barista sedang menyiapkannya', tone: 'green' }
-          : { pill: 'Diterima Barista', sub: 'Order kamu sudah diterima dan sedang disiapkan', tone: 'green' };
-      if (s === 'preparing') return { pill: 'Sedang Dibuat', sub: 'Barista sedang membuat pesananmu', tone: 'green' };
-      if (s === 'ready') return { pill: 'Siap Diambil', sub: 'Ambil di bar · sebutkan nama, nomor HP, atau email kamu ke barista', tone: 'red', pulse: true };
-      if (s === 'completed') return { pill: 'Sudah Diambil', sub: 'Terima kasih!', tone: 'dark' };
-      if (s === 'cancelled') return { pill: 'Dibatalkan', sub: [o.cancel_reason, 'Refund diproses cafe'].filter(Boolean).join(' · '), tone: 'grey' };
+      if (s === 'waiting_claim') return st('api_p_waiting_claim', 'amber', lg);
+      if (s === 'unclaimed') return st('api_p_unclaimed', 'grey', lg);
+      if (s === 'accepted') return o.order_origin === 'table' ? st('api_p_queue', 'green', lg, tr('api_p_queue_table_sub', null, lg))
+        : o.order_origin === 'grab' ? st('api_p_queue', 'green', lg, tr('api_p_queue_grab_sub', null, lg)) : st('api_p_accepted', 'green', lg);
+      if (s === 'preparing') return st('api_p_preparing', 'green', lg);
+      if (s === 'ready') return st('api_p_ready', 'red', lg, null, { pulse: true });
+      if (s === 'completed') return st('api_p_completed', 'dark', lg);
+      if (s === 'cancelled') return st('api_cancelled', 'grey', lg, [o.cancel_reason, tr('api_p_refund', null, lg)].filter(Boolean).join(' · '));
     }
     if (t === 'delivery') {
       var drv = o.driver_name ? [o.driver_name, o.driver_vehicle, o.driver_plate].filter(Boolean).join(' · ') : '';
-      if (s === 'received') return { pill: 'Order confirmed', sub: 'The cafe received your order', tone: 'dark' };
-      if (s === 'preparing') return { pill: 'Preparing', sub: 'Barista is preparing your order', tone: 'dark' };
-      if (s === 'driver_picked_up') return { pill: 'Driver picked up', sub: drv, tone: 'dark' };
-      if (s === 'on_the_way') return { pill: 'On the way', sub: drv, tone: 'red' };
-      if (s === 'completed') return { pill: 'Delivered', sub: '', tone: 'dark' };
+      if (s === 'received') return st('api_dl_received', 'dark', lg);
+      if (s === 'preparing') return st('api_dl_preparing', 'dark', lg);
+      if (s === 'driver_picked_up') return st('api_dl_picked', 'dark', lg, drv);
+      if (s === 'on_the_way') return st('api_dl_way', 'red', lg, drv);
+      if (s === 'completed') return st('api_dl_done', 'dark', lg, '');
     }
     return { pill: cap(s), sub: '', tone: 'dark' };
   }
@@ -250,16 +266,17 @@
     var c = TONES[st.tone] || TONES.dark;
     return { padding: '6px 12px', borderRadius: 999, background: c[0], color: c[1], fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase', whiteSpace: 'nowrap', flexShrink: 0, animation: st.pulse ? 'cafePulse 1.4s ease-in-out infinite' : 'none' };
   }
-  // Ordered tracker steps per type, with the index reached for the current status.
+  // Ordered tracker steps per type, with the index reached for the current status (in the order's language).
   function trackSteps(o) {
+    var lg = orderLang(o), S = function (id, key, subKey) { return [id, tr(key, null, lg), tr(subKey || key + '_sub', null, lg)]; };
     var steps = o.type === 'delivery'
-      ? [['received', 'Order confirmed', 'The cafe received your order'], ['preparing', 'Barista is preparing', 'Your drinks are made fresh'], ['driver_picked_up', 'Driver picked up', 'Sealed and on the bike'], ['on_the_way', 'On the way', 'Heading to your address'], ['completed', 'Delivered', 'Enjoy, and fuel up']]
-      : [['received', 'Pembayaran Berhasil', 'Pembayaran kamu sudah diterima'], ['accepted', 'Diterima Barista', 'Order kamu sudah diterima dan sedang disiapkan'], ['preparing', 'Sedang Dibuat', 'Dibuat fresh oleh barista'], ['ready', 'Siap Diambil', 'Ambil di bar dengan menyebutkan nama, nomor HP, atau email'], ['completed', 'Sudah Diambil', 'Selamat menikmati!']];
+      ? [S('received', 'api_dl_received'), S('preparing', 'api_dst_preparing'), S('driver_picked_up', 'api_dl_picked', 'api_dst_picked_sub'), S('on_the_way', 'api_dl_way', 'api_dst_way_sub'), S('completed', 'api_dl_done', 'api_dst_done_sub')]
+      : [S('received', 'api_st_paid'), S('accepted', 'api_st_accepted'), S('preparing', 'api_st_preparing'), S('ready', 'api_st_ready'), S('completed', 'api_st_done')];
     // QR Meja Fase 3: Grab n Go waits for a claim at the cafe before it is made; table orders skip Terima.
     if (o.type === 'pickup' && o.order_origin === 'grab') {
-      steps = [steps[0], ['waiting_claim', 'Diterima Barista', 'Datang ke cafe, lalu scan QR Claim Order di kasir'], ['accepted', 'Masuk Antrean', 'Order di-claim, menunggu dibuat']].concat(steps.slice(2));
+      steps = [steps[0], S('waiting_claim', 'api_st_claim'), S('accepted', 'api_st_queue', 'api_st_queue_grab_sub')].concat(steps.slice(2));
     } else if (o.type === 'pickup' && o.order_origin === 'table') {
-      steps = [steps[0], ['accepted', 'Masuk Antrean', 'Langsung dibuat setelah bayar']].concat(steps.slice(2));
+      steps = [steps[0], S('accepted', 'api_st_queue', 'api_st_queue_table_sub')].concat(steps.slice(2));
     }
     var idx = steps.findIndex(function (s) { return s[0] === o.status; });
     return { steps: steps, idx: idx };
@@ -283,6 +300,6 @@
     createOrder: createOrder, pay: pay, card: card, payStatus: payStatus, createVenue: createVenue, addVenueRefreshment: addVenueRefreshment, getOrder: getOrder, getMyOrders: getMyOrders,
     findOrder: findOrder, arrived: arrived, rate: rate, slotAvailability: slotAvailability, checkPromo: checkPromo, checkVoucher: checkVoucher, cancelMyOrder: cancelMyOrder, watch: watch,
     rp: rp, time: time, dateTime: dateTime, dayLabel: dayLabel, ymd: ymd, optionsText: optionsText,
-    KIND: KIND, methodLabel: methodLabel, SESSION: SESSION, status: status, pillStyle: pillStyle, trackSteps: trackSteps, qrSvg: qrSvg
+    KIND: KIND, methodLabel: methodLabel, SESSION: SESSION, orderLang: orderLang, status: status, pillStyle: pillStyle, trackSteps: trackSteps, qrSvg: qrSvg
   };
 })();

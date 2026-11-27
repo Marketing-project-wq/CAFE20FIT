@@ -133,7 +133,7 @@ const photosFor = it => (it.image_url ? [it.image_url] : [productArt(it.name, it
 const catOf = c => { const mg = ((window.StoryConfig || {}).menu || {}).merge || {}; return mg[c] || c; };
 // Group order from StoryConfig.menu.order ('*' = any category not listed); drinks first, food last.
 const catRank = c => { const o = ((window.StoryConfig || {}).menu || {}).order || ['*']; const i = o.indexOf(c); return i >= 0 ? i : (o.indexOf('*') >= 0 ? o.indexOf('*') : o.length); };
-const toItem = it => ({ id: it.id, name: it.name, cat: catOf(it.category), price: Number(it.price_display) || 0, base: Number(it.price) || 0, description: it.description || '', available: it.available !== false, addons: it.addons || [], imgs: photosFor(it) });
+const toItem = it => ({ id: it.id, name: it.name, cat: catOf(it.category), price: Number(it.price_display) || 0, base: Number(it.price) || 0, description: it.description || '', descEn: it.description_en || it.description || '', descId: it.description_id || '', available: it.available !== false, addons: it.addons || [], imgs: photosFor(it) });
 const defaultOpts = m => (m.addons || []).map(g => { const d = (g.options || []).find(o => o.default) || null; return d ? d.id : null; }).filter(Boolean);
 const lineKey = (id, opts) => id + (opts && opts.length ? '~' + opts.slice().sort().join(',') : '');
 const optsPrice = (m, opts) => (m.addons || []).reduce((a, g) => a + (g.options || []).filter(o => opts.includes(o.id)).reduce((b, o) => b + (Number(o.price) || 0), 0), 0);
@@ -150,9 +150,17 @@ const IG_POSTERS = ['DSC3568', 'DSC3733', 'DSC3737-1'];  // real cafe photos sho
 const IG_CROP = { p: { left: '-2px', top: '-55px', width: 'calc(100% + 4px)', height: 'calc(100% + 55px + 480px)' }, reel: { left: '-21.1%', top: 'calc(-58px - 21.2%)', width: '142.2%', height: 'calc(160% + 58px + 480px)' } };
 const IG_MS = 7000;
 const igId = u => { const m = /instagram\.com\/(p|reel|reels|tv)\/([\w-]+)/.exec(u || ''); return m ? (m[1] === 'reels' ? 'reel' : m[1]) + '/' + m[2] : ''; };
+// "Meja 7" from the backend reads "Table 7" in English
+// Story copy: { en, id } objects in story-config.js (a plain string = both languages). Need ids stay English (matching).
+const L = v => (v && typeof v === 'object' && !Array.isArray(v) ? (v[I18N.lang()] || v.en || '') : (v == null ? '' : v));
+const needText = n => ({ Fresh: T('home_fresh'), Fueling: T('home_fueling'), 'Light energy': T('home_light_energy') })[n] || n;
+const tableName = l => (I18N.lang() === 'en' ? String(l || '').replace(/^meja\b/i, 'Table') : String(l || ''));
 const rp = n => 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID');
 const API = () => window.CafeApi;
-const SC = () => window.StoryConfig || { chapters: [], stops: [], needs: ['Fresh', 'Fueling', 'Light energy'], sky: [], teasers: {} };
+// Story config; stops of "A day, fueled" without any product on the menu are left out (never shown empty).
+let stopsVisible = null; // set by the page once the menu is known: stop -> boolean
+const SC = () => { const c = window.StoryConfig || { chapters: [], stops: [], needs: ['Fresh', 'Fueling', 'Light energy'], sky: [], teasers: {} };
+  return stopsVisible ? { ...c, stops: (c.stops || []).filter(stopsVisible) } : c; };
 const TRACK = (e, p) => { try { window.track && window.track(e, p); } catch (x) {} };
 const clamp01 = x => Math.max(0, Math.min(1, x));
 const reduceMotionNow = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -360,7 +368,7 @@ class Component extends DCLogic {
     let items = rule ? this.pickItems(rule.items) : [];
     if (!items.length) items = this.menuAll().filter(m => ok(m) && m.cat === Q.fallbackCategory).slice(0, 3);
     if (!items.length) items = this.menuAll().filter(ok).slice(0, 3);
-    return { items: items.slice(0, 3), reason: rule && items.length ? rule.reason : Q.fallbackReason, need: rule ? rule.need : null };
+    return { items: items.slice(0, 3), reason: L(rule && items.length ? rule.reason : Q.fallbackReason), need: rule ? rule.need : null };
   }
   goTo(elId) { const el = document.getElementById(elId); if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - (elId === 'order' ? 90 : 0), behavior: 'smooth' }); }
   // ---- menu (from POS via cafe_get_web_menu) ----
@@ -369,7 +377,13 @@ class Component extends DCLogic {
     this.setState({ menuErr: '' });
     if (this.state.menu === null) { try { const c = JSON.parse(localStorage.getItem(MENU_CACHE) || 'null'); if (c && Array.isArray(c.items) && Date.now() - c.at < 7 * 864e5) this.setState({ menu: c.items.map(toItem) }); } catch (e) {} }
     API().getMenu().then(res => { this.setState({ menu: (res.items || []).map(toItem) }); try { localStorage.setItem(MENU_CACHE, JSON.stringify({ at: Date.now(), items: res.items || [] })); } catch (e) {} })
-      .catch(e => this.setState(s => (s.menu ? {} : { menuErr: e.message || 'Menu unavailable' })));
+      .catch(e => this.setState(s => (s.menu ? {} : { menuErr: e.message || T('home_menu_unavailable') })));
+  }
+  // Which "A day, fueled" stops have products (recomputed when the menu changes); empty stops are hidden.
+  syncStops() {
+    const menu = this.state.menu; if (!menu || menu === this._stopsMenu) return; this._stopsMenu = menu;
+    const keep = new Set(((window.StoryConfig || {}).stops || []).filter(st => this.pickItems(st.items, 3, st.categories).length > 0));
+    stopsVisible = st => keep.has(st);
   }
   // Menu in group order (drinks first); the original order is kept inside a group.
   menuAll() {
@@ -380,16 +394,20 @@ class Component extends DCLogic {
   byId(id) { return this.menuAll().find(x => x.id === id); }
   // Landing products are referenced by web menu id ({ id, name } in StoryConfig; name is only a note for editors).
   byRef(r) { const id = r && typeof r === 'object' ? r.id : r; return id ? this.byId(String(id)) || null : null; }
-  // Story picks: only products that are on the menu and available, in config order. A missing one is left out
-  // (never swapped for another product).
-  pickItems(refs, n = 3) { return (refs || []).map(r => this.byRef(r)).filter(x => x && x.available).slice(0, n); }
+  // Story picks: the products named in the config (by id, in config order), topped up with available products of the
+  // section's POS categories (`categories`, POS order). Missing / hidden / sold out products are left out.
+  pickItems(refs, n = 3, cats) {
+    const got = (refs || []).map(r => this.byRef(r)).filter(x => x && x.available);
+    for (const c of cats || []) for (const m of this.menuAll()) { if (got.length >= n) break; if (m.available && m.cat === catOf(c) && !got.includes(m)) got.push(m); }
+    return got.slice(0, n);
+  }
   price(m) { return m ? m.price : 0; }
   // One product card of the FULL MENU (price, add / stepper, photo).
   card(x) {
-    return ({ ...x, nameWrap: String(x.name).replace(/\//g, '/\u200b'), priceFmt: rp(this.price(x)), add: () => this.add(x.id), soldOut: !x.available, addLabel: !x.available ? 'Sold out' : '+ Add',
+    return ({ ...x, cat: I18N.cat(x.cat), nameWrap: String(x.name).replace(/\//g, '/\u200b'), priceFmt: rp(this.price(x)), add: () => this.add(x.id), soldOut: !x.available, addLabel: !x.available ? T('home_sold_out') : T('home_add'),
         // card stepper: [ − ] qty [ + ] once the item is in the cart (qty = all its lines), "+ Add" otherwise
         qty: this.qtyOf(x.id), noQty: !x.available || !this.qtyOf(x.id), hasQty: !!x.available && this.qtyOf(x.id) > 0, dec: () => this.dec(x.id),
-        decLabel: 'Remove one ' + x.name, incLabel: 'Add one more ' + x.name,
+        decLabel: T('home_remove_one', { name: x.name }), incLabel: T('home_add_one', { name: x.name }),
         addStyle: this.addStyle(x.available, false), addStyleSm: this.addStyle(x.available, true), src: this.src(x.imgs[0]), imgStyle: this.imgStyle(this.src(x.imgs[0]), 'cover'), open: () => this.setState({ sel: x.id }) });
   }
   // cart: { [lineKey]: { id, opts, qty } }
@@ -421,7 +439,7 @@ class Component extends DCLogic {
         // the FULL MENU banner "DINE-IN · MEJA 7" shows it (no toast: it would cover the cart / confirm modal)
       } else if (r && r.ok === false) {
         A.tableSessionClear();
-        this.showToast(r.error || 'QR meja tidak valid, silakan tanya kasir');
+        this.showToast(r.error || T('home_table_qr_invalid'));
       }
     }).catch(() => {});  // backend not updated yet: keep the remembered table, the menu still works
   }
@@ -437,27 +455,27 @@ class Component extends DCLogic {
     const c = this.state.cl; if (!c) return;
     this.clSet({ phase: 'loading', err: '' });
     API().claimMine(c.token, API().getRefs()).then(r => {
-      if (!r || r.ok === false) { this.clSet({ phase: 'invalid', err: (r && r.error) || 'QR Claim tidak valid. Silakan tanya kasir.' }); return; }
+      if (!r || r.ok === false) { this.clSet({ phase: 'invalid', err: (r && r.error) || T('home_claim_qr_invalid') }); return; }
       const orders = r.orders || [];
       this.clSet({ phase: 'ok', orders, close: r.close_time || '21:00', more: !orders.length });
-    }).catch(() => this.clSet({ phase: 'error', err: 'Gagal memuat order. Cek koneksi lalu coba lagi.' }));
+    }).catch(() => this.clSet({ phase: 'error', err: T('home_err_load_orders') }));
   }
   claimIt(o) {
     const c = this.state.cl; if (!c || c.busy) return;
     this.clSet(x => ({ busy: o.code, msg: { ...x.msg, [o.code]: '' } }));
     API().claimOrder(c.token, o.code).then(r => {
       if (r && r.ok) { this.clSet({ busy: null, done: r.order }); this.refreshHist(false); return; }
-      this.clSet(x => ({ busy: null, msg: { ...x.msg, [o.code]: (r && r.error) || 'Gagal claim, coba lagi' } }));
-    }).catch(() => this.clSet(x => ({ busy: null, msg: { ...x.msg, [o.code]: 'Gagal claim. Cek koneksi lalu coba lagi.' } })));
+      this.clSet(x => ({ busy: null, msg: { ...x.msg, [o.code]: (r && r.error) || T('home_err_claim') } }));
+    }).catch(() => this.clSet(x => ({ busy: null, msg: { ...x.msg, [o.code]: T('home_err_claim_net') } })));
   }
   claimFind() {
     const c = this.state.cl; if (!c || c.fBusy) return;
-    if ((c.fCode || '').trim().length < 2 || (c.fWho || '').trim().length < 2) { this.clSet({ fMsg: 'Isi kode order / antrean dan nama atau nomor WhatsApp.' }); return; }
+    if ((c.fCode || '').trim().length < 2 || (c.fWho || '').trim().length < 2) { this.clSet({ fMsg: T('home_claim_fill') }); return; }
     this.clSet({ fBusy: true, fMsg: '' });
     API().claimFind(c.token, c.fCode.trim(), c.fWho.trim()).then(r => {
       if (r && r.ok) { API().addRef({ code: r.code, token: r.token, kind: 'order' }); this.clSet({ fBusy: false, done: r.order }); return; }
-      this.clSet({ fBusy: false, fMsg: (r && r.error) || 'Order tidak ditemukan' });
-    }).catch(() => this.clSet({ fBusy: false, fMsg: 'Gagal mencari order. Cek koneksi lalu coba lagi.' }));
+      this.clSet({ fBusy: false, fMsg: (r && r.error) || T('home_order_not_found') });
+    }).catch(() => this.clSet({ fBusy: false, fMsg: T('home_err_find') }));
   }
   closeClaim(toHist) {
     try { history.replaceState(null, '', location.pathname); } catch (e) {}
@@ -474,19 +492,19 @@ class Component extends DCLogic {
       clRetry: c.phase === 'error', clReload: () => this.loadClaim(),
       clOk: c.phase === 'ok' && !d, clDone: !!d,
       clClose: () => this.closeClaim(false), clToHist: () => this.closeClaim(true),
-      clUntil: 'Claim Grab n Go sampai ' + (c.close || '21:00') + ' hari ini',
+      clUntil: T('home_claim_until', { time: c.close || '21:00' }),
       clHasOrders: !!(c.orders || []).length, clNone: !(c.orders || []).length,
       clOrders: (c.orders || []).map(o => {
         const busy = c.busy === o.code, can = !!o.claimable;
         return { key: o.code, code: o.queue_code ? '#' + o.queue_code : o.code, sub: o.queue_code ? o.code : '', name: o.customer_name || '-', items: items(o), total: rp(o.total),
           can, reason: can ? '' : (o.reason || ''), msg: (c.msg || {})[o.code] || '', hasMsg: !!(c.msg || {})[o.code],
-          btn: busy ? 'Memproses…' : 'Claim order ' + (o.queue_code ? '#' + o.queue_code : ''), go: () => this.claimIt(o),
+          btn: busy ? T('home_processing') : T('home_claim_btn', { code: o.queue_code ? '#' + o.queue_code : '' }).trim(), go: () => this.claimIt(o),
           btnStyle: { all: 'unset', cursor: can && !busy ? 'pointer' : 'default', boxSizing: 'border-box', width: '100%', minHeight: 52, padding: '0 18px', borderRadius: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: can ? '#e30a2e' : 'rgba(13,13,13,.12)', color: can ? '#fff' : 'rgba(13,13,13,.45)', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 20, textTransform: 'uppercase', letterSpacing: '.03em', opacity: busy ? .7 : 1 } };
       }),
-      clMore: !!c.more, clToggleMore: () => this.clSet(x => ({ more: !x.more })), clMoreLabel: c.more ? 'Tutup' : 'Pesan dari HP lain?',
+      clMore: !!c.more, clToggleMore: () => this.clSet(x => ({ more: !x.more })), clMoreLabel: c.more ? T('home_close_lc') : T('home_claim_other_phone'),
       clFCode: c.fCode || '', clFWho: c.fWho || '', clFMsg: c.fMsg || '', clFBusy: !!c.fBusy,
       clSetFCode: e => this.clSet({ fCode: e.target.value }), clSetFWho: e => this.clSet({ fWho: e.target.value }),
-      clFind: () => this.claimFind(), clFindLabel: c.fBusy ? 'Mencari…' : 'Cari & claim',
+      clFind: () => this.claimFind(), clFindLabel: c.fBusy ? T('home_searching') : T('home_find_claim'),
       clDoneCode: d ? (d.queue_code ? '#' + d.queue_code : d.code) : '', clDoneSub: d && d.queue_code ? d.code : '',
       clDoneName: d ? d.customer_name || '' : '', clDoneItems: d ? items(d) : '',
     };
@@ -519,9 +537,9 @@ class Component extends DCLogic {
         const p = prev.find(x => x.code === o.code);
         if (p && p.status !== o.status) {
           flash[o.code] = Date.now();
-          if (o.status === 'accepted' && o.type === 'pickup') this.showToast('Order ' + o.code + ' sudah diterima dan sedang disiapkan');
-          if (o.status === 'ready') this.showToast(o.type === 'pickup' ? 'Order ' + o.code + ' siap diambil di bar' : 'Your order ' + o.code + ' is ready for pickup');
-          if (o.status === 'checked_in') this.showToast('Checked in · ' + o.code + (o.checked_in_by ? ' · by ' + o.checked_in_by : ''));
+          if (o.status === 'accepted' && o.type === 'pickup') this.showToast(T('home_toast_accepted', { code: o.code }));
+          if (o.status === 'ready') this.showToast(T('home_toast_ready', { code: o.code }));
+          if (o.status === 'checked_in') this.showToast(T('home_toast_checked_in', { code: o.code }) + (o.checked_in_by ? T('home_by', { name: o.checked_in_by }) : ''));
         }
       });
       if (this.state.hist) API().markSeen(list);
@@ -557,16 +575,16 @@ class Component extends DCLogic {
     API().addVenueRefreshment(o.code, null, items).then(res => {
       this.setState(s => ({ vAdd: { ...s.vAdd, [o.code]: {} }, vAddBusy: { ...s.vAddBusy, [o.code]: false } }));
       this.refreshHist(false);
-      this.showToast('Tambahan terkirim · menunggu konfirmasi barista');
-      const wa = 'https://wa.me/' + String(this.props.waNumber || '6285284200036').replace(/\D/g, '') + '?text=' + encodeURIComponent('Hi 20FIT Cafe, I added refreshment to venue booking ' + o.code + ' (ref ' + ((res && res.addendum_code) || '') + '). Please confirm availability.');
+      this.showToast(T('home_addon_sent'));
+      const wa = 'https://wa.me/' + String(this.props.waNumber || '6285284200036').replace(/\D/g, '') + '?text=' + encodeURIComponent(T('home_wa_addon', { code: o.code, ref: (res && res.addendum_code) || '' }));
       if (w) w.location.href = wa; else window.open(wa, '_blank', 'noopener');
-    }).catch(e => { if (w) w.close(); this.setState(s => ({ vAddBusy: { ...s.vAddBusy, [o.code]: false } })); this.showToast((e && e.message) || 'Gagal menambah refreshment'); });
+    }).catch(e => { if (w) w.close(); this.setState(s => ({ vAddBusy: { ...s.vAddBusy, [o.code]: false } })); this.showToast((e && e.message) || T('home_err_addon')); });
   }
   findOrder() {
     this.setState({ findBusy: true, findMsg: '' });
     API().findOrder(this.state.findCode, this.state.findPhone).then(res => {
       if (res && res.error) { this.setState({ findBusy: false, findMsg: res.error }); return; }
-      this.setState({ findBusy: false, findCode: '', findPhone: '', findMsg: 'Order added' }); this.refreshHist(false);
+      this.setState({ findBusy: false, findCode: '', findPhone: '', findMsg: T('home_order_added') }); this.refreshHist(false);
     }).catch(e => this.setState({ findBusy: false, findMsg: e.message }));
   }
   scrollRail(d) { const r = this.rail.current; if (r) r.scrollBy({ left: d * Math.min(r.clientWidth * 0.8, 600), behavior: 'smooth' }); }
@@ -595,6 +613,8 @@ class Component extends DCLogic {
   ctlVid() { const v = this.vid.current; if (!v) return; v.muted = !this.state.sound; if (this.vidLive()) { if (v.paused) v.play().catch(() => { if (!v.muted) { v.muted = true; this.setState({ sound: false }); v.play().catch(() => {}); } }); } else if (!v.paused) v.pause(); }
   componentDidUpdate() { this.syncVid(); const ov = this.overlayOpen(); if (ov !== this._ov) { this._ov = ov; this.ctlCareVid(); } }
   componentDidMount() {
+    // EN | ID switch (tools/src/i18n.js): re-render every text on change
+    this._onLang = () => this.setState({ lang: I18N.lang() }); window.addEventListener('20fit-lang', this._onLang);
     this._tabsHintT = setInterval(() => this.hintTabs(false), 1500);
     // A product photo that fails to load (e.g. a POS upload that no longer exists) shows the neutral
     // 20FIT CAFE placeholder instead of a broken-image icon. Capture phase: image errors do not bubble.
@@ -609,7 +629,7 @@ class Component extends DCLogic {
     // Back from Xendit's payment page (?paid=CODE / ?order=CODE): show the order in Purchase History.
     try {
       const q = new URLSearchParams(location.search), back = q.get('paid') || q.get('order');
-      if (back) { history.replaceState(null, '', location.pathname + location.hash); setTimeout(() => this.openHist(), 300); if (q.get('paid')) this.showToast('Payment received for ' + back + ' · confirming…'); }
+      if (back) { history.replaceState(null, '', location.pathname + location.hash); setTimeout(() => this.openHist(), 300); if (q.get('paid')) this.showToast(T('home_toast_paid', { code: back })); }
     } catch (e) {}
     this._offRefs = API().on('refs', () => this.refreshHist(false));
     this._offCart = API().on('cart', c => this.setState({ cart: c }));
@@ -646,7 +666,7 @@ class Component extends DCLogic {
     const UNMUTE_EVS = ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'];
     const stopUnmute = () => UNMUTE_EVS.forEach(ev => window.removeEventListener(ev, this._unmute, true));
     this._unmute = e => {
-      if (e && e.target && e.target.closest && e.target.closest('[aria-label="Toggle sound"]')) return;
+      if (e && e.target && e.target.closest && e.target.closest('[aria-label="' + T('home_toggle_sound') + '"]')) return;
       const v = this.vid.current; if (this.state.userMuted || this.state.sound) return stopUnmute(); if (!v || this._unmuting) return;
       this._unmuting = true; v.muted = false;
       v.play().then(() => { this._unmuting = false; stopUnmute(); this.setState({ sound: true }, () => this.ctlVid()); }).catch(() => { this._unmuting = false; v.muted = true; if (this.vidLive()) v.play().catch(() => {}); });
@@ -690,7 +710,7 @@ class Component extends DCLogic {
     };
     this._raf = requestAnimationFrame(loop);
   }
-  componentWillUnmount() { clearInterval(this._tabsHintT); clearInterval(this._cWatch); if (this._cStop) this._cStop(); document.removeEventListener('visibilitychange', this._cVis); if (this._reveal) this._reveal.disconnect(); window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); window.removeEventListener('hashchange', this._hash); this._offCart && this._offCart(); this._offTable && this._offTable(); cancelAnimationFrame(this._raf); }
+  componentWillUnmount() { window.removeEventListener("20fit-lang", this._onLang); clearInterval(this._tabsHintT); clearInterval(this._cWatch); if (this._cStop) this._cStop(); document.removeEventListener('visibilitychange', this._cVis); if (this._reveal) this._reveal.disconnect(); window.removeEventListener('scroll', this._story); window.removeEventListener('resize', this._story); if (this._io) this._io.disconnect(); document.removeEventListener('visibilitychange', this._vVis); ['pointerdown', 'pointerup', 'keydown', 'touchend', 'click'].forEach(ev => window.removeEventListener(ev, this._unmute, true)); clearInterval(this._ig); clearInterval(this._poll); this._offRefs && this._offRefs(); document.removeEventListener('visibilitychange', this._focus); window.removeEventListener('focus', this._focus); Object.values(this._w || {}).forEach(f => f()); ['pointerdown', 'keydown', 'touchstart', 'wheel'].forEach(ev => window.removeEventListener(ev, this._unmute)); window.removeEventListener('scroll', this._hs); window.removeEventListener('keydown', this._key); window.removeEventListener('hashchange', this._hash); this._offCart && this._offCart(); this._offTable && this._offTable(); cancelAnimationFrame(this._raf); }
 
   viewer(m, key) {
     const h = React.createElement;
@@ -712,6 +732,7 @@ class Component extends DCLogic {
     );
   }
 
+  langBtn(on) { return { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', minWidth: 40, height: 36, padding: '0 10px', borderRadius: 999, display: 'grid', placeItems: 'center', fontFamily: "'JetBrains Mono',monospace", fontSize: 12, fontWeight: on ? 700 : 500, letterSpacing: '.08em', background: on ? '#0d0d0d' : 'transparent', color: on ? '#fff' : '#6a6a6a', transition: 'background .2s, color .2s' }; }
   addStyle(ok, small) {
     return small
       ? { all: 'unset', cursor: ok ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap', padding: '8px 14px', borderRadius: 999, background: ok ? '#0d0d0d' : '#c9c7c2', color: '#fff', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: '.04em', textTransform: 'uppercase' }
@@ -725,50 +746,51 @@ class Component extends DCLogic {
     const flash = this.state.hFlash[o.code] && Date.now() - this.state.hFlash[o.code] < 2000;
     const addCart = this.state.vAdd[o.code] || {}, addCount = Object.values(addCart).reduce((a, n) => a + n, 0), addBusy = !!this.state.vAddBusy[o.code];
     const addSub = Object.keys(addCart).reduce((a, id) => { const mm = this.byId(id); return a + (mm ? mm.price : 0) * (addCart[id] || 0); }, 0);
-    const price = venue ? [] : [['Subtotal', o.subtotal], ['Service', o.service_charge], ['PB1', o.ppn], ['Delivery', o.delivery_fee]].filter(([k, v]) => k === 'Subtotal' || Number(v) > 0).map(([k, v]) => ({ k, v: rp(v) }));
+    const price = venue ? [] : [['sub', o.subtotal], ['svc', o.service_charge], ['tax', o.ppn], ['del', o.delivery_fee]].filter(([k, v]) => k === 'sub' || Number(v) > 0).map(([k, v]) => ({ k: T('home_price_' + k), v: rp(v) }));
     return {
-      code: o.code, kind: venue ? 'Venue' : A.KIND[o.type], dateFmt: A.dateTime(o.created_at), pill: st.pill, pillStyle: A.pillStyle(st), sub: st.sub, hasSub: !!st.sub,
-      summary: venue ? (o.package === 'with_refreshments' ? 'With refreshments' : 'Venue only') + (Number(o.total) > 0 ? ' · ' + rp(o.total) : ' · est. ' + rp(o.est_price)) : (o.items || []).map(i => i.qty + '× ' + i.name).join(', ') || 'No menu items',
-      method: venue ? (o.payment_status === 'paid' ? 'Paid' : 'Pay at cafe') : A.methodLabel(o.payment_method), totalFmt: venue ? (Number(o.total) > 0 ? rp(o.total) : '') : rp(o.total),
+      code: o.code, kind: venue ? T('home_kind_venue') : A.KIND[o.type], dateFmt: A.dateTime(o.created_at), pill: st.pill, pillStyle: A.pillStyle(st), sub: st.sub, hasSub: !!st.sub,
+      summary: venue ? (o.package === 'with_refreshments' ? T('home_pkg_refresh') : T('home_pkg_venue')) + (Number(o.total) > 0 ? ' · ' + rp(o.total) : T('home_est', { price: rp(o.est_price) })) : (o.items || []).map(i => i.qty + '× ' + i.name).join(', ') || T('home_no_items'),
+      method: venue ? (o.payment_status === 'paid' ? T('home_paid') : T('home_pay_at_cafe')) : A.methodLabel(o.payment_method), totalFmt: venue ? (Number(o.total) > 0 ? rp(o.total) : '') : rp(o.total),
       cardStyle: { display: 'flex', flexDirection: 'column', gap: 12, padding: 20, borderRadius: 24, background: active ? '#fff' : 'rgba(255,255,255,.75)', border: active ? '2px solid #0d0d0d' : '1px solid rgba(255,255,255,.95)', boxShadow: active ? '0 16px 40px rgba(13,13,13,.10)' : 'inset 0 1px 0 #fff, 0 10px 30px rgba(13,13,13,.05)', animation: flash ? 'cafeFlash 1s ease 1' : 'none' },
-      toggle: () => this.setState(s => ({ hOpen: { ...s.hOpen, [o.code]: !s.hOpen[o.code] } })), isOpen: open, moreLabel: open ? 'Hide details' : 'Details',
+      toggle: () => this.setState(s => ({ hOpen: { ...s.hOpen, [o.code]: !s.hOpen[o.code] } })), isOpen: open, moreLabel: open ? T('home_hide_details') : T('home_details'),
       // Venue requests: show the request itself (it has no menu items, prices or payment timeline)
       lines: venue ? (function () {
         var hm = t => (t ? String(t).slice(0, 5) : '-');
         var addSt = s => ({ pending_confirmation: 'menunggu', accepted: 'diterima', rejected: 'ditolak', cancelled_by_user: 'dibatalkan' })[s] || s;
         var L = [
-          ['Event', String(o.event_type || '-').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())],
-          ['Date', A.dayLabel(o.event_date)],
-          ['Time', hm(o.start_time) + '–' + hm(o.end_time)],
-          ['Guests', (o.guests || 0) + ' people'],
-          ['Package', o.package === 'with_refreshments' ? 'With refreshments' : 'Venue only']
+          [T('home_v_event'), String(o.event_type || '-').replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())],
+          [T('home_v_date'), A.dayLabel(o.event_date)],
+          [T('home_v_time'), hm(o.start_time) + '–' + hm(o.end_time)],
+          [T('home_v_guests'), T('home_people', { n: o.guests || 0 })],
+          [T('home_v_package'), o.package === 'with_refreshments' ? T('home_pkg_refresh') : T('home_pkg_venue')]
         ];
-        if (o.serve_time) L.push(['Serving time', hm(o.serve_time)]);
+        if (o.serve_time) L.push([T('home_v_serve'), hm(o.serve_time)]);
         (o.items || []).forEach(i => L.push([i.qty + '× ' + i.name, rp(i.subtotal)]));
         (o.addendums || []).forEach(a => L.push(['+ ' + a.code + ' (' + addSt(a.status) + ')', rp(a.subtotal)]));
-        L.push([Number(o.total) > 0 ? 'Total' : 'Estimated price', rp(Number(o.total) > 0 ? o.total : o.est_price)]);
+        L.push([Number(o.total) > 0 ? T('home_total_lbl') : T('home_est_price'), rp(Number(o.total) > 0 ? o.total : o.est_price)]);
         return L.map(([label, value]) => ({ label, opts: '', value }));
       })() : (o.items || []).map(i => ({ label: i.qty + '× ' + i.name, opts: A.optionsText(i.options), value: rp(i.subtotal) })),
-      venueNote: venue ? (o.can_add ? 'Mau tambah refreshment? Chat kami di WhatsApp — tambahan dikonfirmasi barista dulu.' : o.status === 'new' ? 'The cafe will contact you on WhatsApp to confirm your booking.' : o.status === 'confirmed' ? 'Your venue booking is confirmed. See you there!' : '') : '',
+      venueNote: venue ? (o.can_add ? T('home_venue_add_note') : o.status === 'new' ? T('home_venue_new_note') : o.status === 'confirmed' ? T('home_venue_ok_note') : '') : '',
       venueWa: venue && o.is_open !== false,
-      venueWaLabel: venue && o.can_add ? 'Tambah refreshment via WhatsApp' : 'Chat WhatsApp',
-      venueWaUrl: venue ? 'https://wa.me/' + String(this.props.waNumber ?? '6285284200036').replace(/\D/g, '') + '?text=' + encodeURIComponent('Hi 20FIT Cafe, about my venue booking ' + o.code + ' (' + A.dayLabel(o.event_date) + ', ' + (o.guests || 0) + ' guests).') : '',
+      venueWaLabel: venue && o.can_add ? T('home_venue_add_wa') : T('home_chat_wa'),
+      venueWaUrl: venue ? 'https://wa.me/' + String(this.props.waNumber ?? '6285284200036').replace(/\D/g, '') + '?text=' + encodeURIComponent(T('home_wa_venue', { code: o.code, date: A.dayLabel(o.event_date), n: o.guests || 0 })) : '',
       canAddRefresh: venue && !!o.can_add,
       addMenu: (venue && o.can_add) ? this.menuAll().filter(m => m.available !== false).map(m => ({ name: m.name, priceFmt: rp(m.price), qty: addCart[m.id] || 0, inc: () => this.vAddInc(o.code, m.id), dec: () => this.vAddDec(o.code, m.id), rowStyle: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '8px 0', borderBottom: '1px solid rgba(13,13,13,.06)' } })) : [],
       addSubFmt: rp(addSub),
       addSubmit: () => this.vAddSubmit(o),
-      addBtnLabel: addBusy ? 'Mengirim…' : addCount > 0 ? 'Kirim tambahan · ' + rp(addSub) : 'Pilih item dulu',
+      addBtnLabel: addBusy ? T('home_sending') : addCount > 0 ? T('home_send_addon', { price: rp(addSub) }) : T('home_pick_first'),
       addBtnStyle: { all: 'unset', boxSizing: 'border-box', width: '100%', cursor: (addCount > 0 && !addBusy) ? 'pointer' : 'not-allowed', textAlign: 'center', padding: 11, borderRadius: 999, background: (addCount > 0 && !addBusy) ? '#0d0d0d' : '#c9c7c2', color: '#fff', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 15, letterSpacing: '.04em', textTransform: 'uppercase' },
       price, hasPrice: price.length > 0,
       timeline: (o.timeline || []).map(t => ({ text: A.status({ ...o, status: t.to }).pill + ' · ' + A.time(t.at) + (t.by ? ' · ' + t.by : '') })), hasTimeline: !!(o.timeline && o.timeline.length),
       showQr: !venue && o.type === 'dine_in' && o.status === 'booked', qr: !venue && o.type === 'dine_in' && o.status === 'booked' && open ? React.createElement('div', { style: { width: 140, height: 140 }, dangerouslySetInnerHTML: { __html: A.qrSvg(o.code, 140) } }) : null,
       canArrive: false, arrive: () => {},  // guests are checked in by the barista only
       arrivedNote: false,
-      canRate: paid, rates: [{ label: 'Food', stars: stars('food') }, { label: 'Service', stars: stars('service') }],
-      rateMsg: r.err ? r.err : r.saved ? 'Thanks, rating saved' : (r.food && !r.service) || (!r.food && r.service) ? 'Rate both to save' : ''
+      canRate: paid, rates: [{ label: T('home_rate_food'), stars: stars('food') }, { label: T('home_rate_service'), stars: stars('service') }],
+      rateMsg: r.err ? r.err : r.saved ? T('home_rate_saved') : (r.food && !r.service) || (!r.food && r.service) ? T('home_rate_both') : ''
     };
   }
   renderVals() {
+    this.syncStops();
     const { tab, sel } = this.state;
     const l = this.list();
     const m = this.byId(sel);
@@ -785,80 +807,85 @@ class Component extends DCLogic {
       dayStart: (cfg.stops[0] || {}).time || '06:00',
       dayStops: cfg.stops.map((st, i) => {
         const on = storyFlat() || i === (this.state.dayI || 0), pick = st.need === needLabel;
-        const items = this.pickItems(st.items).map((x, k) => ({
+        const items = this.pickItems(st.items, 3, st.categories).map((x, k) => ({
           name: x.name, priceFmt: rp(x.price), src: this.src(x.imgs[0]), open: () => this.setState({ sel: x.id, tab: 'All' }),
-          add: e => this.storyAdd(x, '03_day', e), addLabel: this.qtyOf(x.id) ? 'In cart · ' + this.qtyOf(x.id) : '+ Add',
+          add: e => this.storyAdd(x, '03_day', e), addLabel: this.qtyOf(x.id) ? T('home_in_cart', { n: this.qtyOf(x.id) }) : T('home_add'),
           tileStyle: { position: 'relative', display: 'flex', flexDirection: 'column', gap: 8, minWidth: 0, opacity: on ? 1 : 0.35, transform: on ? 'translateY(0)' : 'translateY(24px)', transition: 'opacity .6s ease ' + (120 + k * 90) + 'ms, transform .7s cubic-bezier(.2,.8,.2,1) ' + (120 + k * 90) + 'ms' },
           photoStyle: { '--pi': i, display: 'block', width: '100%', aspectRatio: '1', objectFit: 'cover', borderRadius: 18, background: '#e8e6e1', boxShadow: '0 14px 34px rgba(13,13,13,.14)' } }));
-        return { time: st.time, kicker: st.kicker, title: words(st.title, on), copy: st.copy, items, hasItems: items.length > 0, pick, need: st.need,
+        return { time: st.time, kicker: L(st.kicker), title: words(L(st.title), on), copy: L(st.copy), items, hasItems: items.length > 0, pick, need: needText(st.need),
           cardStyle: { boxSizing: 'border-box', flex: '0 0 auto', display: 'grid', gap: 24, padding: 28, borderRadius: 32, background: 'rgba(255,255,255,.72)', backdropFilter: 'blur(26px) saturate(170%)', WebkitBackdropFilter: 'blur(26px) saturate(170%)', border: '1px solid rgba(255,255,255,.9)',
             boxShadow: pick ? '0 0 0 2px #e30a2e, 0 24px 70px rgba(227,10,46,.22)' : 'inset 0 1px 0 #fff, 0 24px 60px rgba(13,13,13,.10)', color: '#0d0d0d', transition: 'box-shadow .4s' } };
       }),
-      dayCartText: cartN ? cartN + ' in your cup · ' + rp(cartSum) : 'Your cup is empty',
+      dayCartText: cartN ? T('home_cup_n', { n: cartN, price: rp(cartSum) }) : T('home_cup_empty'),
       dayCartOn: cartN > 0, openCart: () => cartN && this.setState(s => ({ checkout: true, sel: null, full: false, mode: s.mode === 'venue' ? null : s.mode })),
       // CH 03 position dots + prev/next arrows; active follows the scroll carousel.
       dayPrev: () => this.dayStep(-1), dayNext: () => this.dayStep(1),
       dayPrevStyle: (() => { const off = (this.state.dayI || 0) <= 0; return { all: 'unset', cursor: off ? 'default' : 'pointer', boxSizing: 'border-box', width: 34, height: 34, borderRadius: 999, display: 'grid', placeItems: 'center', background: off ? 'rgba(13,13,13,.08)' : '#0d0d0d', color: off ? 'rgba(13,13,13,.3)' : '#fff', fontSize: 16, lineHeight: 1, transition: 'background .2s, color .2s' }; })(),
       dayNextStyle: (() => { const off = (this.state.dayI || 0) >= (cfg.stops || []).length - 1; return { all: 'unset', cursor: off ? 'default' : 'pointer', boxSizing: 'border-box', width: 34, height: 34, borderRadius: 999, display: 'grid', placeItems: 'center', background: off ? 'rgba(13,13,13,.08)' : '#0d0d0d', color: off ? 'rgba(13,13,13,.3)' : '#fff', fontSize: 16, lineHeight: 1, transition: 'background .2s, color .2s' }; })(),
       dayDots: (cfg.stops || []).map((st, i) => { const on = i === (this.state.dayI || 0);
-        return { label: 'Go to ' + (st.time || ('stop ' + (i + 1))), go: () => this.scrollDayTo(i, true),
+        return { label: T('home_go_to', { what: st.time || String(i + 1) }), go: () => this.scrollDayTo(i, true),
           style: { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', width: on ? 22 : 8, height: 8, borderRadius: 999, background: on ? '#e30a2e' : 'rgba(140,140,140,.55)', transition: 'width .3s, background .3s' } }; }),
       // CH 04 — Find your fuel
       quizQ: (() => { const Q = cfg.quiz, i = this.state.qi || 0; if (!Q || i >= Q.questions.length) return null; return Q.questions[i]; })() ? 1 : 0,
       quizIsQ: !!(cfg.quiz && (this.state.qi || 0) < cfg.quiz.questions.length), quizIsResult: !!(cfg.quiz && (this.state.qi || 0) >= cfg.quiz.questions.length),
       quizNum: String(Math.min((this.state.qi || 0) + 1, 3)).padStart(2, '0') + ' / 03',
-      quizTitle: cfg.quiz && cfg.quiz.questions[this.state.qi || 0] ? cfg.quiz.questions[this.state.qi || 0].q : '',
+      quizTitle: cfg.quiz && cfg.quiz.questions[this.state.qi || 0] ? L(cfg.quiz.questions[this.state.qi || 0].q) : '',
       quizBars: (cfg.quiz ? cfg.quiz.questions : []).map((_, i) => ({ style: { flex: 1, height: 4, borderRadius: 4, background: i < (this.state.qi || 0) ? '#e30a2e' : i === (this.state.qi || 0) ? 'rgba(227,10,46,.45)' : 'rgba(13,13,13,.12)', transition: 'background .3s' } })),
       quizOpts: (() => { const Q = cfg.quiz, i = this.state.qi || 0; if (!Q || i >= Q.questions.length) return []; const q = Q.questions[i];
-        return q.options.map(([val, label]) => { const on = this.state.qPick === val; return { label, pick: () => this.quizAnswer(q.id, val),
+        return q.options.map(([val, lbl]) => { const on = this.state.qPick === val, label = L(lbl); return { label, pick: () => this.quizAnswer(q.id, val),
           style: { all: 'unset', cursor: 'pointer', boxSizing: 'border-box', padding: '18px 26px', borderRadius: 999, border: '2px solid ' + (on ? '#e30a2e' : 'rgba(13,13,13,.14)'), background: on ? '#e30a2e' : 'rgba(255,255,255,.8)', color: on ? '#fff' : '#0d0d0d', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 800, fontSize: 24, letterSpacing: '.02em', textTransform: 'uppercase', transition: 'background .2s, border-color .2s, transform .2s', transform: on ? 'scale(1.04)' : 'none' } }; }); })(),
       quizRes: (() => { if (!cfg.quiz || (this.state.qi || 0) < cfg.quiz.questions.length) return { name: '', priceFmt: '', src: NO_PHOTO, reason: '' };
         const r = this.quizResult(this.state.qa || {}), m = r.items[0];
-        return m ? { name: m.name, priceFmt: rp(m.price), src: this.src(m.imgs[0]), reason: r.reason, add: e => this.storyAdd(m, '04_quiz', e), open: () => this.setState({ sel: m.id, tab: 'All' }), addLabel: this.qtyOf(m.id) ? 'In your order · ' + this.qtyOf(m.id) : 'Add to my order' } : { name: 'Menu is loading…', priceFmt: '', src: NO_PHOTO, reason: '' }; })(),
+        return m ? { name: m.name, priceFmt: rp(m.price), src: this.src(m.imgs[0]), reason: r.reason, add: e => this.storyAdd(m, '04_quiz', e), open: () => this.setState({ sel: m.id, tab: 'All' }), addLabel: this.qtyOf(m.id) ? T('home_in_order', { n: this.qtyOf(m.id) }) : T('home_add_to_order') } : { name: T('home_loading_menu'), priceFmt: '', src: NO_PHOTO, reason: '' }; })(),
       quizAlts: (() => { if (!cfg.quiz || (this.state.qi || 0) < cfg.quiz.questions.length) return []; return this.quizResult(this.state.qa || {}).items.slice(1).map(x => ({ name: x.name, priceFmt: rp(x.price), src: this.src(x.imgs[0]), add: e => this.storyAdd(x, '04_quiz', e), open: () => this.setState({ sel: x.id, tab: 'All' }), addLabel: this.qtyOf(x.id) ? 'In cart · ' + this.qtyOf(x.id) : '+ Add' })); })(),
       quizAgain: () => this.setState({ qi: 0, qa: {}, qPick: null }),
-      quizTeaser: (cfg.teasers.quiz || ''), toCare: () => this.goTo('care'),
+      quizTeaser: L(cfg.teasers.quiz), toCare: () => this.goTo('care'),
       // CH 05 — Made with care
-      careWords: (() => { const C = cfg.care || { headline: '', headlineRed: '' }; return String(C.headline).split(' ').map(w => ({ w, style: { opacity: 0.15, color: 'inherit', transition: 'opacity .25s linear' } }))
-        .concat(String(C.headlineRed).split(' ').map(w => ({ w, style: { opacity: 0.15, color: '#e30a2e', transition: 'opacity .25s linear' } }))); })(),
+      careWords: (() => { const C = cfg.care || { headline: '', headlineRed: '' }; return String(L(C.headline)).split(' ').map(w => ({ w, style: { opacity: 0.15, color: 'inherit', transition: 'opacity .25s linear' } }))
+        .concat(String(L(C.headlineRed)).split(' ').map(w => ({ w, style: { opacity: 0.15, color: '#e30a2e', transition: 'opacity .25s linear' } }))); })(),
       pillars: [],   // drink pillar cards removed — the care section now focuses on the autoplay video
       igPol: IG_POSTS.map((id, k) => ({ embed: 'https://www.instagram.com/' + id + '/embed/', poster: IG_PH,
         loaded: () => !(this.state.polOk || {})[k] && this.setState(s => ({ polOk: { ...(s.polOk || {}), [k]: true } })),
         frameStyle: { position: 'absolute', border: 0, opacity: (this.state.polOk || {})[k] ? 1 : 0, transition: 'opacity .6s', pointerEvents: 'none', ...IG_CROP[id.split('/')[0]] } })),
       careVidRef: this.careVid, careVidSrc: (cfg.care || {}).video || '',
-      cSoundLabel: this.state.cSound ? '🔊 Mute' : '🔇 Sound on',
+      cSoundLabel: this.state.cSound ? T('home_mute') : T('home_sound_on'),
       cToggle: e => { if (e && e.stopPropagation) e.stopPropagation(); const v = this.careVid.current; if (!v) return; const on = !this.state.cSound; v.muted = !on; if (on && this.cVidLive()) v.play().catch(() => {}); this.setState({ cSound: on, cUserMuted: !on }); },
       showMusic: false,
-      careTeaser: cfg.teasers.care || '', toOrderSec: () => this.goTo('order'),
-      turnTeaser: cfg.teasers.turn || '', toFinale: () => this.goTo('finale'),
+      careTeaser: L(cfg.teasers.care), toOrderSec: () => this.goTo('order'),
+      turnTeaser: L(cfg.teasers.turn), toFinale: () => this.goTo('finale'),
       // CH 07 — See you at the bar (details from config; 'TODO…' values stay hidden)
       fin: (() => { const F = cfg.finale || {}, real = v => v && !/^TODO/i.test(String(v));
         const wa = String(this.state.waCfg || this.props.waNumber || '6285284200036').replace(/\D/g, '');
-        return { place: F.place || '20FIT', address: real(F.address) ? F.address : '', hours: real(F.hours) ? F.hours : '', hasAddress: real(F.address), hasHours: real(F.hours),
+        return { place: L(F.place) || '20FIT', address: real(F.address) ? F.address : '', hours: real(F.hours) ? F.hours : '', hasAddress: real(F.address), hasHours: real(F.hours),
           ig: '@' + (F.instagram || '20fit.cafe'), igUrl: 'https://www.instagram.com/' + (F.instagram || '20fit.cafe') + '/',
           wa: '+' + wa.replace(/^(\d{2})(\d{3})(\d{4})(\d+)$/, '$1 $2-$3-$4'), waUrl: 'https://wa.me/' + wa + '?text=' + encodeURIComponent('Hi 20FIT Cafe!') }; })(),
       // CH 06 — Your turn
-      orderHasCart: cartN > 0, orderCartText: cartN + ' item' + (cartN > 1 ? 's' : '') + ' · ' + rp(cartSum) + ' — choose how to get it',
+      orderHasCart: cartN > 0, orderCartText: T(cartN > 1 ? 'home_cart_items' : 'home_cart_item', { n: cartN, price: rp(cartSum) }),
       modesStyle: { '--deal': this.state.orderIn || reduceMotionNow() ? 1 : 0, '--cart': cartN > 0 ? 1 : 0 },
-      dayTeaser: document.getElementById('quiz') ? (cfg.teasers.day || '') : (cfg.teasers.dayFallback || ''),
+      dayTeaser: document.getElementById('quiz') ? L(cfg.teasers.day) : L(cfg.teasers.dayFallback),
       toAfterDay: () => this.goTo(document.getElementById('quiz') ? 'quiz' : 'order'),
       // Story navigation (rail on desktop, progress bar on phones); hidden while an overlay is open
       showStoryNav: !overlay,
       progRef: this.progBar,
-      chapterLabel: ((this._chs || [])[this.state.ch || 0] || {}).label || '',
-      chapters: (this._chs || []).map((c, i) => { const on = i === (this.state.ch || 0); return { label: String(cfg.chapters.indexOf(c) + 1).padStart(2, '0') + ' ' + c.label, go: () => this.goTo(c.el),
+      chapterLabel: L(((this._chs || [])[this.state.ch || 0] || {}).label),
+      chapters: (this._chs || []).map((c, i) => { const on = i === (this.state.ch || 0); return { label: String(cfg.chapters.indexOf(c) + 1).padStart(2, '0') + ' ' + L(c.label), go: () => this.goTo(c.el),
         dotStyle: { display: 'block', width: on ? 12 : 8, height: on ? 12 : 8, borderRadius: '50%', background: on ? '#e30a2e' : 'rgba(13,13,13,.28)', boxShadow: on ? '0 0 0 4px rgba(227,10,46,.18)' : 'none', transition: 'all .25s' } }; })
     };
     return {
       ...story,
+      t: I18N.table(), lang: I18N.lang(), isEn: I18N.lang() === 'en', isId: I18N.lang() === 'id',
+      setEn: () => I18N.set('en'), setId: () => I18N.set('id'),
+      // EN | ID switch (header + FULL MENU): the active language is dark, the other muted
+      langWrap: { display: 'inline-flex', alignItems: 'center', gap: 2, padding: 3, borderRadius: 999, background: 'rgba(13,13,13,.07)', flexShrink: 0 },
+      langEn: this.langBtn(I18N.lang() === 'en'), langId: this.langBtn(I18N.lang() === 'id'),
       navs: [
-        { label: 'Full Menu', short: 'Menu', go: () => this.setState({ full: true, hist: false, sel: null }) },
-        { label: 'Book Venue', short: 'Venue', go: () => this.setState({ mode: 'venue', checkout: true, sel: null, full: false, hist: false }) },
-        { label: 'Purchase History' + (this.state.refs.length ? ' (' + this.state.refs.length + ')' : ''), short: 'History' + (this.state.refs.length ? ' (' + this.state.refs.length + ')' : ''), go: () => this.openHist(), dot: this.state.hDot }
+        { label: T('home_nav_full_menu'), short: T('home_nav_menu'), go: () => this.setState({ full: true, hist: false, sel: null }) },
+        { label: T('home_nav_book_venue'), short: T('home_nav_venue'), go: () => this.setState({ mode: 'venue', checkout: true, sel: null, full: false, hist: false }) },
+        { label: T('home_nav_history') + (this.state.refs.length ? ' (' + this.state.refs.length + ')' : ''), short: T('home_nav_history_short') + (this.state.refs.length ? ' ('  + this.state.refs.length + ')' : ''), go: () => this.openHist(), dot: this.state.hDot }
       ],
       heroVideo: this.heroSrc(), hasVideo: !!this.heroSrc(), vidRef: this.vid,
       vidMeta: e => { const v = e.target; if (v.videoWidth) this.setState({ vAR: v.videoWidth + '/' + v.videoHeight }); },
-      soundLabel: this.state.sound ? '🔊 Mute' : '🔇 Sound on',
+      soundLabel: this.state.sound ? T('home_mute') : T('home_sound_on'),
       toggleSound: e => { if (e && e.stopPropagation) e.stopPropagation(); const v = this.vid.current; if (!v) return; const on = !this.state.sound; v.muted = !on; if (on) v.play().catch(() => {}); this.setState({ sound: on, userMuted: !on }); },
       hasIg: !this.heroSrc() && !!igId(this.props.instagramUrl ?? IG_DEFAULT), igEmbed: igId(this.props.instagramUrl ?? IG_DEFAULT) ? 'https://www.instagram.com/' + igId(this.props.instagramUrl ?? IG_DEFAULT) + '/embed/' : '',
       igPosts: IG_POSTS.map((id, k) => ({ embed: 'https://www.instagram.com/' + id + '/embed/', poster: IG_POSTERS[k] ? U(IG_POSTERS[k]) : IG_PH, loaded: () => !(this.state.igOk || {})[k] && this.setState(s => ({ igOk: { ...(s.igOk || {}), [k]: true } })), style: { opacity: (this.state.igOk || {})[k] ? 1 : 0, transition: 'opacity .6s ease', position: 'absolute', border: 0, background: 'transparent', pointerEvents: 'none', ...IG_CROP[id.split('/')[0]] } })),
@@ -872,11 +899,11 @@ class Component extends DCLogic {
       glareStyle: { position: 'absolute', inset: 0, pointerEvents: 'none', background: 'radial-gradient(400px circle at ' + (50 + this.state.hx * 100) + '% ' + (50 + this.state.hyM * 100) + '%, rgba(255,255,255,.22), transparent 55%)', opacity: this.state.hon ? 1 : 0, transition: 'opacity .3s', mixBlendMode: 'soft-light' },
       badgeA: { position: 'absolute', left: 0, top: '18%', zIndex: 2, transform: 'translate(' + (this.state.hx * -36) + 'px,' + (this.state.hyM * -28) + 'px)', transition: 'transform .3s ease-out' },
       badgeB: { position: 'absolute', right: 0, bottom: '16%', zIndex: 2, transform: 'translate(' + (this.state.hx * 30) + 'px,' + (this.state.hyM * 24) + 'px)', transition: 'transform .3s ease-out' },
-      needs: NEEDS().map((label, i) => { const on = this.state.need === i; return { label, pick: () => this.state.need !== i && this.setState({ need: i }), style: { all: 'unset', cursor: 'pointer', padding: '9px 16px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '.04em', textTransform: 'uppercase', border: '1px solid ' + (on ? '#0d0d0d' : 'rgba(13,13,13,.18)'), background: on ? '#0d0d0d' : 'rgba(255,255,255,.6)', color: on ? '#fff' : '#0d0d0d', transition: 'all .2s' } }; }),
+      needs: NEEDS().map((n, i) => { const on = this.state.need === i, label = needText(n); return { label, pick: () => this.state.need !== i && this.setState({ need: i }), style: { all: 'unset', cursor: 'pointer', padding: '9px 16px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '.04em', textTransform: 'uppercase', border: '1px solid ' + (on ? '#0d0d0d' : 'rgba(13,13,13,.18)'), background: on ? '#0d0d0d' : 'rgba(255,255,255,.6)', color: on ? '#fff' : '#0d0d0d', transition: 'all .2s' } }; }),
       // Product card under the hero: the POS product of the chosen chip (photo / name / price from the POS menu);
       // hidden while the menu loads or when that product is not on the menu / sold out.
       need: (() => { const m = this.pickItems([(cfg.heroPicks || [])[this.state.need]])[0], src = m ? this.src(m.imgs[0]) : '';
-        return { kind: NEEDS()[this.state.need] || '', name: m ? m.name : '', price: m ? rp(m.price) : '', open: () => m && this.setState({ sel: m.id }), has: !!m,
+        return { kind: needText(NEEDS()[this.state.need] || ''), name: m ? m.name : '', price: m ? rp(m.price) : '', open: () => m && this.setState({ sel: m.id }), has: !!m,
           imgStyle: { width: 64, height: 64, flexShrink: 0, borderRadius: 14, backgroundColor: '#e8e6e1', backgroundImage: src ? 'url("' + src + '")' : 'none', backgroundSize: 'cover', backgroundPosition: 'center' } }; })(),
       needCardStyle: { all: 'unset', cursor: 'pointer', position: 'absolute', visibility: this.pickItems([(cfg.heroPicks || [])[this.state.need]]).length ? 'visible' : 'hidden', left: '-6%', bottom: '4%', zIndex: 3, display: 'flex', alignItems: 'center', gap: 12, padding: 10, paddingRight: 18, borderRadius: 20, background: 'rgba(255,255,255,.82)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,.95)', boxShadow: '0 20px 50px rgba(13,13,13,.18)', maxWidth: 300, transform: 'translate(' + (this.state.hx * -22) + 'px,' + (this.state.hyM * -18) + 'px)', transition: 'transform .3s ease-out' },
       heroMediaStyle: { position: 'relative', zIndex: 1, height: 'clamp(520px, 74vh, 720px)', aspectRatio: this.props.heroVideo ? (this.state.vAR || '9/16') : '4/5', maxWidth: '100%', borderRadius: 28, overflow: 'hidden', background: 'linear-gradient(90deg,#e7e6e3 0%,#f3f2f0 45%,#e7e6e3 90%) 0 0/220% 100%', animation: 'skMove 1.25s ease-in-out infinite', boxShadow: '0 40px 90px rgba(13,13,13,.28), 0 0 0 1px rgba(255,255,255,.6) inset', transform: 'translateY(' + (this.state.hy * -0.1) + 'px)', willChange: 'transform' },
@@ -885,8 +912,8 @@ class Component extends DCLogic {
       // Fase 2: dine-in banner while a confirmed table session lasts ("Bukan di meja?" leaves table mode).
       ...this.claimVals(),
       hasTable: !!(this.state.table && this.state.table.label && (!this.state.table.until || Date.now() < this.state.table.until)),
-      tableBanner: this.state.table && this.state.table.label ? 'Dine-in · ' + this.state.table.label : '',
-      leaveTable: () => { API().tableSessionClear(); this.showToast('Mode meja dimatikan · pesanan jadi Grab n Go (ambil di counter)'); },
+      tableBanner: this.state.table && this.state.table.label ? T('home_dine_in_table', { table: tableName(this.state.table.label) }) : '',
+      leaveTable: () => { API().tableSessionClear(); this.showToast(T('home_table_off')); },
       showFull: this.state.full, openFull: () => this.openFullMenu(), closeFull: () => this.setState({ full: false }), fullBackdrop: e => { if (e.target === e.currentTarget) this.setState({ full: false }); },
       showHist: this.state.hist, closeHist: () => this.setState({ hist: false }),
       sub: this.state.sub || 'table',
@@ -906,11 +933,11 @@ class Component extends DCLogic {
       waNumber: this.props.waNumber ?? '6285284200036',
       menuLite: this.menuAll().map(m => ({ id: m.id, name: m.name, cat: m.cat, price: m.price, base: m.base, src: this.src(m.imgs[0]), available: m.available, addons: m.addons })),
       tabsNext: e => { const w = e && e.currentTarget && e.currentTarget.closest('.fx-tabs-wrap'); const row = w && w.querySelector('.fx-tabs'); if (row) row.scrollBy({ left: Math.max(120, row.clientWidth * 0.6), behavior: 'smooth' }); },
-      tabs: ['All'].concat([...new Set(this.menuAll().map(x => x.cat))]).map(t => ({ label: t, pick: () => this.setState({ tab: t }),
+      tabs: ['All'].concat([...new Set(this.menuAll().map(x => x.cat))]).map(t => ({ label: t === 'All' ? T('home_all') : I18N.cat(t), pick: () => this.setState({ tab: t }),
         style: { all: 'unset', cursor: 'pointer', padding: '9px 18px', borderRadius: 999, whiteSpace: 'nowrap', fontFamily: "'Barlow Condensed',sans-serif", fontWeight: 700, fontSize: 17, letterSpacing: '.03em', textTransform: 'uppercase',
           background: t === tab ? '#e30a2e' : 'transparent', color: t === tab ? '#fff' : '#3a3a3a', transition: 'background .2s' } })),
       mode: this.state.mode || null,
-      modeLabel: ({ dine: 'Dine-in · ', take: 'Takeaway · ' })[this.state.mode] || '',
+      modeLabel: ({ dine: T('home_mode_dine'), take: T('home_mode_take') })[this.state.mode] || '',
       // Cafe is Grab & Go + Book Venue only. "Order" always opens the Grab & Go flow (checkout maps it to mode 'grab').
       pickGrab: () => this.setState({ mode: 'grab', checkout: true, sel: null, full: false }),
       pickVenue: () => this.setState({ mode: 'venue', checkout: true, sel: null, full: false }),
@@ -926,16 +953,18 @@ class Component extends DCLogic {
       resume: this.state.resume,
       clearCart: () => this.setCart({}),
       addSel: () => m && this.add(m.id, this.selOpts(m)),
-      addSelLabel: !m ? '' : !m.available ? 'Sold out' : (this.qtyOf(m.id) ? 'Add another (' + this.qtyOf(m.id) + ')' : '+ Order') + ' · ' + rp(m.price + optsPrice(m, this.selOpts(m))),
+      addSelLabel: !m ? '' : !m.available ? T('home_sold_out') : (this.qtyOf(m.id) ? T('home_add_another', { n: this.qtyOf(m.id) }) : T('home_order_plus')) + ' · ' + rp(m.price + optsPrice(m, this.selOpts(m))),
       hasAddons: !!(m && m.available && m.addons && m.addons.length),
       addonGroups: m ? (m.addons || []).map(g => ({ group: g.group, options: (g.options || []).map(o => { const on = this.selOpts(m).includes(o.id); return { label: o.label + (Number(o.price) ? ' +' + rp(o.price) : ''), pick: () => this.pickOpt(m, g, o.id),
         style: { all: 'unset', cursor: 'pointer', whiteSpace: 'nowrap', padding: '7px 12px', borderRadius: 999, fontSize: 13, fontWeight: 600, background: on ? '#0d0d0d' : 'rgba(255,255,255,.75)', color: on ? '#fff' : '#0d0d0d', border: '1px solid ' + (on ? '#0d0d0d' : 'rgba(13,13,13,.12)') } }; }) })) : [],
       menuLoading: this.state.menu === null && !this.state.menuErr, menuError: !!this.state.menuErr, retryMenu: () => this.loadMenu(),
       // FULL MENU in groups: on "All" one titled group per category (drinks first), otherwise one untitled group.
-      menuGroups: (() => { const by = []; for (const x of l) { const k = tab === 'All' ? x.cat : ''; let g = by.find(z => z.key === k); if (!g) by.push(g = { key: k, label: k, showHead: tab === 'All', items: [] }); g.items.push(this.card(x)); } return by; })(),
+      menuGroups: (() => { const by = []; for (const x of l) { const k = tab === 'All' ? x.cat : ''; let g = by.find(z => z.key === k); if (!g) by.push(g = { key: k, label: I18N.cat(k), showHead: tab === 'All', items: [] }); g.items.push(this.card(x)); } return by; })(),
       items: l.map(x => this.card(x)),
       hasSel: !!m, sel: m || {},
-      counter: m ? m.cat + ' · ' + String(l.findIndex(x => x.id === sel) + 1).padStart(2, '0') + ' / ' + String(l.length).padStart(2, '0') : '',
+      // Product description from the POS: Indonesian when the visitor reads ID and it is filled in, else English.
+      selDesc: m ? ((I18N.lang() === 'id' && m.descId) || m.descEn || '') : '', hasSelDesc: !!(m && ((I18N.lang() === 'id' && m.descId) || m.descEn)),
+      counter: m ? I18N.cat(m.cat) + ' · ' + String(l.findIndex(x => x.id === sel) + 1).padStart(2, '0') + ' / ' + String(l.length).padStart(2, '0') : '',
       popView: m ? this.viewer(m, 'pop') : null,
       tiles: m ? (() => {
         const n = l.length, s = l.findIndex(x => x.id === sel);
@@ -953,7 +982,7 @@ class Component extends DCLogic {
               transition: 'transform .8s cubic-bezier(.2,.8,.2,1), opacity .4s' } };
         });
       })() : [],
-      hint: m && m.imgs.length > 1 ? 'Drag left or right to see the other side.' : 'Drag left or right to move it.',
+      hint: m && m.imgs.length > 1 ? T('home_drag_side') : T('home_drag_move'),
       close: () => this.setState({ sel: null }), stop: e => e.stopPropagation(),
       prev: () => this.step(-1), next: () => this.step(1)
     };

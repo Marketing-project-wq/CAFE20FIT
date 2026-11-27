@@ -1,13 +1,15 @@
 
 const STEPS = [
-  { short: 'Picked', title: 'Freshly picked', body: 'Ripe red cherries, picked by hand from the tree.' },
+  { k: 'st_s1' },
   // TODO-COPY step 2: confirm (a) 'Roasted in small batches by our partner roastery, then ground fresh for each cup.' or
   // (b) '…in our own roastery…'. Until then a neutral line that is true either way:
-  { short: 'Roast', title: 'Roasted in small batches', body: 'Roasted slowly to a deep, caramel brown.' },
-  { short: 'Brew', title: 'Ground & brewed', body: 'Ground fresh and pulled as a shot for every cup.' },
-  { short: 'Pour', title: 'Poured slowly', body: 'Milk and sweetness, poured by hand.' },
-  { short: 'Fuel', title: 'Filled to fuel your day', body: 'Ready for your session at 20FIT Arena.' }
+  { k: 'st_s2' },
+  { k: 'st_s3' },
+  { k: 'st_s4' },
+  { k: 'st_s5' }
 ];
+// Step texts in the visitor's language (tools/src/i18n/st.*.js: <k>_short / _title / _body)
+const stepText = s => ({ short: T(s.k + '_short'), title: T(s.k + '_title'), body: T(s.k + '_body') });
 const KD = [0, 1, 2, 3, 4, 5], KP = [0, 1, 2, 3.95, 5, 6];
 const toP = d => { for (let i = 0; i < 5; i++) if (d <= KD[i + 1]) return KP[i] + (d - KD[i]) * (KP[i + 1] - KP[i]); return 6; };
 const cl = x => Math.max(0, Math.min(1, x));
@@ -17,11 +19,11 @@ const rnd = s => { const x = Math.sin(s * 127.1) * 43758.5453; return x - Math.f
 const R = y => 0.6 + 0.22 * (y / 2.3);
 // Drinks you can spin through on the last step. syrup = bottom layer (dark→light), milk = body (top→bottom), streak = rgb of the marbling.
 const DRINKS = [
-  { name: 'Signature Aren Latte', syrup: ['#2a1206', '#5c2c0f'], milk: ['#ecd9bd', '#cfa476'], streak: [104, 50, 16], cap: 0xdcbb92, accent: '#c47a35', blurb: 'Palm sugar, espresso & fresh milk' },
-  { name: 'Matcha Latte', syrup: ['#2c4510', '#61852c'], milk: ['#f0f3e2', '#c3d29a'], streak: [80, 116, 36], cap: 0xe4ead0, accent: '#6f9d2f', blurb: 'Matcha whisked with fresh milk' },
-  { name: 'Strawberry Latte', syrup: ['#6a0a1e', '#c4264b'], milk: ['#f8e9eb', '#efc0c9'], streak: [186, 36, 66], cap: 0xf4dade, accent: '#e0405e', blurb: 'Real strawberry, milk, light sweetness' },
-  { name: 'Choco Overload', syrup: ['#1d0c05', '#40200f'], milk: ['#b48460', '#83533a'], streak: [48, 22, 10], cap: 0x9a6b48, accent: '#6b3a1c', blurb: 'Rich chocolate, double the cocoa' },
-  { name: 'Tropical Recovery', syrup: ['#e9e6df', '#f6f4ef'], milk: ['#fdfcf9', '#efebe3'], streak: [222, 216, 204], cap: 0xffffff, accent: '#2fb5a3', blurb: 'Coconut, fruit & electrolytes' }
+  { name: 'Signature Aren Latte', syrup: ['#2a1206', '#5c2c0f'], milk: ['#ecd9bd', '#cfa476'], streak: [104, 50, 16], cap: 0xdcbb92, accent: '#c47a35', blurb: 'st_d_aren' },
+  { name: 'Matcha Latte', syrup: ['#2c4510', '#61852c'], milk: ['#f0f3e2', '#c3d29a'], streak: [80, 116, 36], cap: 0xe4ead0, accent: '#6f9d2f', blurb: 'st_d_matcha' },
+  { name: 'Strawberry Latte', syrup: ['#6a0a1e', '#c4264b'], milk: ['#f8e9eb', '#efc0c9'], streak: [186, 36, 66], cap: 0xf4dade, accent: '#e0405e', blurb: 'st_d_straw' },
+  { name: 'Choco Overload', syrup: ['#1d0c05', '#40200f'], milk: ['#b48460', '#83533a'], streak: [48, 22, 10], cap: 0x9a6b48, accent: '#6b3a1c', blurb: 'st_d_choco' },
+  { name: 'Tropical Recovery', syrup: ['#e9e6df', '#f6f4ef'], milk: ['#fdfcf9', '#efebe3'], streak: [222, 216, 204], cap: 0xffffff, accent: '#2fb5a3', blurb: 'st_d_tropical' }
 ];
 const hexRgb = h => h[0] === '#' ? [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)) : h.match(/\d+/g).slice(0, 3).map(Number); // '#rrggbb' or 'rgb(r,g,b)'
 const mixHex = (a, b, k) => { const A = hexRgb(a), B = hexRgb(b); return 'rgb(' + A.map((v, i) => Math.round(v + (B[i] - v) * k)).join(',') + ')'; };
@@ -32,6 +34,7 @@ class Component extends DCLogic {
   mount = React.createRef();
 
   componentDidMount() {
+    this._onLang = () => this.setState({ lang: I18N.lang() }); window.addEventListener('20fit-lang', this._onLang);
     this.p = 0; this.mx = 0; this.my = 0;
     this._scroll = () => {
       const el = this.track.current; if (!el) return;
@@ -50,6 +53,7 @@ class Component extends DCLogic {
     this.init().catch(e => console.error(e));
   }
   componentWillUnmount() {
+    window.removeEventListener('20fit-lang', this._onLang);
     this.dead = true; cancelAnimationFrame(this._raf);
     window.removeEventListener('scroll', this._scroll); window.removeEventListener('mousemove', this._mouse);
     if (this._key) window.removeEventListener('keydown', this._key);
@@ -304,7 +308,7 @@ class Component extends DCLogic {
         const envKey = (same || k < 0.5) ? fromKey : toKey;   // glass reflects the location that dominates the view
         if (envKey !== curEnvKey && locs[envKey] && locs[envKey].env) { curEnvKey = envKey; scene.environment = locs[envKey].env; }
       }
-      const label = (BD.locations[(same || k < 0.5) ? fromKey : toKey] || {}).label || '';
+      const label = (BD.locations[(same || k < 0.5) ? fromKey : toKey] || {}).label ? 'st_loc_' + ((same || k < 0.5) ? fromKey : toKey) : '';
       if (label !== this.state.locLabel) this.setState({ locLabel: label });
     };
     ensureLoc(BD.steps[0]);
@@ -631,18 +635,18 @@ class Component extends DCLogic {
     const step = this.state.step;
     return {
       trackRef: this.track, mountRef: this.mount, loading: this.state.loading,
-      cur: STEPS[step], num: String(step + 1).padStart(2, '0'), counter: 'STEP ' + String(step + 1).padStart(2, '0') + ' / 05' + (this.phone && this.state.locLabel ? ' · ' + this.state.locLabel : ''),   // phones: the location rides on this line instead of its own
-      steps: STEPS.map((s, i) => ({ short: s.short, go: () => this.goTo(i),
+      cur: stepText(STEPS[step]), t: I18N.table(), num: String(step + 1).padStart(2, '0'), counter: T('st_step', { n: String(step + 1).padStart(2, '0') }) + (this.phone && this.state.locLabel ? ' · ' + T(this.state.locLabel) : ''),   // phones: the location rides on this line instead of its own
+      steps: STEPS.map((s, i) => ({ short: T(s.k + '_short'), go: () => this.goTo(i),
         fill: { position: 'absolute', left: 0, top: 0, bottom: 0, background: '#e30a2e', width: (i < step ? 100 : i === step ? Math.round(this.state.pp * 100) : 0) + '%', transition: 'width .15s linear' },
         label: { fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: i === step ? '#fff' : '#8a8a8a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', transition: 'color .3s' } })),
       onOrder: () => this.props.onOrder && this.props.onOrder(), onMenu: () => this.props.onMenu && this.props.onMenu(),
       onVenue: () => this.props.onVenue && this.props.onVenue(), onDine: () => this.props.onDine && this.props.onDine(),
       showSpin: !!this.state.done && !this.state.loading, showOrder: !!this.state.done,
-      drinkName: DRINKS[this.state.drink || 0].name, drinkBlurb: DRINKS[this.state.drink || 0].blurb,
+      drinkName: DRINKS[this.state.drink || 0].name, drinkBlurb: T(DRINKS[this.state.drink || 0].blurb),
       noGL: !!this.state.noGL,
       fbStyle: (() => { const BD = window.StoryBackdrops; if (!BD) return {}; const key = BD.steps[Math.min(4, step)], P = (BD.locations[key] || {}).paint || { sky: ['#333', '#111'] }, mob = window.innerWidth < 768 ? '-mobile' : '';
         return { position: 'absolute', inset: 0, backgroundImage: 'url("' + BD.dir + key + '-far' + mob + '.webp"), linear-gradient(180deg,' + P.sky.join(',') + ')', backgroundSize: 'cover', backgroundPosition: 'center', transition: 'background-image .3s' }; })(),
-      spinHint: this.canHover ? 'Scroll or use ‹ › to change drink' : 'Tap or use ‹ › to change drink', locLabel: this.state.locLabel || '', hasLoc: !!this.state.locLabel,
+      spinHint: this.canHover ? T('st_hint_hover') : T('st_hint_tap'), locLabel: this.state.locLabel ? T(this.state.locLabel) : '', hasLoc: !!this.state.locLabel,
       prevDrink: () => this.swapDrink(-1), nextDrink: () => this.swapDrink(1)
     };
   }
