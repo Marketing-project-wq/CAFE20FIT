@@ -934,11 +934,11 @@ button:focus-visible{outline:2px solid #e30a2e;outline-offset:2px}
         <sc-if value="{{ menuError }}" hint-placeholder-val="{{ false }}"><div style="padding:24px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px;color:#5a5a5a"><div>Couldn't load the menu.</div><button sc-camel-on-click="{{ retryMenu }}" style="all:unset;cursor:pointer;padding:12px 22px;border-radius:999px;background:#e30a2e;color:#fff;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:17px;text-transform:uppercase">Retry</button></div></sc-if>
         <sc-for list="{{ menuGroups }}" as="g" hint-placeholder-count="1">
         <sc-if value="{{ g.showHead }}" hint-placeholder-val="{{ false }}"><h3 style="margin:22px 0 10px;font-family:'Barlow Condensed',sans-serif;font-weight:800;font-size:28px;line-height:1;text-transform:uppercase;letter-spacing:.01em">{{ g.label }}</h3></sc-if>
-        <div class="fx-fullgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px">
+        <div class="fx-fullgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));grid-auto-rows:auto;align-items:stretch;gap:16px;position:relative">
           <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="8">
             <div style="display:flex;flex-direction:column;gap:8px;padding:12px;border-radius:24px;background:rgba(255,255,255,.6);border:1px solid rgba(255,255,255,.95);box-shadow:inset 0 1px 0 #fff, 0 8px 24px rgba(13,13,13,.05)">
-              <button sc-camel-on-click="{{ it.open }}" style="all:unset;cursor:pointer;display:block;width:100%;aspect-ratio:4/5;min-height:0;flex-shrink:0;overflow:hidden;border-radius:20px;background:#e8e6e1">
-                <img src="{{ it.src }}" alt="{{ it.name }}" loading="lazy" style="{{ it.imgStyle }}">
+              <button sc-camel-on-click="{{ it.open }}" style="all:unset;cursor:pointer;display:block;position:relative;width:100%;height:0;padding-top:125%;flex-shrink:0;overflow:hidden;border-radius:20px;background:#e8e6e1">
+                <span style="position:absolute;inset:0;display:block"><img src="{{ it.src }}" alt="{{ it.name }}" loading="lazy" style="{{ it.imgStyle }}"></span>
               </button>
               <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#e30a2e">{{ it.cat }}</div>
               <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:20px;line-height:1.05;text-transform:uppercase;overflow-wrap:break-word">{{ it.nameWrap }}</div>
