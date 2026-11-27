@@ -12,6 +12,130 @@ const PHOTOS = {
   'chia pudding|smoothies bowl': [U('DSC3733'), U('DSC3737-1')]
 };
 const NO_PHOTO = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 500"><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6f4f1"/><stop offset="1" stop-color="#ebe8e3"/></linearGradient></defs><rect width="400" height="500" fill="url(#g)"/><circle cx="200" cy="218" r="46" fill="none" stroke="#e30a2e" stroke-width="10"/><circle cx="200" cy="218" r="18" fill="#e30a2e"/><text x="200" y="318" text-anchor="middle" font-family="Barlow Condensed,Arial Narrow,Arial,sans-serif" font-weight="800" font-size="34" letter-spacing="3" fill="#0d0d0d">20FIT CAFE</text><text x="200" y="350" text-anchor="middle" font-family="JetBrains Mono,monospace" font-size="15" letter-spacing="3" fill="#9a978f">PHOTO SOON</text></svg>');
+// Official 20FIT logo (public/brand/logo-20fit-black-trim.png of the POS, resized to 180 px) for the cup label.
+const ART_LOGO = 'iVBORw0KGgoAAAANSUhEUgAAALQAAAA1CAYAAADoIcFPAAAmKElEQVR42u19eZQdV3nn7/tuVb336i29SWqpJbVa7bY2W14i7BEYowE7ISxZCCMnEzJDJgnhjGPHAzgJkwwIO5OBA4ZAYnuIh8RADocZOyGJiWEAA6NAJsa2wKustaXW0ot6fft7VXXvN39U1evXrW6pW+qWRCb3nKdWv36v6t5bv29fLuH8g6KXweIHA5DotZwjnuOMe92+4/aWwfzg2kCCTaVy5apqtdoR6CALgs2AJqJSKp2eSCadIw45hzJt60/s2/dU/nzX/Zdx5Q5aACBN+EHCG256zeqxSuWqarnaVyiU2o0xGSJJiJDPxMV0LjPRmskeTzvpQ//4w38cIiKZfZ1lGDOu/ZprXrN+vDK106tVb/J876ZqrbbRGLOCCGnP8xAEAYjCZTMzbNsGEZWZeDKRSBy1LfuZVDrzTGsy++yPXv3RwHz3WUIiXO6xGGKcb07mClzXnGul8wBdbt9xe8uZ2pmfLpaKbylVSjs8z+vRWmdqtRqMmV4nESOZTMCy7HIqlTxu2/YPM6nMk05q1TdeeGHvVPM1l5gYZdeuXdbY8NitlVrlHeVK+bZqrbrV8zzyfX/GHGffm5lhjKHm34kIruuaZDJ5KOkkv51Ipf9u7drO7+7duzdYhjX8y7gEHDoWsdi4se/tvl9/f61W3VUsFtnzPIhISAlEEv3/LOqMOV8ymQxcN/0PrpP606MDR/929vWXgitf1b35dVWvdFfNq7+9Ui1n67UaRATMbEQEIkJEBCJC9HtEgNNLb1pHQ6IQERzHgetmCgnHftJ13If7T/Z/f6m4dXd39xrLcjsSiYQAgBO97xMJPC/8CQDw5rmCM+dvdQmZlAPAGMNiy8DBgweLC5nTqlWrOlOplvaM48AYiy3LcNkv1/r7+48D8BdyjfUd67sc12lTrLQ4NokI2TLNOJukNuAAtoSfcRwHEn3OJxLyfQn3wAM8NO1H0/A8EEiISGoiBNSHaS4w79q2K3O6dvr9w6Mjv1urVtNaa4iImUOUUcTl4olSDJwIKKyUQi6bK7Xk2j6eq2c+9eLIi+WLBDUDMFu2bOkoF6vvzRcm76nWqqt83wcAw8zxxhARiTFGziEOG+I4mjdRiHRpolaOiHOsJdvyYNJNPnzkyJHRCwQ1AZDrOq9LDwXDj1ZrlduJKSAhBpOInr6cESPnFtw81ztkYg1BILZjc0tLy+8MDAw8eo75EgBZt25nqlg88GgQ+LcpVhogZUQrx3EmUrncu04fP/6D812jr+/m3Pj4kb/0Pe9WEHnGCBEJR6YUATNByRFnDP9lYibACLQYAUhIRMBAJGSl+dYRWxWIEQKJgbDrph6wZk9qR++OltO1wQfOjI/+RqlYBACjlCIRIQkHEwHMCszcENUx9xMREJGJQCVaa5mcmswEOrhf5/zVK1eu/L3R0dHSBYA6frymb8OWnePjE/+tVCq+sRZyZBMBkSMcmgjMrJQipVSDyFipeDcQrYkAIAiCmAgNEYGZOVqL+L4vQRCs0Fp/JBNk39jT0/Ph48eP/8OFqiC0mmwaQk+lWmmbpRIt6bB9G66b6VjIZzs6qol8XnorlcqKZsmbzeayOajWhVyjzRJ7DKa7VCm1EQhzSPClVzEIEAGICYlEostqBstP9/UlXq2P/eH41MRvlIpFQ+FgY4yICFmWRbZtB0pZrxDRYaWsY4ApGYOMMbJOoDcbba7xvHqiiWszACkWixCRO9tb2ycBfOhC9eXu7o27xwtnPlEulzZ4nicRUXGDsYkQEdiybFiWVVXKejWVcg9rrQ8ZY07btipYRDoQUb5v0pal1hsjW2r1ap8Ys833vWQQBDARexERjvQTqVar4nneriBo/XJX1/rfHxw8+YVZnpAFDWOyJGZQR98x8fwjKSENxtUsSiTahAWaW9F1SPt+bWFzMsSEIHpmBkDMxAKlrAXds8xKjJEqhDQIhoh47rnN4AGxVJyh/kV7YZofP9G8oBYIyBjxmmcqhwLzS5P5yfeWSyWJbhIryuS6Lhwn+b9t2/mcZeX2Dg0eHMcMvYawYUN3a6FQfq3lOP/eBP47q9WqLbESC5hyuQzFfHdPT8/3jh8//o0Fiu0GmLs61/3WxPjoH5Wr5RYxYqiJixpjwMycSqXAbB2ybfvJZDL1jRV22zMvnXhp8nwPY3v39rYxf+qmWq3y08bot3qet7ler1FDZSEQQBQEgcnnJ7tqterDnSs7cyOjIw/G6tdCQd0CYChUKIhCqqH4YUZMZLZuP+/DnBbBMn13ijmXQIu2FzInrdNERKqJQCN7iFhEeGFEMUUikmImBUA12yzxIqixlmm7ZvZap410UrPfbnyuabdjGwkwjhWDavPmzT1TU1MfqFQqDhGZSHwLM1NLS0spl8n9VzfjPrR///4SMDw9q8alRQYGBqYAfH3Hjt98anj4m0+Dxu6vlMu56NYsIqZULufcdPqeHTt2fG/fvn2VBQCBAJiNGzbeOTY5/kCpXEoSYJiIxQiEYMQYdhJJ5HLZV23L+YJtpx87ceLQMQAYwqnZ+jPN4fUwEei/CeCbvb29nw4884u1euXXCvnClprnAcyGxDAA1lqbSqXsEtHHu7rWOYODpz4dc7WFc+qzP2ZZFrK53GDCcSa0MYqmCYUavGwmpxNQY0ERXOIrCzzPK2mtDy1GfjepjdPXWhiDhjM5WUu77g/dVCotIj41qJMo1vNERIwxOlTtWPu+v7JSKa/zPG8GwJPJZJDNZo8BqIDZ4sgma6L2kIMTETOjVq8FRpuXG1MN6sG/KZcr24MgkEhUiIgglUzVs9mW3zs+cOzh6KOqiavO9nESAN637xEfwGdWruyyA9//aL1eV5EYJa21lErlN4yOTu4E8J3zgIABmO7ujbsn8pMfLZWKSQ7tHg7lFhkiYjeTLaUz2c+2ZjsePnToxWOzDcA950MSwPc1/b2/v/8EgE/c2LP1MVsl7pwql++sVEoZY4JYjDIRmUqlnGTm+9ev3zB+8uTA55sCSeccRVYzVIpItaFEIuG3tbb+l46OjifK5bLNzGKMIWNSBACp1AwXo6AMcDb8DAAkjCHFLJVIhahWq/UDBw5MLMSXnDaaIGe7cQmABbUg6nxxZKTc19f3PqVUptVu1UgDQRDwLFep+L6vS6USWlpavPxk/m1njH7U8zwnxhMRcSaT7V+9uvuXAtcaYBE7Ha3JGENu7OSwLBNf35/0td1vh5L4+g0bWtvbVzxjWZYQkY71KNu2ZeXKzkciENOcpvX8QKQ1a9a4mUz2O7ZtC8LInBCRtm1bOjs7P3We4A4BwMZ1V9+cy7WcYKXCuYFEgYQBbVmWtLS2He65atPPzbo3A6A9C58vIuCzTK+z8d3etd1vW9HSdqR5HdHma2aWltbW4Y0bN946r/th1pq2b39928oVK59m5ni/DQBJp9PV9Rs3/uTlcN3etOWmjtaWtmeitTXmlMvl6ps2bX3LAtZ2QaO3t/f1uZaWUgRkE+/pqs7OH11//fWti72eBQB5QzdXyqXroygaRV4CTiZTx1235VPAiF6km8oA4KGhoUp7++qHgyC41fd9K9KnoYMAdc+7ZcP117cOvPDC1BxcOnID9a2cnJz8VKVSXi9iDAgsAhiIsS2Lc61tz7lu7r3Hjx76YbP6sweg+wC5L7rmg9tuWi2murHOptev++1sxGIhbTnOiK3U8UwLnXLfv2n4jjse1/eFwKbouwxA+k+fePLa3s0jZFsPTeWnbg6CwEReEDbGmFKx2Gkp9ZmtPVvf8erxVwcWpnqcrRUzM9lkOU3MYylcIAtSgSIuPw9z0RfijVpgLMFKYKafOlQ9jFhaJxOLNLrFAgDP996kjXZiIIqIOI6DTCbzNwMDhw7gwnM5CLD+iYj6iWhTbGAaEfi+v0mPj18N4Nl5JkzVSv3earVySxAEBkQMCEAwSlmcbW17Ot3W+msDhw+/GkkQHX/xPsC8b+fOVG6qeKtbr72NJ8/sVEFto0PSykYsywgRCIYtPyCe0AV7sHTvD5//883bvta+euVT79i7dwrTlp4AUC/3H3zuqnVXvUsb82g+P/V6rbUhIiYi1lqbUql0YzKZ+uCuXbvu3rt3r74QX7uIELSWJlVOLj2vngvPS09A8frUtO8/0p8pDowJMzfvwYKuy7t3707Vvfp2rXWz24gdx6k7qeRTFxGbFwCyenVu1HGcgdhnHSv9OghyIrJqHsqVTZu23VKpln+9Wq3KtOFPAiJOpTMHUrmO9zSDWZqSiP64Z/sb1p2a/EJLvvDl9qmJ3+4ojdy8pja2ckNt3O7xx2mDnkC3Hsc6/4zdVR/tbCuO3thamPgPyfHRL545evhLf7r5qjdHJlbsLdMA1NFTR49kMm3vbWlpfUkpxXHwhYioXq9LqVR618DAqduavB7zejnCvwpmewI0rrRBy5qXIUrRzHsIIAJjRJjVogmaDx48uJqYN4iIifx+BoBxEonhlOMcuQguIQCwf/+rHik1ToQZIWdjDAci2Vm8IQzu7NhhF6Ymf7tcLnXEbj8iFiLATWfy6UzLB071H3i5GcwEyJ5du5Kf6bnm3pZS+bGNxfHdV5fPtK/VBclwzbiWFldpSbIRRxk4ysBhLUn2xOWycWXKdHjjqVWFqbcmxqa+/FBPz/1/dvuOltmgPnHiyP7W1vYP5nIteeaQAcTRxUqlnPW82n/cuXNnqsnr8WMxIm44J9deTiKz5iKZi9g1zufzq716fV1kuVtEpJRSDME4M49dSCRs5tQElmVXmVXzPIWIQMYkZl2fAMjkZPHmYrn45iAIhJlJRGC0hmU75KazDw+fHvhaxMkbYH5s1+5M5sTQx5zK1MdWesOdK2jcZLkuNmuyiZlFkQGTBlEggC+AFpAAxAArAjsK0qbqptsvtbUWCh+y+8cf+ssdO9bMAjX39x/+WtrNPOg4yeatJ9/3pVQq3j48PHbrhT4adaXx5+Wf05ISvVWr1YqO4zzb0dGxjkCGmEBEjlLqe/v3p4pLQv0II0az5bCZJv4mxX+3Kpe//5tB4OeiMDRH/ka2bWcfJew/mcXR8b51O1NDh//p/nbPuyfnFZDkmgkAjkNxNjEoskEkUk1NHApHs0sdBAgllSergjymJvW7JgJjf+aGvrvo+SOj0uRQzVmZB8uJ4ts9r3Z9PD8Kg0dpO5HfLSLforkSagCoUJTOk9t1WSH9Y59FyCMjI6+szazdvXHVxjf2rOq5be3atT+5fsWKN7mu+2Fgn38RCw09Dnv2cBB4HVrrZh2aTOi9L53t2Xhlc7lcenPdq0Nk+vNW0jXJXPvDowMDw7GRGhtt6xKTd2Yr+btX1c9Immqhd4IIFhFsIhgJoMWDQEeagIAJjVfoUjBQMDHkyeIAqaAgXMzfQXn9+3+2Y0dzxI33D+wfbs1m/zSZSmoRIUTBNGMM6rXaWzdsuHorpj0lc22P4ArCc/FcCFc/PkRkAZAXBl6YWq7Zfv7zf5vTWq+enYSjlFW2yBmZvSgR/zYR0xnFchlhBh1n06kXWtqzT04MNlxzTID52DU3vC4xMfWBVqMti2EUgbnBwqXhKqAF7KogjC0QCRRAaUukPfBlqhq8J1P1niHgy01cmnIdbX+dr5XeW/X8m8Q3cU6GBH7QFQS1twDYP+fNWgEMzpGLfhn5I7OSS5FMtFCEE13YbvAskT/7ddG6kUjpKt/zroo5LQBhIiScxFHJJA43ayC7d+9W9Xr91igVNIqVghzHQSaVeuLYyy+PNLvmHt21K9la9O5ZVyuvSVPdKAIrxFxXFrkAamQKxWw1QUKtypOuajlt5Wt3f+aGG1ZSnFsD0AsvvDCVSmX/xrFtAEJRgYBoHQiAN+0IufqcxuE8eTtzc+5/zsOylpYwZzCos18XLUp8v/bmQAdtkSFIQJjC6TjOD4YOHRprftj79x/r8rz6DRGgGznWiUSi7Lrud+Mnvif6zuhI6Q2JWumtOVOUBGtSBHCcALPoBUiDCCR2nwngkCYXZaFq/jXpavBTAPCRJh3eSSWeUpY9DqCRyGSMoXq9tmV8vNJ1DsPnSvSAXHJiOheclboAt91yWq5btmzpKJWKv6h1gCjsLQA4kUjoZDr1ndkPVnxvg+d5q2NuHkcWk6474LruoSbuLHv27GFTL77T9UoZRb6EPI8QSyrTdGlagDe1Ee8mAEIIANQBBBASrktCl22rWv2Fl/fsdu4DzJ7YW5PNHkomkweUYoSJN0LGGASB38Vc75vzZlPzoUkACP//xKBlvjJAIxelciwHoKVcqL09CPxrtTYCgI0xwsxIpdwDWXfl3tlcQVnSp3WQafZXW5YF27L29/X1jQCNRCOxnnhifcqr7koaTzwAWmiWqImSZEER16YF6NAx+AkSufaiF7F4cLzq65776oHtzd/r37cvn3Sc/XaUMxylbUoQBEktsmExvJAjfzamc0ku5EU/VohWc4MnZEilKwLQBEBee91rV9X8ym/5vt+cgUaO4yCRcr+yf/+zw7M1Aw3qjnKDG3onKwVL2Ycff/xx3TzfrFfd3ubVNyTgk4YKM8pFYCR0fyzWwDECBI1UWwI3kQAB5JCG5VU6K4Xq9QitvUayFgOHlIpz9EPTQWsNElo7P57NWRNkpciykrEqH0Q/F/u6IM6mlDW3mnlJlJCli0ZaywRoM1ad+I1arXpTEASNXGhmZtd1j1uMLzeDH426PlmDmQWrBACG5PRZD7+qexPGTzIFEjrozjaLF7NLjdIRCV16IIKChBGV0L0nSROQo3UPADwGGIoBzTwUKQqNyuHox6r5YSGzk7EQ+L5VrRZ/Zf363h5mJJqr8plBDCYwU0xFkVsljKOypYgkAcv69qsvvfQ9LE0xcsRolleLpiW92hJ7fwCYa6+98TXDZ07fXS6XZyRtW5YFUuoLAwMDrzZJlrgola7dvj0XaD2TdInAIoVZBIAacdaDBd+wpK2AGAbBeRWLc3Aoooa8lugREqjBO3wxYhtDq7TqBhPIiOwG8DgAYyfLwrHKEa7XGANtAvd8dkbzqFQq8P3BX2alfplmMbA5rcpZleu2bWPVqlV9RPS9OBFsUaCe85Mi0MvneVGQuRfHlx/QBMBs2XJTx5kzpz5RmJpabYyJE+INM7PtJJ5l4LNzffmOO+5gHehE8wNq7OdctfwBHNsACQ6NqaVInKDzUKoiA0/LWSVNZEjDxFU+0/M32nCjFmqWH5qGzhazIgLP85qr0Jtd6OcDqLEsi7U2P1469DJw1KUCM+3atcsqFofvKxQn/7XneYbDFDshIkokk6Vkwv3D0dHRYcxR2fHYY48ZIvaauU+jl4YxZxGeTewniJCIstb0MgcFFAEWMTRTJax9msa/bYzNOv69qe8HqwDT/vfFbH1zG4VFpVAauTBAMxfl8kV25tKhCcyti56QtYSANseOnfr1fH7yN+u1ujBzg7M4jsNpN/Pg2NjIk3OAOe7nIdu2XZOfJUZDDZaoZQ48FAwzyIQCWUOWzWUjkTEeEKOicAYS+qIfjxcvlOY4GYQa+bywLK7OqZNqTfN1rbJtm5oLZedTN2arHSLCtm2DI+t00WMKmAvRyw5xtbRa71JcTQHQPeuv+rnxybGPVasVO+bKxhhjWRan09nv2nbrJ4Ez8xWSRu/RoDUdOYoqZ0As1DV7f7Vj9xdB1Q6hVGQPLm/erjCXSGGSzZHZzzvw/FUS6v4NxqqUAgmNzdb9p1d8Nu5SrqvbOzq+CIMfKEUJgCEM4umKjhk/o5TPyDY1xMyOlUg8PUcnqItyFIcOl2Xkz0uoOlwsoBmA7u3edNtEYfTharXcLhKWb8X6s+Mk+lXSef/Q4KExnLesiI42+WFDsAQBvMDrjdKOGz0sJlPqJcvikxXP2pSCL7S8gBYjTDXbGSyn7eeaJTxEKFizbouYoFnPZWKGAR07BxeYXX1OSql60nW/ePTgwf9zJemlmn58wvF8kd81fX1bduXL458rFPJdWmsT9XAQIuJ0OjOayeTuGR0cfB4LqJETCY7alp1vJl1jDIzWW2+88cYVABBXZ38/lzttMqmn67YDFgVFvIwcRIRIwbISz/W/NnOg+W/XXf9TblVXNwVyVuu3spbg5Nw+XxXHfmbqv1qzrmsnknpxi4lLF1gxC3Z9LLlKt6CpLCOgFQDT09O3a2Ji9NF8Pt8TVbvE7Q8okUxVksnU746MDP79AsAsAOCKeyKZSg0rpQAgzHsTQa1W6y0Wi1djui0B7927N1AZ+ytly64YA1IQoch+kgZWojC4yKIiqRTFGWOGqw2oyk6QyuT+/pFH9vl7ptse0FS5f3Pdr28LjAHHrZaYkXASQ2JZRxeFnWksxnmulyywcq4HQ/rSW4sEXJLQdxwd093dm96Uz088WijkN8ZV0PH60+lMkEln7hsdHfk8FtirAgAynZlRW9mv2Lbd6CIkIuLV6zlf69tji/8j0fUmWlZ9u5hOPVWy7On2QyAYYYgQVHTrQOIgRDNQY+hLBFsBxwQhIXt0wt6BxheHisn0vuc7nb8FgI80eR2sur5NqmaFBiTM8Q/1Z9u2X7l63bqh+ZgQ0RwOWAKg5Epzu8nyatBLe3VeJJgBwHSv7X5nPn/mL/P5qY1BoOOqEgFAqVQqcN3s/aOjIw9g4d3vBRHXZaLvRhw69hqI53molCrvuO6661bFf9gD8H1795Zybe1/lndbinljc11YvMhU92DgRW7cJDNsomm2JyHXDgsIohZcUXZ92RDyhlAVwAhJIIqCVEvQ0t7y6B98//nRKA8biBpblguVn/d8HyCINhoUdfJhtp6KekqfTdBTgNZz1qvQ5a2SlTnfouVMaT3Hepcz264BzA3re3+1WC4+UiwWusISqYY6QalUqppKpf/gzJnBP8LM7koLHgk38S2AhjAdSWRjjJTKxesmJwvviKXAfVGdX1em5Zv5VPbTIyqt69qGghKbDBQAD4K6iTUkho7zPObaV2H44iAIOztAAUJiSQ0ulXO5LzpbV39JAPpIU4BjrDj2jkqt/K80tIDDfRARsmznFOA+Nd8aS5Yts0LfV/bQy8ejI2KRuTzxy8WhGYDsxm7V1bXu3omp0QcLxUJ7XO+HqClNIpEoJZPuB8fHRz+ORfd5a6iVdODAq4fdVPqJRCLR6LFGRFL3alwoTN7V3d29Jv4sAXjj3r3BkWrHR3Uq8xee5RJEUYrIpDhu1iHwxDT6HDCFQRLVVIIVNpEzMPCRYY0OJZIEiY8017NtXzuZkv/8xsf3lprElGxas2NFsVi4q+7VlUAaBp5jO3DT6a8PDR06iAvoZyJyZWXLRdksl4n4CksOaAZgduzY4X5/zdMfm8pPfrxYLKZNWE/VcM2lUumxVCZz18TEWFzAeqGJMQSQpBO5R5WyJhAFXACwaJFKpXytX/PfN/P5g/741NPVtu51H5zKZf7HqHJNTdtMApMgSIIAizSYdAjiaFGqwbfR0KGTHIhLxkBANZXjfLbtG+jK3fU7L/afiVSNBneu6fE7fePt8KEFRAyBMDM5yUTJsZz/CSy/b/yfz5BL4uWI3HJ9606dHnqkUJi4t1qpTANMxCjFnEy5Rx0n8e6J0dEv4OLPIBEAtKGva5/rpp+wbZu01o2UhiAIpFIp3HlVT8/PRWtWcYuBO55+emJqzdp7prK5e49audMj2uW6tonBxgaMAkRLLOcJBgQDiA9IIGQMYAIDKhqLh1Tr5Eim9eOVrvS773jmxWORV8PE3p1NGza9pVSd+k9lrxIluwogEMuyKO2mv2pZG//vhe0DXZFYCy75TcN26RfyTWueXSUAZuXKtdePjk48VKuXb6nX6hInvgNilFJsJ5LPprJtd44Pn3wOS3OEW8M43Nx77UO+773N9/0VYe9UJoiYSrWSLhTyn9jcu7n/YP/BlyJQh/05nn66CuCPP9Xb+71aNf276XrtZ9p1JamlDkYAISAQEY48G2FfDoIBiJBAnh2/bNnfMa0tn3zP0ePfwkCYs0HTYNabezZvnpgc+WShXGgzJAYEhkDIECVSqQmVSD84MLC3dn5XpVyB6KUldaFd7Chb1kUbhbGqYNau3fCWarX4v0ql/C31Wt1MJxcIOY7DyVT6647l/tsmMC+VD9QAoIP9L+9rzbU9mkgkSQRCBBCItREzVchffWZi5HPbrtrWF9nJjV7KAtD7+/ufW/H6m3/FtK/4lVKm9UvDnHx+1DgjFUn6NaTIpwwFlKE6Z1DnbMFY6cOSbf8KrVj9bqe37473HDn2LYhQU4W3AqC39mzdMD4x9NlCKb81MGHzyOgTknSSlHEznx88cfTphahc8xTJXjaQGzFhVcM8QYfLQUgXy6EZgNm2bbeTzz9zZ6mU/3ClUmozxsSdNkUxk+04Jpl0H85m0x8+ceLEJJbvDEJRdvaTmXT5liDwbwmCwDARGwGbwJhiqXQzaORLGzdufM+xY8dexPTJNLIH4Dsef9wD8NcQ+cqntm5dnZ4sdnvK2iiC1QnlZBiAMEYU8RHlOAOr3vjak2995BE/Dtzc15TAD0Bfc/WNW0cmBx+ZqpRfr01YrCAQiBFjWRYnUql/dBzrEwsxiDOBT8w0RyX4ZfRDtwA0delvLUrR7LSFpWinwABwQ98NKzs7Vz+SzWZ13Cs65tjMJCnXLa9atfoD27Ztc5oIgrE8NXAEAJs2brqpra3teJSIM6M3s1JKWlvbDq9Zs+7nZzEUwsX1h57RC3t918afaWlpfdWyLEHUPzvu7czM0tLSNrB+fe9rFmCXEADs2rWrtbNzzTPxmmLplslk6ht6e5etF/O55rRt27b2lpbWs/pDpzOZSnd375uWYU4MANdd9xNvbm9vr2O6aEgTkXSsXLlv286d7Ytl4VasL2/YcO2WocLwp/OFqTfXarU4k4tDIlKUyeROWFbq7jNnBp84c2Z4ecI8c+jTh44denbt2o33am3+vFgs5GI3YZwAVSzm+2q12hc7Wjo+vaZ9zUMvH2v07ojD0zyrg38j0veRWRt1X/iKXW2yefONXWNjQ3eNT525u16vZeIWulE+tAnzVdKFTCb7gZMn+59bqLQK00evNAswB6Kh8x3EuuRDqfnyyi7slhYA6enp+6lSaeSBQiG/PUrMn44kA0in0+jsXP0cG651ruj4Wdu2lbCwSECAImEhFmYoFetbEgb7wt/IhK2ImkQKKYA87Vme5+175ZVXXp1HTBsAfPr0sb9av37DShF5oFwuulEnMQ4jlDD1ei0rgfnQCe/U21avXv9Ia+uqJw4c2DfUBNQZzXPuOzvTbQYIN2++satcnvqFkZGBX69USjdE53/EEVEAMIqJU6l0pTXb/nsnTw/81VKoXgJgOcudzqlDm3mJjC6VlJjBvgmUDgl/cYBevbpnVz4//heFQmGt1loT0ezTi6hWq2F4+PTbiehnI+5IcwUEpk8jijzK5/A4igmjjG4280UR+dW4qcw8oKaTJwf++5o13b6IfKJarbRG7X85Pg/G0x68wP8JT7zPVirlu1e0d349YSe/1p7IPf/yyZcnz9Xniohw9eqrV5RN7bqKV/nJwcH+txkTbK9UKxAT9gZpOndGwmLfzFTWzX3g5ODAXyzW714sKiESc9YuiogmfWVFEAWiG/XwSz/0PO5NARGQWzyHTib5+ny+tjYSp2r2gwYA3/cRHeqy5CORSHYsEBA0NHTic2vWrB+1LOuBUqnYp7WW6DxBDn1LxtRqFfLq1Wscy7mmRnxn0YwcTCvnJSI+pSz7tGWrCbIsbcTYfq3W5gfBGkfQMzRxcnudpM8Y7QZBAIRAjg9QQhRMItu2OZFIHnXdzPsGR0599YJ871NT0Pqsk3khIqK1NpcDt8zlOcPxAkGwnFJD05zJCASRsiovvgTLtm1hVvERCuYc1qbMBfa5P0/nP1cvbGsgQuRhYclLFIL65N91dW0YYFb3Vyqln/E8j0x4QAgxNxLmTN2vow64zHwjgBsBgMQDawViBoigAx9Ga9RDiRE/ToPQ7ubQWxgaoczMiUQCjpN80rZTHxoZGfzRhfrei8oSY7SZLcNExBjPXJ70pEJ0TNxcex8sI4cOA2dythsRcgGRb1ieF9iAKGaKfKPS8PvLOdjPnHVUNH3ip8zZiUKaOAIpZoIiSi+QQzfO3h4cHHi+t7f33zGrd/tB/Z5yudSr/QDQMJGmTPERFZrMdG8wTYTATBezEglIpgvGw3Onw3OeQSZ8wsKWZZGbco85idSnjcl+fmzsSOFideawFkJmEIMxBsFliMsBQImVmBBbUe/q6QMxg2XUo3VdN24Vv8LDDDUZs3g/olWv1/cnU6lvJpIpN3yIpgHpqP1LeJOmTj9x3i8xKOrFT8yg+PA9nqO8yBjBdA0AoBQBgJN00/+ExR0MYwBwf39/HsCfrO9c/23F1m9Xq5V3+n7Yh1qinomNnvtNR1YKJJpm9HuYl4/pZNJIgSOQsiwoZY0lk+7jrpv9k6GhgQPACC4WzOWyH4iYSiKZJIio2PYgZmOM8S4HoKtV7QuZiuu6FNpRUYMdpYK65y3bnEpBqQ6In0qlEpZlkTEmrPQH6tVqddHSigDQunU7k7rTJzViz91xXiXOfr8H6AFQr9cJWB/p2tWzKMq2UzLX+1gDtNfrNDEx4e3bt8+/QMs4UpMInZ1rb/b92ju11m/xvNpmrbWjtUZ8GFKDRmVuozCUGhxVa9u1RCJ5RIS+atvOX4+NDe+LaG0pwvsAQG1tK1+nHGuLo5ThaASBVyiXy9/I5/NTWMLORwudU6a19fWuk9rqOMrE3qh6PSiM+bVvYOnnRACkra2txSLrNivhdNgJGzCAp332g+DQ+MjI3sUyjn8O2WAzuOW6dVev9bzyDiG5KfDr1wVBsCnw/VWe56cBsREmVsXtAQQg37JU0bbtYWU7RxzLfkEp6weW5b5w6tTh0/Pd51/GlTnoCgG2LME6zqqO2blzZ2p0dHTtVKm0zq96qwG0CSEjIpZSpI1QzSIaSyTs01kne7KLugb3holF57zuEhIizbEPl/58wss7p/ka7MuFMJD/B3bmT8ky2GkdAAAAAElFTkSuQmCC';
+// ── 20FIT product illustration (flat 2D SVG, 1:1) ─────────────────────────────────────────────
+// Shown for a product that has no photo in the POS. Drink = 20FIT takeaway cup (small cup for
+// espresso / piccolo, paper cup for hot drinks) with the official 20FIT logo (embedded PNG, not
+// redrawn); food = pastry on the red checkered paper of the product photos. Colours come from
+// the product name (keywords) or else the category. One-shot animation (~1.6 s, never loops),
+// off with prefers-reduced-motion.
+const ART_BG = '#f4ebe7';
+const ART_RULES = [
+  // [regex on name, kind, layers bottom→top [colour, share], extras]
+  [/espresso/i, 'small', [['#3b2416', 1]], { crema: '#b9844f' }],
+  [/piccolo|cortado/i, 'small', [['#6b4226', .45], ['#e8d3b8', .55]], { foam: '#f6eee3' }],
+  [/hot|panas/i, 'hot', [['#6b4226', 1]], {}],
+  [/berry americano|strawberry americano/i, 'iced', [['#b3263e', .4], ['#3a2416', .6]], { ice: true }],
+  [/orange americano/i, 'iced', [['#f29a2e', .45], ['#3a2416', .55]], { ice: true }],
+  [/double load|ristretto/i, 'iced', [['#2f1c11', 1]], { crema: '#a8743f', ice: true }],
+  [/cold brew|long black|americano/i, 'iced', [['#3a2416', 1]], { ice: true }],
+  [/shakerato/i, 'iced', [['#5b3a24', .78]], { foam: '#caa27a', foamH: .22, ice: true }],
+  [/strawberry latte/i, 'iced', [['#e46a86', .35], ['#efe3d3', .4], ['#8a5a36', .25]], { ice: true }],
+  [/latte|cappuccino|magic|aren|cloud|oat/i, 'iced', [['#8a5a36', .38], ['#e7d0b1', .62]], { foam: '#f6eee3', ice: true }],
+  [/matcha|green/i, 'iced', [['#7fae4f', 1]], { ice: true }],
+  [/chocolate|choco|coklat/i, 'iced', [['#5a3523', 1]], { foam: '#8b5a3c', ice: true }],
+  [/lemon|lemonade/i, 'iced', [['#f3d35b', 1]], { ice: true }],
+  [/strawberry|berry|bana/i, 'iced', [['#e0496a', 1]], { ice: true }],
+  [/mango|tropical|orange/i, 'iced', [['#f5a623', 1]], { ice: true }],
+  [/coconut|hydrate|coco/i, 'iced', [['#f1ead8', 1]], { ice: true }],
+  [/tea|teh/i, 'iced', [['#d98a2b', 1]], { ice: true }],
+  [/protein|endurance|almond|nutrition|peanut/i, 'iced', [['#b98a62', 1]], { foam: '#e6d2bd' }],
+  [/chia|pudding/i, 'cup', [['#efe7f2', .55], ['#c9b8d6', .45]], {}],
+  [/croissant|danish|nutella|sausage|cake|bread|toast|sandwich|pastry|bun/i, 'food', [], {}],
+];
+const ART_CAT = { coffee: [['#8a5a36', .38], ['#e7d0b1', .62]], tea: [['#d98a2b', 1]], smoothies: [['#e0496a', 1]],
+  signature: [['#b98a62', 1]], hybrid: [['#7b4a2e', 1]], chocolate: [['#5a3523', 1]], chia: [['#efe7f2', .55], ['#c9b8d6', .45]] };
+const artCache = {};
+function artSpec(name, category) {
+  const n = String(name || ''), c = String(category || '').toLowerCase();
+  if (/food|makanan|pastry|bakery/.test(c)) { const r = ART_RULES.find(x => x[1] === 'food' && x[0].test(n)); return { kind: 'food', layers: [], x: {}, food: n }; }
+  const r = ART_RULES.find(x => x[0].test(n));
+  if (r) return { kind: r[1], layers: r[2], x: r[3], food: n };
+  if (c === 'chia') return { kind: 'cup', layers: ART_CAT.chia, x: {}, food: n };
+  return { kind: 'iced', layers: ART_CAT[c] || ART_CAT.coffee, x: { ice: c !== 'signature' && c !== 'hybrid' }, food: n, fallback: true };
+}
+function artLogo(cx, cy, w) { const h = w * 53 / 180; return `<image href="data:image/png;base64,${ART_LOGO}" x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}"/>`; }
+function artLayers(layers, top, bottom, xl, xr) { // stacked rectangles, clipped to the cup body
+  let y = bottom, out = ''; const H = bottom - top;
+  for (const [col, share] of layers) { const h = H * share; out += `<rect x="${xl}" y="${(y - h).toFixed(1)}" width="${xr - xl}" height="${(h + 1).toFixed(1)}" fill="${col}"/>`; y -= h; }
+  return out;
+}
+function artCupBody(t, b, tl, tr, bl, br) { return `M${tl} ${t} L${tr} ${t} L${br} ${b - 10} Q${br - 2} ${b} ${br - 12} ${b} L${bl + 12} ${b} Q${bl + 2} ${b} ${bl} ${b - 10} Z`; }
+function productArt(name, category) {
+  const key = String(name) + '|' + String(category || '');
+  if (artCache[key]) return artCache[key];
+  const s = artSpec(name, category); const x = s.x || {};
+  const css = '<style>.p{animation:pop .9s cubic-bezier(.2,.8,.25,1.15) 1 both;transform-origin:200px 352px}.i{animation:bob 1.6s ease-out 1 both}.i2{animation-delay:.12s}.i3{animation-delay:.24s}.b{animation:rise 1.7s ease-out 1 both;opacity:0}.st{animation:steam 1.8s ease-out 1 both;opacity:0}'
+    + '@keyframes pop{0%{transform:scale(.93)}100%{transform:scale(1)}}@keyframes bob{0%{transform:translateY(-14px);opacity:0}60%{transform:translateY(2px);opacity:1}100%{transform:translateY(0);opacity:1}}'
+    + '@keyframes rise{0%{transform:translateY(16px);opacity:0}30%{opacity:.85}100%{transform:translateY(-70px);opacity:0}}@keyframes steam{0%{transform:translateY(8px);opacity:0}40%{opacity:.7}100%{transform:translateY(-26px);opacity:0}}'
+    + '@media (prefers-reduced-motion:reduce){.p,.i,.b,.st{animation:none!important}.b,.st{opacity:0}.i{opacity:1}}</style>';
+  let g = '';
+  const shadow = '<ellipse cx="200" cy="356" rx="92" ry="11" fill="#0d0d0d" opacity=".10"/>';
+  if (s.kind === 'iced' || s.kind === 'cup') {
+    const T = 118, B = 350, TL = 116, TR = 284, BL = 142, BR = 258, liq = 136;
+    const body = artCupBody(T, B, TL, TR, BL, BR);
+    let fill = artLayers(s.layers, liq, B, 100, 300);
+    if (x.foam) fill += `<rect x="100" y="${liq}" width="200" height="${((B - liq) * (x.foamH || .1)).toFixed(1)}" fill="${x.foam}"/>`;
+    if (x.crema) fill += `<rect x="100" y="${liq}" width="200" height="9" fill="${x.crema}"/>`;
+    if (s.kind === 'cup') fill += '<g fill="#3a2a3f" opacity=".55"><circle cx="160" cy="300" r="2.4"/><circle cx="185" cy="318" r="2"/><circle cx="215" cy="290" r="2.4"/><circle cx="238" cy="312" r="2"/><circle cx="200" cy="335" r="2.2"/><circle cx="172" cy="270" r="2"/><circle cx="228" cy="262" r="2"/></g>';
+    const ice = x.ice ? '<g fill="#ffffff" fill-opacity=".38" stroke="#ffffff" stroke-opacity=".75" stroke-width="2">'
+      + '<rect class="i" x="138" y="140" width="40" height="38" rx="8" transform="rotate(-8 158 159)"/>'
+      + '<rect class="i i2" x="186" y="146" width="38" height="36" rx="8" transform="rotate(10 205 164)"/>'
+      + '<rect class="i i3" x="226" y="138" width="36" height="35" rx="8" transform="rotate(-4 244 156)"/></g>' : '';
+    const bub = '<g fill="#ffffff" opacity=".7"><circle class="b" cx="165" cy="320" r="4"/><circle class="b i2" cx="232" cy="300" r="3"/><circle class="b i3" cx="200" cy="330" r="3.5"/></g>';
+    const straw = s.kind === 'iced' ? '<rect x="226" y="36" width="12" height="96" rx="6" fill="#0d0d0d" transform="rotate(14 232 120)"/>' : '';
+    const lid = s.kind === 'iced'
+      ? `<path d="M120 112 Q200 70 280 112 Z" fill="#ffffff" fill-opacity=".55" stroke="#0d0d0d" stroke-opacity=".12" stroke-width="2"/><rect x="106" y="106" width="188" height="16" rx="8" fill="#ffffff" fill-opacity=".85" stroke="#0d0d0d" stroke-opacity=".12" stroke-width="2"/>`
+      : '<rect x="106" y="106" width="188" height="16" rx="8" fill="#ffffff" fill-opacity=".9" stroke="#0d0d0d" stroke-opacity=".12" stroke-width="2"/>';
+    g = `<defs><clipPath id="c"><path d="${body}"/></clipPath></defs>${shadow}<g class="p">${straw}<g clip-path="url(#c)">${fill}${ice}${bub}`
+      + `<rect x="${TL + 12}" y="${T}" width="10" height="${B - T}" fill="#ffffff" opacity=".28"/></g>`
+      + `<path d="${body}" fill="none" stroke="#0d0d0d" stroke-opacity=".14" stroke-width="2.5"/>${lid}`
+      + `<rect x="140" y="214" width="120" height="58" rx="12" fill="#ffffff"/>${artLogo(200, 236, 92)}`
+      + `<text x="200" y="262" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="11" letter-spacing="2.5" fill="#e30a2e">CAFE</text></g>`;
+  } else if (s.kind === 'small') {
+    const T = 214, B = 350, TL = 134, TR = 266, BL = 152, BR = 248, liq = 226;
+    const body = artCupBody(T, B, TL, TR, BL, BR);
+    let fill = artLayers(s.layers, liq, B, 120, 280);
+    if (x.foam) fill += `<rect x="120" y="${liq}" width="160" height="14" fill="${x.foam}"/>`;
+    if (x.crema) fill += `<rect x="120" y="${liq}" width="160" height="12" fill="${x.crema}"/>`;
+    g = `<defs><clipPath id="c"><path d="${body}"/></clipPath></defs>${shadow.replace('rx="92"', 'rx="72"')}<g class="p"><g clip-path="url(#c)">${fill}`
+      + `<rect x="${TL + 10}" y="${T}" width="8" height="${B - T}" fill="#ffffff" opacity=".28"/></g>`
+      + `<path d="${body}" fill="none" stroke="#0d0d0d" stroke-opacity=".14" stroke-width="2.5"/>`
+      + `<ellipse cx="200" cy="${T}" rx="66" ry="6" fill="${x.crema || x.foam || s.layers[s.layers.length - 1][0]}" stroke="#0d0d0d" stroke-opacity=".12" stroke-width="2"/>`
+      + `<rect x="152" y="270" width="96" height="44" rx="10" fill="#ffffff"/>${artLogo(200, 287, 72)}`
+      + `<text x="200" y="306" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="9" letter-spacing="2" fill="#e30a2e">CAFE</text>`
+      + `<g class="st" stroke="#ffffff" stroke-width="5" stroke-linecap="round" fill="none" opacity=".0"><path d="M182 196 q-8 -14 0 -26 q8 -12 0 -24"/><path d="M216 196 q-8 -14 0 -26 q8 -12 0 -24"/></g></g>`;
+  } else if (s.kind === 'hot') {
+    const T = 132, B = 350, TL = 126, TR = 274, BL = 148, BR = 252;
+    const body = artCupBody(T, B, TL, TR, BL, BR); const col = s.layers[0][0];
+    g = `${shadow}<g class="p"><path d="${body}" fill="#ffffff" stroke="#0d0d0d" stroke-opacity=".12" stroke-width="2.5"/>`
+      + `<path d="M${TL + 9} 196 L${TR - 9} 196 L${TR - 19} 292 L${TL + 19} 292 Z" fill="${col}"/>`
+      + `<rect x="140" y="214" width="120" height="58" rx="12" fill="#ffffff"/>${artLogo(200, 236, 92)}`
+      + `<text x="200" y="262" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="11" letter-spacing="2.5" fill="#e30a2e">CAFE</text>`
+      + '<rect x="114" y="112" width="172" height="24" rx="9" fill="#f7f4f0" stroke="#0d0d0d" stroke-opacity=".12" stroke-width="2"/><path d="M128 112 Q200 88 272 112 Z" fill="#f7f4f0" stroke="#0d0d0d" stroke-opacity=".12" stroke-width="2"/>'
+      + '<g class="st" stroke="#c9bdb3" stroke-width="5" stroke-linecap="round" fill="none"><path d="M180 84 q-9 -14 0 -26 q9 -12 0 -24"/><path d="M220 84 q-9 -14 0 -26 q9 -12 0 -24"/></g></g>';
+  } else { // food: pastry on red checkered paper
+    const n = s.food.toLowerCase(); let pastry;
+    if (/danish|cake|cheese/.test(n)) pastry = '<ellipse cx="200" cy="236" rx="86" ry="56" fill="#d9963e"/><ellipse cx="200" cy="228" rx="74" ry="46" fill="#efb85c"/><ellipse cx="200" cy="226" rx="38" ry="24" fill="#fbe7a6"/><ellipse cx="192" cy="220" rx="14" ry="7" fill="#fff6cf" opacity=".8"/>';
+    else {
+      pastry = '<g stroke="#b97526" stroke-width="2.5">'
+        + '<ellipse cx="120" cy="250" rx="34" ry="24" transform="rotate(-35 120 250)" fill="#d99a3d"/><ellipse cx="280" cy="250" rx="34" ry="24" transform="rotate(35 280 250)" fill="#d99a3d"/>'
+        + '<ellipse cx="152" cy="226" rx="40" ry="34" transform="rotate(-18 152 226)" fill="#e9ad4f"/><ellipse cx="248" cy="226" rx="40" ry="34" transform="rotate(18 248 226)" fill="#e9ad4f"/>'
+        + '<ellipse cx="200" cy="214" rx="46" ry="40" fill="#f2bd5f"/></g><path d="M176 196 q24 -12 48 0" stroke="#fff1c7" stroke-width="5" fill="none" stroke-linecap="round" opacity=".8"/>';
+      if (/sausage/.test(n)) pastry += '<rect x="132" y="224" width="136" height="26" rx="13" fill="#a8452c" stroke="#7e2f1c" stroke-width="2.5"/>';
+      if (/almond/.test(n)) pastry += '<g fill="#f6e2b8"><ellipse cx="180" cy="206" rx="9" ry="4" transform="rotate(-20 180 206)"/><ellipse cx="206" cy="198" rx="9" ry="4" transform="rotate(15 206 198)"/><ellipse cx="226" cy="212" rx="9" ry="4" transform="rotate(-10 226 212)"/><ellipse cx="162" cy="226" rx="8" ry="4" transform="rotate(25 162 226)"/></g>';
+      if (/nutella|choco/.test(n)) pastry += '<path d="M150 210 q50 -24 100 0" stroke="#4a2a1a" stroke-width="9" fill="none" stroke-linecap="round"/>';
+    }
+    g = '<defs><pattern id="ck" width="40" height="40" patternUnits="userSpaceOnUse"><rect width="40" height="40" fill="#ffffff"/><rect width="20" height="20" fill="#ec5a63"/><rect x="20" y="20" width="20" height="20" fill="#ec5a63"/></pattern></defs>'
+      + '<g class="p"><path d="M200 120 L330 240 L200 360 L70 240 Z" fill="url(#ck)" transform="rotate(8 200 240)" opacity=".95"/>'
+      + `<ellipse cx="200" cy="262" rx="104" ry="18" fill="#0d0d0d" opacity=".10"/>${pastry}`
+      + `<g transform="rotate(-8 300 330)"><rect x="252" y="314" width="96" height="34" rx="8" fill="#ffffff"/>${artLogo(300, 331, 74)}</g></g>`;
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400" width="400" height="400">${css}<rect width="400" height="400" fill="${ART_BG}"/><circle cx="200" cy="190" r="150" fill="#ffffff" opacity=".35"/>${g}</svg>`;
+  return (artCache[key] = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg));
+}
+window.CafeArt = productArt;
 // Name key that ignores word order, punctuation and "iced"/"ice": the menu names now come from the POS
 // ("Ice Long Black"), the story copy and design photos may use another spelling ("Long Black Iced").
 const nameKey = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter(Boolean).map(w => (w === 'iced' ? 'ice' : w)).sort().join(' ');
@@ -19,8 +143,8 @@ const PHOTO_KEYS = Object.keys(PHOTOS).reduce((m, k) => { const [n, c] = k.split
 // Design photos (designFor) are only for story spots whose product is not on the menu (hero, finale).
 const designFor = it => { const n = String(it.name || '').toLowerCase(), c = String(it.category || '').toLowerCase(), k = nameKey(n);
   return PHOTOS[n + '|' + c] || PHOTOS[n] || PHOTO_KEYS[k + '|' + c] || PHOTO_KEYS[k] || [NO_PHOTO]; };
-// Menu products show the POS photo only (one consistent style); no POS photo yet → the branded placeholder.
-const photosFor = it => (it.image_url ? [it.image_url] : [NO_PHOTO]);
+// Menu products show the POS photo only; no POS photo yet → the 2D 20FIT illustration of that product.
+const photosFor = it => (it.image_url ? [it.image_url] : [productArt(it.name, it.category)]);
 // Server menu item -> view model used by this page and the checkout
 // Display category: a POS category can be shown under another one (StoryConfig.menu.merge, e.g. Chia → Food).
 const catOf = c => { const mg = ((window.StoryConfig || {}).menu || {}).merge || {}; return mg[c] || c; };
@@ -54,7 +178,8 @@ const mixRgb = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
 const storyFlat = () => !!(window.matchMedia && window.matchMedia('(max-width: 767px), (prefers-reduced-motion: reduce)').matches);
 // Phone width only: the day section falls back to a vertical scroll list here; wider screens auto-advance the carousel.
 const dayMobile = () => !!(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
-const isCut = src => /^data:|\.png($|\?)/i.test(src);
+// Transparent cut-outs (PNG) are shown whole; the SVG product illustrations fill the photo box like a photo.
+const isCut = src => !/^data:image\/svg/i.test(src) && /^data:|\.png($|\?)/i.test(src);
 
 class Component extends DCLogic {
   vid = React.createRef();
@@ -494,7 +619,7 @@ class Component extends DCLogic {
     // 20FIT CAFE placeholder instead of a broken-image icon. Capture phase: image errors do not bubble.
     if (!window.__cafeImgFallback) {
       window.__cafeImgFallback = true;
-      document.addEventListener('error', e => { const t = e.target; if (t && t.tagName === 'IMG' && !t.dataset.fb && /^https?:/.test(t.currentSrc || t.src || '')) { t.dataset.fb = '1'; t.src = NO_PHOTO; } }, true);
+      document.addEventListener('error', e => { const t = e.target; if (t && t.tagName === 'IMG' && !t.dataset.fb && /^https?:/.test(t.currentSrc || t.src || '')) { t.dataset.fb = '1'; t.src = t.alt ? productArt(t.alt, '') : NO_PHOTO; } }, true);
     }
     this.loadMenu();
     // WhatsApp number for CH 07 comes from the POS web config (same source as checkout)
@@ -837,7 +962,7 @@ class Component extends DCLogic {
           let d = ((j - s) % n + n) % n; if (d > n / 2) d -= n;
           const th = d * 24, show = d !== 0 && Math.abs(d) <= 3;
           return { name: x.name, src: this.src(x.imgs[0]), pick: () => this.setState({ sel: x.id }),
-            imgStyle: { display: 'block', width: '100%', height: '100%', backgroundImage: `url(${this.src(x.imgs[0])})`, backgroundSize: 'cover', borderRadius: '22%', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', pointerEvents: 'none' },
+            imgStyle: { display: 'block', width: '100%', height: '100%', backgroundImage: `url("${this.src(x.imgs[0])}")`, backgroundSize: 'cover', borderRadius: '22%', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', pointerEvents: 'none' },
             style: { all: 'unset', cursor: 'pointer', position: 'absolute', left: '50%', top: 'calc(44% + 71vmin)', zIndex: 1, boxSizing: 'border-box',
               width: '18vmin', height: '18vmin', padding: '1.4vmin', borderRadius: '28%',
               background: 'rgba(255,255,255,.6)', backdropFilter: 'blur(18px) saturate(180%)', WebkitBackdropFilter: 'blur(18px) saturate(180%)',
